@@ -7,3 +7,5 @@
 2025-11-16T07:12:27 | FEAT-03 | ready→in_progress | Reason: No reason provided
 2025-11-16T07:23:25 | REF-01 | stub→backlog | Reason: Grooming task
 2025-11-16T07:26:29 | FEAT-04 | stub→backlog | Reason: No reason provided
+2025-11-16T07:28:28 | DOCS-02 | stub→backlog | Reason: Documenting existing field behavior
+2025-11-16T07:28:38 | QOL-01 | stub→backlog | Reason: No reason provided
