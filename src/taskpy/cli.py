@@ -185,11 +185,12 @@ def create_parser() -> argparse.ArgumentParser:
     # taskpy show <TASK-ID>
     show_parser = subparsers.add_parser(
         "show",
-        help="Display a task"
+        help="Display one or more tasks"
     )
     show_parser.add_argument(
-        "task_id",
-        help="Task ID (e.g., BUGS-001)"
+        "task_ids",
+        nargs='+',
+        help="One or more task IDs (e.g., BUGS-001 or BUGS-001,BUGS-002 or BUGS-001 BUGS-002)"
     )
 
     # taskpy edit <TASK-ID>

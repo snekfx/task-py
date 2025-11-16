@@ -26,6 +26,34 @@ def get_storage() -> TaskStorage:
     return TaskStorage(Path.cwd())
 
 
+def parse_task_ids(raw_ids: List[str]) -> List[str]:
+    """
+    Parse task IDs from user input - supports both space-separated and comma-delimited.
+
+    Args:
+        raw_ids: List of raw ID strings (from argparse nargs='+')
+                 Can contain: ["FEAT-01", "FEAT-02"] or ["FEAT-01,FEAT-02"] or ["FEAT-01, FEAT-02"]
+
+    Returns:
+        List of normalized task IDs (uppercase, deduplicated, order preserved)
+
+    Example:
+        parse_task_ids(["FEAT-01,FEAT-02", "BUGS-03"])
+        # Returns: ["FEAT-01", "FEAT-02", "BUGS-03"]
+    """
+    task_ids = []
+    for item in raw_ids:
+        # Split on comma if present
+        if ',' in item:
+            task_ids.extend([tid.strip().upper() for tid in item.split(',') if tid.strip()])
+        else:
+            task_ids.append(item.strip().upper())
+
+    # Remove duplicates while preserving order
+    seen = set()
+    return [tid for tid in task_ids if tid not in seen and not seen.add(tid)]
+
+
 def log_override(storage: TaskStorage, task_id: str, from_status: str, to_status: str, reason: Optional[str] = None):
     """Log override event to override_log.txt."""
     log_file = storage.info_dir / "override_log.txt"
@@ -408,23 +436,48 @@ def cmd_list(args):
 
 
 def cmd_show(args):
-    """Display a task."""
+    """Display one or more tasks."""
     storage = get_storage()
 
     if not storage.is_initialized():
         print_error("TaskPy not initialized. Run: taskpy init")
         sys.exit(1)
 
-    # Find task
-    result = storage.find_task_file(args.task_id)
-    if not result:
-        print_error(f"Task not found: {args.task_id}")
+    # Parse task IDs - support both space-separated and comma-delimited
+    task_ids = parse_task_ids(args.task_ids)
+
+    if not task_ids:
+        print_error("No valid task IDs provided")
         sys.exit(1)
 
-    path, status = result
+    # Collect all tasks
+    tasks_to_display = []
+    for task_id in task_ids:
+        result = storage.find_task_file(task_id)
+        if not result:
+            print_error(f"Task not found: {task_id}")
+            continue
 
-    try:
-        task = storage.read_task_file(path)
+        path, status = result
+        try:
+            task = storage.read_task_file(path)
+            tasks_to_display.append(task)
+        except Exception as e:
+            print_error(f"Failed to read task {task_id}: {e}")
+            continue
+
+    if not tasks_to_display:
+        print_error("No valid tasks to display")
+        sys.exit(1)
+
+    # Display tasks
+    for i, task in enumerate(tasks_to_display):
+        # Add divider between tasks (except before first)
+        if i > 0:
+            if get_output_mode() == OutputMode.DATA:
+                print("\n" + "=" * 80 + "\n")
+            else:
+                print()  # Just blank line in boxy mode (boxy handles dividers)
 
         # Display as card
         task_dict = {
@@ -456,10 +509,6 @@ def cmd_show(args):
                 print(f"Reason: {task.resolution_reason}")
                 if task.duplicate_of:
                     print(f"Duplicate of: {task.duplicate_of}")
-
-    except Exception as e:
-        print_error(f"Failed to read task: {e}")
-        sys.exit(1)
 
 
 def cmd_edit(args):
@@ -641,17 +690,7 @@ def cmd_move(args):
         sys.exit(1)
 
     # Parse task IDs - support both space-separated and comma-delimited
-    task_ids = []
-    for item in args.task_ids:
-        # Split on comma if present
-        if ',' in item:
-            task_ids.extend([tid.strip().upper() for tid in item.split(',') if tid.strip()])
-        else:
-            task_ids.append(item.strip().upper())
-
-    # Remove duplicates while preserving order
-    seen = set()
-    task_ids = [tid for tid in task_ids if tid not in seen and not seen.add(tid)]
+    task_ids = parse_task_ids(args.task_ids)
 
     if not task_ids:
         print_error("No valid task IDs provided")
