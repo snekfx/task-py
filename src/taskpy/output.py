@@ -296,11 +296,13 @@ def _plain_table(headers: List[str], rows: List[List[str]], title: Optional[str]
     # Print rows with dimming for done/archived
     for row_idx, row in enumerate(rows):
         status = row_statuses[row_idx] if row_statuses and row_idx < len(row_statuses) else None
-        row_line = " | ".join(str(cell).ljust(col_widths[i]) for i, cell in enumerate(row))
         if status in ['done', 'archived']:
-            print(dim(row_line))
+            # Apply dimming to each cell, then join with dividers (dividers not dimmed)
+            dimmed_cells = [dim(str(cell).ljust(col_widths[i])) for i, cell in enumerate(row)]
+            row_line = " | ".join(dimmed_cells)
         else:
-            print(row_line)
+            row_line = " | ".join(str(cell).ljust(col_widths[i]) for i, cell in enumerate(row))
+        print(row_line)
 
     print()
 
