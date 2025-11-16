@@ -26,7 +26,7 @@ else:
 
 from taskpy.models import (
     Task, Epic, NFR, Milestone, TaskStatus, Priority,
-    TaskReference, Verification, VerificationStatus
+    TaskReference, Verification, VerificationStatus, utc_now
 )
 
 
@@ -574,7 +574,7 @@ show_tags = true
             task: Task to write
         """
         # Update timestamp
-        task.updated = datetime.utcnow()
+        task.updated = utc_now()
 
         # Get file path
         path = self.get_task_path(task.id, task.status)

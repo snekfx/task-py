@@ -11,7 +11,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from taskpy.models import Task, TaskStatus, Priority, TaskReference, Verification
+from taskpy.models import Task, TaskStatus, Priority, TaskReference, Verification, utc_now
 from taskpy.storage import TaskStorage, StorageError
 from taskpy.output import (
     print_success, print_error, print_info, print_warning,
@@ -28,7 +28,7 @@ def get_storage() -> TaskStorage:
 def log_override(storage: TaskStorage, task_id: str, from_status: str, to_status: str, reason: Optional[str] = None):
     """Log override event to override_log.txt."""
     log_file = storage.info_dir / "override_log.txt"
-    timestamp = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
+    timestamp = utc_now().strftime("%Y-%m-%dT%H:%M:%S")
     reason_str = f" | Reason: {reason}" if reason else ""
 
     log_entry = f"{timestamp} | {task_id} | {from_status}→{to_status}{reason_str}\n"
@@ -733,13 +733,13 @@ def cmd_verify(args):
             print_success("Verification passed")
             if args.update:
                 task.verification.status = task.models.VerificationStatus.PASSED
-                task.verification.last_run = datetime.utcnow()
+                task.verification.last_run = utc_now()
                 storage.write_task_file(task)
         else:
             print_error(f"Verification failed\n\nOutput:\n{result.stdout}\n{result.stderr}")
             if args.update:
                 task.verification.status = task.models.VerificationStatus.FAILED
-                task.verification.last_run = datetime.utcnow()
+                task.verification.last_run = utc_now()
                 task.verification.output = result.stderr
                 storage.write_task_file(task)
             sys.exit(1)
@@ -989,7 +989,7 @@ def _cmd_sprint_add(args):
 
     # Add to sprint
     task.in_sprint = True
-    task.updated = datetime.utcnow()
+    task.updated = utc_now()
     storage.write_task_file(task)
 
     print_success(f"Added {task_id} to sprint")
@@ -1021,7 +1021,7 @@ def _cmd_sprint_remove(args):
 
     # Remove from sprint
     task.in_sprint = False
-    task.updated = datetime.utcnow()
+    task.updated = utc_now()
     storage.write_task_file(task)
 
     print_success(f"Removed {task_id} from sprint")
@@ -1081,7 +1081,7 @@ def _cmd_sprint_clear(args):
             path, status = result
             task = storage.read_task_file(path)
             task.in_sprint = False
-            task.updated = datetime.utcnow()
+            task.updated = utc_now()
             storage.write_task_file(task)
 
     print_success(f"Cleared {len(sprint_tasks)} tasks from sprint")

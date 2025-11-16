@@ -6,7 +6,7 @@ import pytest
 from datetime import datetime
 from taskpy.models import (
     Task, Epic, NFR, TaskStatus, Priority,
-    TaskReference, Verification, VerificationStatus
+    TaskReference, Verification, VerificationStatus, utc_now
 )
 
 
@@ -192,7 +192,7 @@ class TestVerification:
 
     def test_verification_to_dict(self):
         """Test converting verification to dict."""
-        now = datetime.utcnow()
+        now = utc_now()
         verif = Verification(
             command="pytest",
             status=VerificationStatus.PASSED,

@@ -5,11 +5,16 @@ Defines Task, Epic, NFR, and Session models with validation.
 """
 
 from dataclasses import dataclass, field, asdict
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 import re
+
+
+def utc_now() -> datetime:
+    """Get current UTC time with timezone info (replaces deprecated datetime.utcnow())."""
+    return datetime.now(timezone.utc)
 
 
 class TaskStatus(Enum):
@@ -89,8 +94,8 @@ class Task:
     status: TaskStatus = TaskStatus.BACKLOG
     story_points: int = 0
     priority: Priority = Priority.MEDIUM
-    created: datetime = field(default_factory=datetime.utcnow)
-    updated: datetime = field(default_factory=datetime.utcnow)
+    created: datetime = field(default_factory=utc_now)
+    updated: datetime = field(default_factory=utc_now)
 
     # Organization
     tags: List[str] = field(default_factory=list)

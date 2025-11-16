@@ -5,3 +5,4 @@
 2025-11-16T07:12:27 | FEAT-03 | stub→backlog | Reason: Demote command already implemented in FEAT-09
 2025-11-16T07:12:27 | FEAT-03 | backlog→ready | Reason: No reason provided
 2025-11-16T07:12:27 | FEAT-03 | ready→in_progress | Reason: No reason provided
+2025-11-16T07:23:25 | REF-01 | stub→backlog | Reason: Grooming task
