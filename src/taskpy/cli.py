@@ -304,7 +304,7 @@ def create_parser() -> argparse.ArgumentParser:
     )
     move_parser.add_argument(
         "status",
-        choices=["backlog", "ready", "in_progress", "review", "done", "archived"],
+        choices=["stub", "backlog", "ready", "in_progress", "qa", "done", "archived", "blocked"],
         help="Target status"
     )
 
