@@ -15,3 +15,9 @@
 2025-11-16T21:53:34 | DOCS-02 | qa→done | Reason: Verification passed, commit hash TBD from git history
 2025-11-16T22:19:45 | QOL-05 | done→qa | Reason: Need to add dimmed styling for done tasks
 2025-11-16T22:19:50 | QOL-05 | qa→active | Reason: Need to add dimmed styling for done tasks
+2025-11-16T23:02:16 | TEST-01 | stub→backlog | Reason: Testing verification gates
+2025-11-16T23:02:17 | TEST-01 | backlog→ready | Reason: Testing verification gates
+2025-11-16T23:02:17 | TEST-01 | ready→active | Reason: Testing verification gates
+2025-11-16T23:02:18 | TEST-01 | active→qa | Reason: Testing verification gates
+2025-11-16T23:22:32 | FEAT-19 | active→qa | Reason: Feature manually tested and working, no automated history tests exist yet
+2025-11-16T23:46:51 | QOL-09 | active→qa | Reason: CLI refactor manually tested, works in both flag positions
