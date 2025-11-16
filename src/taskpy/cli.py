@@ -415,6 +415,11 @@ def create_parser() -> argparse.ArgumentParser:
         action="append",
         help="Link NFR (can specify multiple)"
     )
+    link_parser.add_argument(
+        "--verify",
+        action="append",
+        help="Link verification command (can specify multiple)"
+    )
 
     # taskpy tour
     tour_parser = subparsers.add_parser(

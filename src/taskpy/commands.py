@@ -12,7 +12,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional, List, Dict, Iterable, Tuple
 
-from taskpy.models import Task, TaskStatus, Priority, TaskReference, Verification, utc_now
+from taskpy.models import Task, TaskStatus, Priority, TaskReference, Verification, VerificationStatus, utc_now
 from taskpy.storage import TaskStorage, StorageError
 from taskpy.output import (
     print_success, print_error, print_info, print_warning,
@@ -842,13 +842,13 @@ def cmd_verify(args):
         if result.returncode == 0:
             print_success("Verification passed")
             if args.update:
-                task.verification.status = task.models.VerificationStatus.PASSED
+                task.verification.status = VerificationStatus.PASSED
                 task.verification.last_run = utc_now()
                 storage.write_task_file(task)
         else:
             print_error(f"Verification failed\n\nOutput:\n{result.stdout}\n{result.stderr}")
             if args.update:
-                task.verification.status = task.models.VerificationStatus.FAILED
+                task.verification.status = VerificationStatus.FAILED
                 task.verification.last_run = utc_now()
                 task.verification.output = result.stderr
                 storage.write_task_file(task)
@@ -938,6 +938,11 @@ def cmd_link(args):
             task.references.tests.extend(args.test)
         if args.nfr:
             task.nfrs.extend(args.nfr)
+        if hasattr(args, 'verify') and args.verify:
+            # Set verification command (use first one if multiple provided)
+            task.verification.command = args.verify[0]
+            # Reset verification status to pending when command changes
+            task.verification.status = VerificationStatus.PENDING
 
         # Save
         storage.write_task_file(task)
