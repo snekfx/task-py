@@ -151,6 +151,11 @@ def create_parser() -> argparse.ArgumentParser:
         help="Filter by milestone (e.g., milestone-1)"
     )
     list_parser.add_argument(
+        "--sprint",
+        action="store_true",
+        help="Filter to sprint tasks only"
+    )
+    list_parser.add_argument(
         "--format",
         choices=["table", "cards", "ids", "tsv"],
         default="table",
@@ -329,6 +334,25 @@ def create_parser() -> argparse.ArgumentParser:
     session_end.add_argument("--notes", help="Session notes")
 
     session_status = session_subparsers.add_parser("status", help="Show current session")
+
+    # taskpy sprint
+    sprint_parser = subparsers.add_parser(
+        "sprint",
+        help="Manage sprint tasks"
+    )
+    sprint_subparsers = sprint_parser.add_subparsers(dest="sprint_command")
+
+    sprint_add = sprint_subparsers.add_parser("add", help="Add task to sprint")
+    sprint_add.add_argument("task_id", help="Task ID (e.g., FEAT-01)")
+
+    sprint_remove = sprint_subparsers.add_parser("remove", help="Remove task from sprint")
+    sprint_remove.add_argument("task_id", help="Task ID (e.g., FEAT-01)")
+
+    sprint_list = sprint_subparsers.add_parser("list", help="List all sprint tasks")
+
+    sprint_clear = sprint_subparsers.add_parser("clear", help="Clear all tasks from sprint")
+
+    sprint_stats = sprint_subparsers.add_parser("stats", help="Show sprint statistics")
 
     # taskpy stats
     stats_parser = subparsers.add_parser(

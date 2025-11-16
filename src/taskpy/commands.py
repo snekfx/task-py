@@ -495,6 +495,203 @@ def cmd_session(args):
     print_info("Session management coming soon in META PROCESS v4")
 
 
+def cmd_sprint(args):
+    """Route sprint subcommands."""
+    subcommand_handlers = {
+        'add': _cmd_sprint_add,
+        'remove': _cmd_sprint_remove,
+        'list': _cmd_sprint_list,
+        'clear': _cmd_sprint_clear,
+        'stats': _cmd_sprint_stats,
+    }
+
+    handler = subcommand_handlers.get(args.sprint_command)
+    if handler:
+        handler(args)
+    else:
+        print_error(f"Unknown sprint command: {args.sprint_command}")
+        sys.exit(1)
+
+
+def _cmd_sprint_add(args):
+    """Add task to sprint."""
+    storage = get_storage()
+
+    if not storage.is_initialized():
+        print_error("TaskPy not initialized. Run: taskpy init")
+        sys.exit(1)
+
+    task_id = args.task_id.upper()
+
+    # Find task
+    result = storage.find_task_file(task_id)
+    if not result:
+        print_error(f"Task not found: {task_id}")
+        sys.exit(1)
+
+    path, status = result
+    task = storage.read_task_file(path)
+
+    # Check if already in sprint
+    if task.in_sprint:
+        print_warning(f"{task_id} is already in the sprint")
+        return
+
+    # Add to sprint
+    task.in_sprint = True
+    task.updated = datetime.utcnow()
+    storage.write_task_file(task)
+
+    print_success(f"Added {task_id} to sprint")
+
+
+def _cmd_sprint_remove(args):
+    """Remove task from sprint."""
+    storage = get_storage()
+
+    if not storage.is_initialized():
+        print_error("TaskPy not initialized. Run: taskpy init")
+        sys.exit(1)
+
+    task_id = args.task_id.upper()
+
+    # Find task
+    result = storage.find_task_file(task_id)
+    if not result:
+        print_error(f"Task not found: {task_id}")
+        sys.exit(1)
+
+    path, status = result
+    task = storage.read_task_file(path)
+
+    # Check if in sprint
+    if not task.in_sprint:
+        print_warning(f"{task_id} is not in the sprint")
+        return
+
+    # Remove from sprint
+    task.in_sprint = False
+    task.updated = datetime.utcnow()
+    storage.write_task_file(task)
+
+    print_success(f"Removed {task_id} from sprint")
+
+
+def _cmd_sprint_list(args):
+    """List all tasks in sprint."""
+    storage = get_storage()
+
+    if not storage.is_initialized():
+        print_error("TaskPy not initialized. Run: taskpy init")
+        sys.exit(1)
+
+    # Read manifest and filter sprint tasks
+    rows = _read_manifest(storage)
+    sprint_tasks = [r for r in rows if r.get('in_sprint', 'false') == 'true']
+
+    if not sprint_tasks:
+        print_info("No tasks in sprint")
+        return
+
+    # Display tasks as table
+    headers = ["ID", "Title", "Status", "SP", "Priority"]
+    table_rows = [
+        [
+            task['id'],
+            task['title'][:50],  # Truncate long titles
+            task['status'],
+            task['story_points'],
+            task['priority']
+        ]
+        for task in sprint_tasks
+    ]
+    rolo_table(headers, table_rows, f"Sprint Tasks ({len(sprint_tasks)} found)")
+
+
+def _cmd_sprint_clear(args):
+    """Clear all tasks from sprint."""
+    storage = get_storage()
+
+    if not storage.is_initialized():
+        print_error("TaskPy not initialized. Run: taskpy init")
+        sys.exit(1)
+
+    # Read manifest and find all sprint tasks
+    rows = _read_manifest(storage)
+    sprint_tasks = [r for r in rows if r.get('in_sprint', 'false') == 'true']
+
+    if not sprint_tasks:
+        print_info("No tasks in sprint")
+        return
+
+    # Remove all tasks from sprint
+    for row in sprint_tasks:
+        result = storage.find_task_file(row['id'])
+        if result:
+            path, status = result
+            task = storage.read_task_file(path)
+            task.in_sprint = False
+            task.updated = datetime.utcnow()
+            storage.write_task_file(task)
+
+    print_success(f"Cleared {len(sprint_tasks)} tasks from sprint")
+
+
+def _cmd_sprint_stats(args):
+    """Show sprint statistics."""
+    storage = get_storage()
+
+    if not storage.is_initialized():
+        print_error("TaskPy not initialized. Run: taskpy init")
+        sys.exit(1)
+
+    # Read manifest and filter sprint tasks
+    rows = _read_manifest(storage)
+    sprint_tasks = [r for r in rows if r.get('in_sprint', 'false') == 'true']
+
+    if not sprint_tasks:
+        print_info("No tasks in sprint")
+        return
+
+    # Calculate statistics
+    total_tasks = len(sprint_tasks)
+    total_sp = sum(int(r.get('story_points', 0)) for r in sprint_tasks)
+
+    # Group by status
+    by_status = {}
+    for row in sprint_tasks:
+        status = row.get('status', 'unknown')
+        by_status[status] = by_status.get(status, 0) + 1
+
+    # Group by priority
+    by_priority = {}
+    for row in sprint_tasks:
+        priority = row.get('priority', 'unknown')
+        by_priority[priority] = by_priority.get(priority, 0) + 1
+
+    # Display statistics
+    print(f"\n{'='*50}")
+    print(f"Sprint Statistics")
+    print(f"{'='*50}\n")
+
+    print(f"Total Tasks: {total_tasks}")
+    print(f"Total Story Points: {total_sp}\n")
+
+    print("By Status:")
+    for status in ['stub', 'backlog', 'ready', 'in_progress', 'qa', 'done', 'blocked']:
+        count = by_status.get(status, 0)
+        if count > 0:
+            print(f"  {status:15} {count:3}")
+
+    print("\nBy Priority:")
+    for priority in ['critical', 'high', 'medium', 'low']:
+        count = by_priority.get(priority, 0)
+        if count > 0:
+            print(f"  {priority:15} {count:3}")
+
+    print()
+
+
 def cmd_stats(args):
     """Show task statistics."""
     storage = get_storage()
@@ -617,6 +814,9 @@ def _read_manifest_with_filters(storage: TaskStorage, args):
 
     if hasattr(args, 'milestone') and args.milestone:
         rows = [r for r in rows if r.get('milestone') == args.milestone]
+
+    if hasattr(args, 'sprint') and args.sprint:
+        rows = [r for r in rows if r.get('in_sprint', 'false') == 'true']
 
     return rows
 

@@ -113,6 +113,7 @@ class Task:
 
     # Session tracking
     assigned: Optional[str] = None  # Session ID or agent name
+    in_sprint: bool = False  # Whether task is in active sprint
 
     @property
     def filename(self) -> str:
@@ -172,6 +173,7 @@ class Task:
             'assigned': self.assigned,
             'milestone': self.milestone,
             'blocked_reason': self.blocked_reason,
+            'in_sprint': self.in_sprint,
             'tags': self.tags,
             'dependencies': self.dependencies,
             'blocks': self.blocks,
@@ -199,6 +201,7 @@ class Task:
             self.assigned or '',
             self.milestone or '',
             self.blocked_reason or '',
+            str(self.in_sprint).lower(),
         ]
 
 

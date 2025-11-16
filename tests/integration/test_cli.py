@@ -236,3 +236,107 @@ class TestCLI:
         assert result.returncode == 0
         assert "Total Tasks: 2" in result.stdout
         assert "Total Story Points: 8" in result.stdout
+
+    def test_sprint_add(self, temp_dir):
+        """Test adding task to sprint."""
+        # Init and create task
+        self.run_taskpy(["init"], cwd=temp_dir)
+        self.run_taskpy(["create", "FEAT", "Test Feature"], cwd=temp_dir)
+
+        # Add to sprint
+        result = self.run_taskpy(["--view=data", "sprint", "add", "FEAT-01"], cwd=temp_dir)
+        assert result.returncode == 0
+        assert "Added FEAT-01 to sprint" in result.stdout
+
+        # Verify task is in sprint
+        result = self.run_taskpy(["sprint", "list"], cwd=temp_dir)
+        assert "FEAT-01" in result.stdout
+
+    def test_sprint_remove(self, temp_dir):
+        """Test removing task from sprint."""
+        # Init, create, and add to sprint
+        self.run_taskpy(["init"], cwd=temp_dir)
+        self.run_taskpy(["create", "FEAT", "Test Feature"], cwd=temp_dir)
+        self.run_taskpy(["sprint", "add", "FEAT-01"], cwd=temp_dir)
+
+        # Remove from sprint
+        result = self.run_taskpy(["--view=data", "sprint", "remove", "FEAT-01"], cwd=temp_dir)
+        assert result.returncode == 0
+        assert "Removed FEAT-01 from sprint" in result.stdout
+
+        # Verify task is not in sprint
+        result = self.run_taskpy(["--view=data", "sprint", "list"], cwd=temp_dir)
+        assert "No tasks in sprint" in result.stdout
+
+    def test_sprint_list(self, temp_dir):
+        """Test listing sprint tasks."""
+        # Init and create tasks
+        self.run_taskpy(["init"], cwd=temp_dir)
+        self.run_taskpy(["create", "FEAT", "Feature 1"], cwd=temp_dir)
+        self.run_taskpy(["create", "FEAT", "Feature 2"], cwd=temp_dir)
+
+        # Add tasks to sprint
+        self.run_taskpy(["sprint", "add", "FEAT-01"], cwd=temp_dir)
+        self.run_taskpy(["sprint", "add", "FEAT-02"], cwd=temp_dir)
+
+        # List sprint tasks
+        result = self.run_taskpy(["sprint", "list"], cwd=temp_dir)
+        assert result.returncode == 0
+        assert "FEAT-01" in result.stdout
+        assert "FEAT-02" in result.stdout
+        assert "Sprint Tasks (2 found)" in result.stdout
+
+    def test_sprint_clear(self, temp_dir):
+        """Test clearing all sprint tasks."""
+        # Init and create tasks
+        self.run_taskpy(["init"], cwd=temp_dir)
+        self.run_taskpy(["create", "FEAT", "Feature 1"], cwd=temp_dir)
+        self.run_taskpy(["create", "FEAT", "Feature 2"], cwd=temp_dir)
+
+        # Add tasks to sprint
+        self.run_taskpy(["sprint", "add", "FEAT-01"], cwd=temp_dir)
+        self.run_taskpy(["sprint", "add", "FEAT-02"], cwd=temp_dir)
+
+        # Clear sprint
+        result = self.run_taskpy(["--view=data", "sprint", "clear"], cwd=temp_dir)
+        assert result.returncode == 0
+        assert "Cleared 2 tasks from sprint" in result.stdout
+
+        # Verify sprint is empty
+        result = self.run_taskpy(["--view=data", "sprint", "list"], cwd=temp_dir)
+        assert "No tasks in sprint" in result.stdout
+
+    def test_sprint_stats(self, temp_dir):
+        """Test sprint statistics."""
+        # Init and create tasks
+        self.run_taskpy(["init"], cwd=temp_dir)
+        self.run_taskpy(["create", "FEAT", "Feature 1", "--sp", "5"], cwd=temp_dir)
+        self.run_taskpy(["create", "FEAT", "Feature 2", "--sp", "3"], cwd=temp_dir)
+
+        # Add tasks to sprint
+        self.run_taskpy(["sprint", "add", "FEAT-01"], cwd=temp_dir)
+        self.run_taskpy(["sprint", "add", "FEAT-02"], cwd=temp_dir)
+
+        # Check stats
+        result = self.run_taskpy(["sprint", "stats"], cwd=temp_dir)
+        assert result.returncode == 0
+        assert "Total Tasks: 2" in result.stdout
+        assert "Total Story Points: 8" in result.stdout
+
+    def test_list_filter_by_sprint(self, temp_dir):
+        """Test list with sprint filter."""
+        # Init and create tasks
+        self.run_taskpy(["init"], cwd=temp_dir)
+        self.run_taskpy(["create", "FEAT", "Feature 1"], cwd=temp_dir)
+        self.run_taskpy(["create", "FEAT", "Feature 2"], cwd=temp_dir)
+        self.run_taskpy(["create", "FEAT", "Feature 3"], cwd=temp_dir)
+
+        # Add only FEAT-01 to sprint
+        self.run_taskpy(["sprint", "add", "FEAT-01"], cwd=temp_dir)
+
+        # List sprint tasks
+        result = self.run_taskpy(["list", "--sprint"], cwd=temp_dir)
+        assert result.returncode == 0
+        assert "FEAT-01" in result.stdout
+        assert "FEAT-02" not in result.stdout
+        assert "FEAT-03" not in result.stdout
