@@ -1,5 +1,22 @@
 # TaskPy configuration
 
+[project]
+# Project type: rust, python, node, shell, generic
+type = "python"
+
+# Whether project type was auto-detected
+auto_detected = true
+
+[project.defaults]
+# Default verification command for this project type
+verify_command = "pytest tests/"
+
+# Code file patterns
+code_patterns = ['src/**/*.py', 'tests/**/*.py']
+
+# Test file patterns
+test_patterns = ['tests/**/*.py', 'test_*.py']
+
 [general]
 # Default story point estimate for new tasks
 default_story_points = 0
@@ -18,9 +35,8 @@ statuses = ["backlog", "ready", "in_progress", "review", "done", "archived"]
 auto_archive_days = 0
 
 [verification]
-# Test runner command (default: auto-detect)
-# test_command = "cargo test --all"
-# test_command = "testpy run"
+# Test runner command (uses project.defaults.verify_command if not set)
+test_command = "pytest tests/"
 
 # Require tests to pass before promoting to 'done'
 require_tests = false
