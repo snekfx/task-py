@@ -201,6 +201,44 @@ def create_parser() -> argparse.ArgumentParser:
         help="Git commit hash (required for qa → done)"
     )
 
+    # taskpy demote <TASK-ID> [--to STATUS] --reason REASON
+    demote_parser = subparsers.add_parser(
+        "demote",
+        help="Move task backwards in workflow"
+    )
+    demote_parser.add_argument(
+        "task_id",
+        help="Task ID (e.g., BUGS-001)"
+    )
+    demote_parser.add_argument(
+        "--to",
+        help="Target status (default: previous in workflow)"
+    )
+    demote_parser.add_argument(
+        "--reason",
+        help="Reason for demotion (required when demoting from done)"
+    )
+
+    # taskpy info <TASK-ID>
+    info_parser = subparsers.add_parser(
+        "info",
+        help="Show task status and gate requirements"
+    )
+    info_parser.add_argument(
+        "task_id",
+        help="Task ID (e.g., BUGS-001)"
+    )
+
+    # taskpy stoplight <TASK-ID>
+    stoplight_parser = subparsers.add_parser(
+        "stoplight",
+        help="Validate gate requirements (exit codes: 0=ready, 1=missing, 2=blocked)"
+    )
+    stoplight_parser.add_argument(
+        "task_id",
+        help="Task ID (e.g., BUGS-001)"
+    )
+
     # taskpy move <TASK-ID> <STATUS>
     move_parser = subparsers.add_parser(
         "move",

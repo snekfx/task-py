@@ -244,7 +244,22 @@ def cmd_create(args):
     # Save task
     try:
         storage.write_task_file(task)
+        task_path = storage.get_task_path(task_id, task.status)
         milestone_info = f"Milestone: {milestone}\n" if milestone else ""
+
+        # Show gate requirements for next promotion
+        workflow = [TaskStatus.STUB, TaskStatus.BACKLOG, TaskStatus.READY, TaskStatus.IN_PROGRESS,
+                    TaskStatus.QA, TaskStatus.DONE]
+        current_idx = workflow.index(task.status)
+        gate_info = ""
+        if current_idx < len(workflow) - 1:
+            next_status = workflow[current_idx + 1]
+            is_valid, blockers = validate_promotion(task, next_status, None)
+            if not is_valid:
+                gate_info = f"\nGate Requirements for {task.status.value} → {next_status.value}:\n"
+                for blocker in blockers:
+                    gate_info += f"  • {blocker}\n"
+
         print_success(
             f"Created task: {task_id}\n"
             f"Title: {title}\n"
@@ -253,7 +268,9 @@ def cmd_create(args):
             f"Story Points: {args.story_points}\n"
             f"Priority: {args.priority}\n"
             f"{milestone_info}"
-            f"Default NFRs: {len(default_nfrs)}\n\n"
+            f"Default NFRs: {len(default_nfrs)}\n"
+            f"File: {task_path}\n"
+            f"{gate_info}\n"
             f"View: taskpy show {task_id}\n"
             f"Edit: taskpy edit {task_id}",
             f"Task {task_id} Created"
@@ -261,7 +278,7 @@ def cmd_create(args):
 
         # Open in editor if requested
         if args.edit:
-            _open_in_editor(storage.get_task_path(task_id, task.status))
+            _open_in_editor(task_path)
 
     except Exception as e:
         print_error(f"Failed to create task: {e}")
@@ -436,6 +453,53 @@ def cmd_promote(args):
     _move_task(storage, args.task_id, path, target_status, task)
 
 
+def cmd_demote(args):
+    """Move task backwards in workflow with required reason."""
+    storage = get_storage()
+
+    if not storage.is_initialized():
+        print_error("TaskPy not initialized. Run: taskpy init")
+        sys.exit(1)
+
+    # Find task
+    result = storage.find_task_file(args.task_id)
+    if not result:
+        print_error(f"Task not found: {args.task_id}")
+        sys.exit(1)
+
+    path, current_status = result
+    task = storage.read_task_file(path)
+
+    # Validate demotion from done requires reason
+    if current_status == TaskStatus.DONE:
+        is_valid, blockers = validate_done_demotion(task, args.reason)
+        if not is_valid:
+            print_error(f"Cannot demote {args.task_id} from done")
+            print()
+            print("❌ Blockers:")
+            for blocker in blockers:
+                print(f"  • {blocker}")
+            sys.exit(1)
+        task.demotion_reason = args.reason
+
+    # Determine target status (previous in workflow)
+    workflow = [TaskStatus.STUB, TaskStatus.BACKLOG, TaskStatus.READY, TaskStatus.IN_PROGRESS,
+                TaskStatus.QA, TaskStatus.DONE]
+
+    if hasattr(args, 'to') and args.to:
+        target_status = TaskStatus(args.to)
+    else:
+        # Previous in workflow
+        current_idx = workflow.index(current_status)
+        if current_idx <= 0:
+            print_info(f"Task {args.task_id} is already at initial status: {current_status.value}")
+            return
+        target_status = workflow[current_idx - 1]
+
+    # Move task
+    _move_task(storage, args.task_id, path, target_status, task)
+
+
 def cmd_move(args):
     """Move task to specific status."""
     storage = get_storage()
@@ -454,6 +518,92 @@ def cmd_move(args):
     target_status = TaskStatus(args.status)
 
     _move_task(storage, args.task_id, path, target_status)
+
+
+def cmd_info(args):
+    """Show task status and gate requirements for next promotion."""
+    storage = get_storage()
+
+    if not storage.is_initialized():
+        print_error("TaskPy not initialized. Run: taskpy init")
+        sys.exit(1)
+
+    # Find task
+    result = storage.find_task_file(args.task_id)
+    if not result:
+        print_error(f"Task not found: {args.task_id}")
+        sys.exit(1)
+
+    path, current_status = result
+    task = storage.read_task_file(path)
+
+    # Determine next status in workflow
+    workflow = [TaskStatus.STUB, TaskStatus.BACKLOG, TaskStatus.READY, TaskStatus.IN_PROGRESS,
+                TaskStatus.QA, TaskStatus.DONE]
+
+    print_info(f"Task: {args.task_id}")
+    print(f"Current Status: {current_status.value}")
+    print(f"Title: {task.title}")
+    print()
+
+    current_idx = workflow.index(current_status)
+    if current_idx >= len(workflow) - 1:
+        print_success("Task is at final status (done)")
+        return
+
+    next_status = workflow[current_idx + 1]
+    print(f"Next Status: {next_status.value}")
+    print()
+
+    # Check gate requirements
+    is_valid, blockers = validate_promotion(task, next_status, None)
+
+    if is_valid:
+        print_success("✅ Ready to promote - all requirements met")
+    else:
+        print("Gate Requirements:")
+        for blocker in blockers:
+            print(f"  • {blocker}")
+
+
+def cmd_stoplight(args):
+    """Validate gate requirements and exit with status code."""
+    storage = get_storage()
+
+    if not storage.is_initialized():
+        sys.exit(2)  # Blocked
+
+    # Find task
+    result = storage.find_task_file(args.task_id)
+    if not result:
+        sys.exit(2)  # Blocked
+
+    path, current_status = result
+    task = storage.read_task_file(path)
+
+    # Determine next status in workflow
+    workflow = [TaskStatus.STUB, TaskStatus.BACKLOG, TaskStatus.READY, TaskStatus.IN_PROGRESS,
+                TaskStatus.QA, TaskStatus.DONE]
+
+    current_idx = workflow.index(current_status)
+    if current_idx >= len(workflow) - 1:
+        # Task is done
+        sys.exit(0)  # Ready (no more promotions)
+
+    next_status = workflow[current_idx + 1]
+
+    # Check gate requirements
+    is_valid, blockers = validate_promotion(task, next_status, None)
+
+    if is_valid:
+        # Ready to promote
+        sys.exit(0)
+    elif task.status == TaskStatus.BLOCKED:
+        # Blocked status
+        sys.exit(2)
+    else:
+        # Missing requirements
+        sys.exit(1)
 
 
 def cmd_kanban(args):

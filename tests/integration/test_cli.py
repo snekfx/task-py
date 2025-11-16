@@ -89,7 +89,7 @@ class TestCLI:
         """Test promoting a task."""
         # Init and create (starts in stub)
         self.run_taskpy(["init"], cwd=temp_dir)
-        self.run_taskpy(["create", "FEAT", "Feature"], cwd=temp_dir)
+        self.run_taskpy(["create", "FEAT", "Feature", "--sp", "3"], cwd=temp_dir)
 
         # Promote stub → backlog
         result = self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
@@ -340,3 +340,157 @@ class TestCLI:
         assert "FEAT-01" in result.stdout
         assert "FEAT-02" not in result.stdout
         assert "FEAT-03" not in result.stdout
+
+    def test_gate_stub_to_backlog_blocked(self, temp_dir):
+        """Test stub → backlog gate blocking without story points."""
+        self.run_taskpy(["init"], cwd=temp_dir)
+        self.run_taskpy(["create", "FEAT", "Test Feature", "--sp", "0"], cwd=temp_dir)
+
+        # Should be blocked without story points
+        result = self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
+        assert result.returncode == 1
+        assert "Task needs story points estimation" in result.stdout
+
+    def test_gate_stub_to_backlog_passing(self, temp_dir):
+        """Test stub → backlog gate passing with requirements met."""
+        self.run_taskpy(["init"], cwd=temp_dir)
+        self.run_taskpy(["create", "FEAT", "Test Feature", "--sp", "3"], cwd=temp_dir)
+
+        # Should pass with story points and description
+        result = self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
+        assert result.returncode == 0
+        assert "backlog" in result.stdout
+
+    def test_gate_in_progress_to_qa_blocked(self, temp_dir):
+        """Test in_progress → qa gate blocking without code/test refs."""
+        self.run_taskpy(["init"], cwd=temp_dir)
+        self.run_taskpy(["create", "FEAT", "Test Feature", "--sp", "3"], cwd=temp_dir)
+
+        # Promote to in_progress
+        self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)  # stub → backlog
+        self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)  # backlog → ready
+        self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)  # ready → in_progress
+
+        # Should be blocked without code/test references
+        result = self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
+        assert result.returncode == 1
+        assert "Task needs code references" in result.stdout
+        assert "Task needs test references" in result.stdout
+
+    def test_gate_in_progress_to_qa_passing(self, temp_dir):
+        """Test in_progress → qa gate passing with code/test refs."""
+        self.run_taskpy(["init"], cwd=temp_dir)
+        self.run_taskpy(["create", "FEAT", "Test Feature", "--sp", "3"], cwd=temp_dir)
+
+        # Promote to in_progress
+        self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
+        self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
+        self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
+
+        # Link code and test references
+        self.run_taskpy(["link", "FEAT-01", "--code", "src/main.py"], cwd=temp_dir)
+        self.run_taskpy(["link", "FEAT-01", "--test", "tests/test_main.py"], cwd=temp_dir)
+
+        # Should pass now
+        result = self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
+        assert result.returncode == 0
+        assert "qa" in result.stdout
+
+    def test_gate_qa_to_done_blocked(self, temp_dir):
+        """Test qa → done gate blocking without commit hash."""
+        self.run_taskpy(["init"], cwd=temp_dir)
+        self.run_taskpy(["create", "FEAT", "Test Feature", "--sp", "3"], cwd=temp_dir)
+
+        # Promote to qa
+        self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
+        self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
+        self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
+        self.run_taskpy(["link", "FEAT-01", "--code", "src/main.py"], cwd=temp_dir)
+        self.run_taskpy(["link", "FEAT-01", "--test", "tests/test_main.py"], cwd=temp_dir)
+        self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
+
+        # Should be blocked without commit hash
+        result = self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
+        assert result.returncode == 1
+        assert "commit hash" in result.stdout.lower()
+
+    def test_gate_qa_to_done_passing(self, temp_dir):
+        """Test qa → done gate passing with commit hash."""
+        self.run_taskpy(["init"], cwd=temp_dir)
+        self.run_taskpy(["create", "FEAT", "Test Feature", "--sp", "3"], cwd=temp_dir)
+
+        # Promote to qa
+        self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
+        self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
+        self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
+        self.run_taskpy(["link", "FEAT-01", "--code", "src/main.py"], cwd=temp_dir)
+        self.run_taskpy(["link", "FEAT-01", "--test", "tests/test_main.py"], cwd=temp_dir)
+        self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
+
+        # Should pass with commit hash
+        result = self.run_taskpy(["promote", "FEAT-01", "--commit", "abc123"], cwd=temp_dir)
+        assert result.returncode == 0
+        assert "done" in result.stdout
+
+    def test_demote_from_done_blocked(self, temp_dir):
+        """Test demotion from done blocked without reason."""
+        self.run_taskpy(["init"], cwd=temp_dir)
+        self.run_taskpy(["create", "FEAT", "Test Feature", "--sp", "3"], cwd=temp_dir)
+
+        # Promote to done
+        self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
+        self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
+        self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
+        self.run_taskpy(["link", "FEAT-01", "--code", "src/main.py"], cwd=temp_dir)
+        self.run_taskpy(["link", "FEAT-01", "--test", "tests/test_main.py"], cwd=temp_dir)
+        self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
+        self.run_taskpy(["promote", "FEAT-01", "--commit", "abc123"], cwd=temp_dir)
+
+        # Should be blocked without reason
+        result = self.run_taskpy(["demote", "FEAT-01"], cwd=temp_dir)
+        assert result.returncode == 1
+        assert "reason" in result.stdout.lower()
+
+    def test_demote_from_done_passing(self, temp_dir):
+        """Test demotion from done passing with reason."""
+        self.run_taskpy(["init"], cwd=temp_dir)
+        self.run_taskpy(["create", "FEAT", "Test Feature", "--sp", "3"], cwd=temp_dir)
+
+        # Promote to done
+        self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
+        self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
+        self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
+        self.run_taskpy(["link", "FEAT-01", "--code", "src/main.py"], cwd=temp_dir)
+        self.run_taskpy(["link", "FEAT-01", "--test", "tests/test_main.py"], cwd=temp_dir)
+        self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
+        self.run_taskpy(["promote", "FEAT-01", "--commit", "abc123"], cwd=temp_dir)
+
+        # Should pass with reason
+        result = self.run_taskpy(["demote", "FEAT-01", "--reason", "Found regression"], cwd=temp_dir)
+        assert result.returncode == 0
+        assert "qa" in result.stdout
+
+    def test_info_command(self, temp_dir):
+        """Test info command shows gate requirements."""
+        self.run_taskpy(["init"], cwd=temp_dir)
+        self.run_taskpy(["create", "FEAT", "Test Feature", "--sp", "0"], cwd=temp_dir)
+
+        result = self.run_taskpy(["--view=data", "info", "FEAT-01"], cwd=temp_dir)
+        assert result.returncode == 0
+        assert "stub" in result.stdout
+        assert "backlog" in result.stdout
+        assert "story points" in result.stdout.lower()
+
+    def test_stoplight_command(self, temp_dir):
+        """Test stoplight command exit codes."""
+        self.run_taskpy(["init"], cwd=temp_dir)
+
+        # Missing requirements (exit 1)
+        self.run_taskpy(["create", "FEAT", "Test Feature", "--sp", "0"], cwd=temp_dir)
+        result = self.run_taskpy(["stoplight", "FEAT-01"], cwd=temp_dir)
+        assert result.returncode == 1
+
+        # Ready to promote (exit 0)
+        self.run_taskpy(["create", "FEAT", "Test Feature 2", "--sp", "3"], cwd=temp_dir)
+        result = self.run_taskpy(["stoplight", "FEAT-02"], cwd=temp_dir)
+        assert result.returncode == 0
