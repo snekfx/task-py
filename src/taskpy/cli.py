@@ -200,6 +200,15 @@ def create_parser() -> argparse.ArgumentParser:
         "--commit",
         help="Git commit hash (required for qa → done)"
     )
+    promote_parser.add_argument(
+        "--override",
+        action="store_true",
+        help="Bypass gate validation (use only in urgent situations)"
+    )
+    promote_parser.add_argument(
+        "--reason",
+        help="Reason for override (recommended when using --override)"
+    )
 
     # taskpy demote <TASK-ID> [--to STATUS] --reason REASON
     demote_parser = subparsers.add_parser(
@@ -217,6 +226,11 @@ def create_parser() -> argparse.ArgumentParser:
     demote_parser.add_argument(
         "--reason",
         help="Reason for demotion (required when demoting from done)"
+    )
+    demote_parser.add_argument(
+        "--override",
+        action="store_true",
+        help="Bypass gate validation (use only in urgent situations)"
     )
 
     # taskpy info <TASK-ID>
@@ -366,6 +380,12 @@ def create_parser() -> argparse.ArgumentParser:
     tour_parser = subparsers.add_parser(
         "tour",
         help="Display TaskPy quick reference guide"
+    )
+
+    # taskpy overrides
+    overrides_parser = subparsers.add_parser(
+        "overrides",
+        help="View override usage history"
     )
 
     # taskpy session

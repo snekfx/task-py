@@ -494,3 +494,50 @@ class TestCLI:
         self.run_taskpy(["create", "FEAT", "Test Feature 2", "--sp", "3"], cwd=temp_dir)
         result = self.run_taskpy(["stoplight", "FEAT-02"], cwd=temp_dir)
         assert result.returncode == 0
+
+    def test_override_bypasses_gates(self, temp_dir):
+        """Test --override flag bypasses gate validation."""
+        self.run_taskpy(["init"], cwd=temp_dir)
+        self.run_taskpy(["create", "FEAT", "Test Feature", "--sp", "0"], cwd=temp_dir)
+
+        # Should be blocked without override
+        result = self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
+        assert result.returncode == 1
+
+        # Should work with override
+        result = self.run_taskpy(["promote", "FEAT-01", "--override", "--reason", "Testing"], cwd=temp_dir)
+        assert result.returncode == 0
+        assert "backlog" in result.stdout.lower()
+
+    def test_override_logs_entry(self, temp_dir):
+        """Test override creates log entry."""
+        self.run_taskpy(["init"], cwd=temp_dir)
+        self.run_taskpy(["create", "FEAT", "Test Feature", "--sp", "0"], cwd=temp_dir)
+
+        # Use override
+        self.run_taskpy(["promote", "FEAT-01", "--override", "--reason", "Emergency fix"], cwd=temp_dir)
+
+        # Check log file exists and has entry
+        log_file = temp_dir / "data" / "kanban" / "info" / "override_log.txt"
+        assert log_file.exists()
+
+        with open(log_file) as f:
+            content = f.read()
+            assert "FEAT-01" in content
+            assert "stub→backlog" in content
+            assert "Emergency fix" in content
+
+    def test_overrides_command(self, temp_dir):
+        """Test overrides command displays history."""
+        self.run_taskpy(["init"], cwd=temp_dir)
+        self.run_taskpy(["create", "FEAT", "Test Feature", "--sp", "0"], cwd=temp_dir)
+
+        # Use override
+        self.run_taskpy(["promote", "FEAT-01", "--override", "--reason", "Test override"], cwd=temp_dir)
+
+        # View override history
+        result = self.run_taskpy(["--view", "data", "overrides"], cwd=temp_dir)
+        assert result.returncode == 0
+        assert "FEAT-01" in result.stdout
+        assert "stub→backlog" in result.stdout
+        assert "Test override" in result.stdout

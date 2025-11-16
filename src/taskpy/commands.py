@@ -25,6 +25,18 @@ def get_storage() -> TaskStorage:
     return TaskStorage(Path.cwd())
 
 
+def log_override(storage: TaskStorage, task_id: str, from_status: str, to_status: str, reason: Optional[str] = None):
+    """Log override event to override_log.txt."""
+    log_file = storage.info_dir / "override_log.txt"
+    timestamp = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
+    reason_str = f" | Reason: {reason}" if reason else ""
+
+    log_entry = f"{timestamp} | {task_id} | {from_status}→{to_status}{reason_str}\n"
+
+    with open(log_file, "a") as f:
+        f.write(log_entry)
+
+
 # Gate Validation Functions
 
 def validate_stub_to_backlog(task: Task) -> tuple[bool, list[str]]:
@@ -433,21 +445,34 @@ def cmd_promote(args):
             return
         target_status = workflow[current_idx + 1]
 
-    # Validate promotion gates
-    commit_hash = getattr(args, 'commit', None)
-    is_valid, blockers = validate_promotion(task, target_status, commit_hash)
+    # Check for override flag
+    override = getattr(args, 'override', False)
 
-    if not is_valid:
-        print_error(f"Cannot promote {args.task_id}: {current_status.value} → {target_status.value}")
-        print()
-        print("❌ Blockers:")
-        for blocker in blockers:
-            print(f"  • {blocker}")
-        sys.exit(1)
+    if override:
+        # Display warning and log override
+        print_warning(
+            "⚠️  Using --override to bypass gate validation\n"
+            "This should only be used in urgent situations.\n"
+            "Override will be logged to data/kanban/info/override_log.txt"
+        )
+        reason = getattr(args, 'reason', None) or "No reason provided"
+        log_override(storage, args.task_id, current_status.value, target_status.value, reason)
+    else:
+        # Validate promotion gates
+        commit_hash = getattr(args, 'commit', None)
+        is_valid, blockers = validate_promotion(task, target_status, commit_hash)
 
-    # Set commit_hash if provided
-    if commit_hash:
-        task.commit_hash = commit_hash
+        if not is_valid:
+            print_error(f"Cannot promote {args.task_id}: {current_status.value} → {target_status.value}")
+            print()
+            print("❌ Blockers:")
+            for blocker in blockers:
+                print(f"  • {blocker}")
+            sys.exit(1)
+
+        # Set commit_hash if provided
+        if commit_hash:
+            task.commit_hash = commit_hash
 
     # Move task
     _move_task(storage, args.task_id, path, target_status, task)
@@ -470,31 +495,56 @@ def cmd_demote(args):
     path, current_status = result
     task = storage.read_task_file(path)
 
-    # Validate demotion from done requires reason
-    if current_status == TaskStatus.DONE:
-        is_valid, blockers = validate_done_demotion(task, args.reason)
-        if not is_valid:
-            print_error(f"Cannot demote {args.task_id} from done")
-            print()
-            print("❌ Blockers:")
-            for blocker in blockers:
-                print(f"  • {blocker}")
-            sys.exit(1)
-        task.demotion_reason = args.reason
+    # Check for override flag
+    override = getattr(args, 'override', False)
 
-    # Determine target status (previous in workflow)
-    workflow = [TaskStatus.STUB, TaskStatus.BACKLOG, TaskStatus.READY, TaskStatus.IN_PROGRESS,
-                TaskStatus.QA, TaskStatus.DONE]
+    if override:
+        # Display warning and log override
+        print_warning(
+            "⚠️  Using --override to bypass gate validation\n"
+            "This should only be used in urgent situations.\n"
+            "Override will be logged to data/kanban/info/override_log.txt"
+        )
+        # Determine target first for logging
+        workflow = [TaskStatus.STUB, TaskStatus.BACKLOG, TaskStatus.READY, TaskStatus.IN_PROGRESS,
+                    TaskStatus.QA, TaskStatus.DONE]
+        if hasattr(args, 'to') and args.to:
+            target_status = TaskStatus(args.to)
+        else:
+            current_idx = workflow.index(current_status)
+            if current_idx <= 0:
+                print_info(f"Task {args.task_id} is already at initial status: {current_status.value}")
+                return
+            target_status = workflow[current_idx - 1]
 
-    if hasattr(args, 'to') and args.to:
-        target_status = TaskStatus(args.to)
+        reason = getattr(args, 'reason', None) or "No reason provided"
+        log_override(storage, args.task_id, current_status.value, target_status.value, reason)
     else:
-        # Previous in workflow
-        current_idx = workflow.index(current_status)
-        if current_idx <= 0:
-            print_info(f"Task {args.task_id} is already at initial status: {current_status.value}")
-            return
-        target_status = workflow[current_idx - 1]
+        # Validate demotion from done requires reason
+        if current_status == TaskStatus.DONE:
+            is_valid, blockers = validate_done_demotion(task, args.reason)
+            if not is_valid:
+                print_error(f"Cannot demote {args.task_id} from done")
+                print()
+                print("❌ Blockers:")
+                for blocker in blockers:
+                    print(f"  • {blocker}")
+                sys.exit(1)
+            task.demotion_reason = args.reason
+
+        # Determine target status (previous in workflow)
+        workflow = [TaskStatus.STUB, TaskStatus.BACKLOG, TaskStatus.READY, TaskStatus.IN_PROGRESS,
+                    TaskStatus.QA, TaskStatus.DONE]
+
+        if hasattr(args, 'to') and args.to:
+            target_status = TaskStatus(args.to)
+        else:
+            # Previous in workflow
+            current_idx = workflow.index(current_status)
+            if current_idx <= 0:
+                print_info(f"Task {args.task_id} is already at initial status: {current_status.value}")
+                return
+            target_status = workflow[current_idx - 1]
 
     # Move task
     _move_task(storage, args.task_id, path, target_status, task)
@@ -1135,6 +1185,40 @@ def cmd_stats(args):
     print("\nBy Priority:")
     for priority, count in sorted(by_priority.items()):
         print(f"  {priority:15} {count:3}")
+
+    print()
+
+
+def cmd_overrides(args):
+    """View override usage history."""
+    storage = get_storage()
+
+    if not storage.is_initialized():
+        print_error("TaskPy not initialized. Run: taskpy init")
+        sys.exit(1)
+
+    log_file = storage.info_dir / "override_log.txt"
+
+    if not log_file.exists():
+        print_info("No overrides logged yet")
+        print(f"Override log: {log_file}")
+        return
+
+    # Read and display log
+    with open(log_file, "r") as f:
+        lines = f.readlines()
+
+    if not lines:
+        print_info("No overrides logged yet")
+        return
+
+    print(f"\n{'='*80}")
+    print(f"Override History ({len(lines)} total)")
+    print(f"{'='*80}\n")
+
+    # Show most recent entries (default: all, could add --limit later)
+    for line in reversed(lines):
+        print(line.rstrip())
 
     print()
 
