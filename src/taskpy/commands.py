@@ -1024,6 +1024,64 @@ def cmd_link(args):
         sys.exit(1)
 
 
+def cmd_issues(args):
+    """Display issues/problems tracked for a task."""
+    storage = get_storage()
+
+    # Find task file
+    result = storage.find_task_file(args.task_id)
+    if not result:
+        print_error(f"Task not found: {args.task_id}")
+        sys.exit(1)
+
+    path, current_status = result
+
+    # Read file content to extract ISSUES section
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        # Find ISSUES section
+        lines = content.split('\n')
+        issues_idx = None
+        in_code_block = False
+
+        for i, line in enumerate(lines):
+            if line.strip().startswith('```'):
+                in_code_block = not in_code_block
+            if line.strip() == "## ISSUES" and not in_code_block:
+                issues_idx = i
+                break
+
+        if issues_idx is None:
+            print_info(f"No issues tracked for {args.task_id}")
+            return
+
+        # Extract issues until next section or end
+        issues = []
+        for i in range(issues_idx + 1, len(lines)):
+            line = lines[i]
+            # Stop at next markdown section
+            if line.startswith('## ') and line.strip() != "## ISSUES":
+                break
+            # Collect issue lines (bullets)
+            if line.strip().startswith('- '):
+                issues.append(line.strip())
+
+        if not issues:
+            print_info(f"No issues tracked for {args.task_id}")
+            return
+
+        # Display issues
+        print_success(f"Issues for {args.task_id} ({len(issues)} found)")
+        for issue in issues:
+            print(f"  {issue}")
+
+    except Exception as e:
+        print_error(f"Failed to read issues: {e}")
+        sys.exit(1)
+
+
 def cmd_resolve(args):
     """
     Resolve a bug task with special resolution type.

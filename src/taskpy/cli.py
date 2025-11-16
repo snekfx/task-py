@@ -432,6 +432,16 @@ def create_parser() -> argparse.ArgumentParser:
         help="Add issue annotation (appends to ISSUES section with timestamp)"
     )
 
+    # taskpy issues <TASK-ID>
+    issues_parser = subparsers.add_parser(
+        "issues",
+        help="Display issues/problems tracked for a task"
+    )
+    issues_parser.add_argument(
+        "task_id",
+        help="Task ID (e.g., FEAT-01)"
+    )
+
     # taskpy resolve <TASK-ID> --resolution TYPE --reason REASON
     resolve_parser = subparsers.add_parser(
         "resolve",
