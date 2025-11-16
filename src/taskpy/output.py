@@ -206,17 +206,12 @@ def rolo_table(
         _plain_table(headers, rows, title, row_statuses)
         return False
 
-    # Build TSV input for rolo with dimming for done/archived rows
+    # Build TSV input for rolo (no ANSI codes - rolo truncates and breaks them)
+    # Dimming only works in plain_table fallback
     tsv_lines = []
     tsv_lines.append("\t".join(headers))
-    for i, row in enumerate(rows):
-        status = row_statuses[i] if row_statuses and i < len(row_statuses) else None
-        if status in ['done', 'archived']:
-            # Apply dim styling to each cell
-            dimmed_row = [dim(str(cell)) for cell in row]
-            tsv_lines.append("\t".join(dimmed_row))
-        else:
-            tsv_lines.append("\t".join(str(cell) for cell in row))
+    for row in rows:
+        tsv_lines.append("\t".join(str(cell) for cell in row))
 
     tsv_input = "\n".join(tsv_lines)
 
@@ -297,9 +292,14 @@ def _plain_table(headers: List[str], rows: List[List[str]], title: Optional[str]
     for row_idx, row in enumerate(rows):
         status = row_statuses[row_idx] if row_statuses and row_idx < len(row_statuses) else None
         if status in ['done', 'archived']:
-            # Apply dimming to each cell, then join with dividers (dividers not dimmed)
-            dimmed_cells = [dim(str(cell).ljust(col_widths[i])) for i, cell in enumerate(row)]
-            row_line = " | ".join(dimmed_cells)
+            # Dim content first, then pad with extra space for ANSI codes (8 chars: \033[2m + \033[0m)
+            cells = []
+            for i, cell in enumerate(row):
+                dimmed = dim(str(cell))
+                # Pad to col_width + 8 to account for invisible ANSI codes
+                padded = dimmed + ' ' * (col_widths[i] - len(str(cell)))
+                cells.append(padded)
+            row_line = " | ".join(cells)
         else:
             row_line = " | ".join(str(cell).ljust(col_widths[i]) for i, cell in enumerate(row))
         print(row_line)
