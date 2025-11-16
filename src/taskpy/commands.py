@@ -97,7 +97,8 @@ def validate_active_to_qa(task: Task) -> tuple[bool, list[str]]:
     Requirements:
     - Must have code references
     - Must have test references
-    - Verification must pass (if configured)
+    - Must have verification command set
+    - Verification must pass
 
     Returns:
         (is_valid, list of blockers)
@@ -110,11 +111,13 @@ def validate_active_to_qa(task: Task) -> tuple[bool, list[str]]:
     if not task.references.tests:
         blockers.append("Task needs test references (use: taskpy link TASK-ID --test path/to/test.py)")
 
-    # Check verification if command is set
-    if task.verification.command:
+    # Check verification command is set and has passed
+    if not task.verification.command:
+        blockers.append("Task needs verification command (use: taskpy link TASK-ID --verify \"test command\")")
+    else:
         from taskpy.models import VerificationStatus
         if task.verification.status != VerificationStatus.PASSED:
-            blockers.append(f"Verification must pass (status: {task.verification.status.value})")
+            blockers.append(f"Verification must pass (status: {task.verification.status.value}). Run: taskpy verify {task.id} --update")
 
     return (len(blockers) == 0, blockers)
 
