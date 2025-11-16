@@ -9,3 +9,9 @@
 2025-11-16T07:26:29 | FEAT-04 | stub→backlog | Reason: No reason provided
 2025-11-16T07:28:28 | DOCS-02 | stub→backlog | Reason: Documenting existing field behavior
 2025-11-16T07:28:38 | QOL-01 | stub→backlog | Reason: No reason provided
+2025-11-16T21:53:33 | FEAT-02 | qa→done | Reason: Verification passed, commit hash TBD from git history
+2025-11-16T21:53:33 | REF-02 | qa→done | Reason: Verification passed, commit hash TBD from git history
+2025-11-16T21:53:34 | QOL-01 | qa→done | Reason: Verification passed, commit hash TBD from git history
+2025-11-16T21:53:34 | DOCS-02 | qa→done | Reason: Verification passed, commit hash TBD from git history
+2025-11-16T22:19:45 | QOL-05 | done→qa | Reason: Need to add dimmed styling for done tasks
+2025-11-16T22:19:50 | QOL-05 | qa→active | Reason: Need to add dimmed styling for done tasks

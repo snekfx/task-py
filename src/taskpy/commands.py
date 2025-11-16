@@ -432,7 +432,8 @@ def cmd_list(args):
     else:  # table
         headers = ["ID", "Epic", "#", "Title", "Status", "SP", "Priority", "Sprint"]
         rows = [_manifest_row_to_table(task) for task in tasks]
-        rolo_table(headers, rows, f"Tasks ({len(tasks)} found)")
+        row_statuses = [task.get('status') for task in tasks]
+        rolo_table(headers, rows, f"Tasks ({len(tasks)} found)", row_statuses=row_statuses)
 
 
 def cmd_show(args):

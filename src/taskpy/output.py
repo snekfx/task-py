@@ -184,6 +184,7 @@ def rolo_table(
     headers: List[str],
     rows: List[List[str]],
     title: Optional[str] = None,
+    row_statuses: Optional[List[str]] = None,
 ) -> bool:
     """
     Display tabular data using rolo with fallback to plain text.
@@ -192,23 +193,30 @@ def rolo_table(
         headers: Column headers
         rows: Data rows
         title: Optional title
+        row_statuses: Optional list of row statuses for dimming done/archived rows
 
     Returns:
         True if displayed via rolo, False if fallback used
     """
     if _OUTPUT_MODE == OutputMode.DATA:
-        _plain_table(headers, rows, title)
+        _plain_table(headers, rows, title, row_statuses)
         return False
 
     if not check_rolo_availability():
-        _plain_table(headers, rows, title)
+        _plain_table(headers, rows, title, row_statuses)
         return False
 
-    # Build TSV input for rolo
+    # Build TSV input for rolo with dimming for done/archived rows
     tsv_lines = []
     tsv_lines.append("\t".join(headers))
-    for row in rows:
-        tsv_lines.append("\t".join(str(cell) for cell in row))
+    for i, row in enumerate(rows):
+        status = row_statuses[i] if row_statuses and i < len(row_statuses) else None
+        if status in ['done', 'archived']:
+            # Apply dim styling to each cell
+            dimmed_row = [dim(str(cell)) for cell in row]
+            tsv_lines.append("\t".join(dimmed_row))
+        else:
+            tsv_lines.append("\t".join(str(cell) for cell in row))
 
     tsv_input = "\n".join(tsv_lines)
 
@@ -246,12 +254,17 @@ def rolo_table(
             print(result.stdout)
             return True
         else:
-            _plain_table(headers, rows, title)
+            _plain_table(headers, rows, title, row_statuses)
             return False
 
     except (subprocess.TimeoutExpired, subprocess.SubprocessError, OSError):
-        _plain_table(headers, rows, title)
+        _plain_table(headers, rows, title, row_statuses)
         return False
+
+
+def dim(text: str) -> str:
+    """Apply ANSI dim styling to text."""
+    return f"\033[2m{text}\033[0m"
 
 
 def _plain_output(content: str, theme: str, title: Optional[str]):
@@ -263,13 +276,13 @@ def _plain_output(content: str, theme: str, title: Optional[str]):
         print("=" * (len(title) + 8))
 
 
-def _plain_table(headers: List[str], rows: List[List[str]], title: Optional[str]):
+def _plain_table(headers: List[str], rows: List[List[str]], title: Optional[str], row_statuses: Optional[List[str]] = None):
     """Fallback plain text table."""
     if title:
         print(f"\n{title}")
         print("-" * len(title))
 
-    # Calculate column widths
+    # Calculate column widths (without ANSI codes)
     col_widths = [len(h) for h in headers]
     for row in rows:
         for i, cell in enumerate(row):
@@ -280,10 +293,14 @@ def _plain_table(headers: List[str], rows: List[List[str]], title: Optional[str]
     print(header_line)
     print("-" * len(header_line))
 
-    # Print rows
-    for row in rows:
+    # Print rows with dimming for done/archived
+    for row_idx, row in enumerate(rows):
+        status = row_statuses[row_idx] if row_statuses and row_idx < len(row_statuses) else None
         row_line = " | ".join(str(cell).ljust(col_widths[i]) for i, cell in enumerate(row))
-        print(row_line)
+        if status in ['done', 'archived']:
+            print(dim(row_line))
+        else:
+            print(row_line)
 
     print()
 
