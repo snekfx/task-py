@@ -320,6 +320,12 @@ def create_parser() -> argparse.ArgumentParser:
         help="Link NFR (can specify multiple)"
     )
 
+    # taskpy tour
+    tour_parser = subparsers.add_parser(
+        "tour",
+        help="Display TaskPy quick reference guide"
+    )
+
     # taskpy session
     session_parser = subparsers.add_parser(
         "session",

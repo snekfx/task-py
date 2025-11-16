@@ -495,6 +495,106 @@ def cmd_session(args):
     print_info("Session management coming soon in META PROCESS v4")
 
 
+def cmd_tour(args):
+    """Display TaskPy quick reference tour."""
+    tour_text = """
+==================================================
+TaskPy Quick Reference Tour
+==================================================
+
+GETTING STARTED
+---------------
+  taskpy init                           Initialize TaskPy in current project
+  taskpy create EPIC "title" --sp N     Create a task with story points
+  taskpy create FEAT "feature" --milestone milestone-1  Create with milestone
+
+DAILY WORKFLOW
+--------------
+  taskpy list                           List all tasks
+  taskpy list --epic FEAT               Filter by epic
+  taskpy list --status backlog          Filter by status
+  taskpy list --sprint                  Show sprint tasks only
+
+  taskpy show TASK-ID                   View task details
+  taskpy edit TASK-ID                   Edit task in $EDITOR
+
+  taskpy promote TASK-ID                Move task forward in workflow
+  taskpy move TASK-ID done              Jump to specific status
+
+SPRINT MANAGEMENT
+-----------------
+  taskpy sprint add TASK-ID             Add task to current sprint
+  taskpy sprint remove TASK-ID          Remove from sprint
+  taskpy sprint list                    List sprint tasks
+  taskpy sprint clear                   Clear entire sprint
+  taskpy sprint stats                   Sprint statistics
+
+MILESTONE TRACKING
+------------------
+  taskpy milestones                     List all milestones (by priority)
+  taskpy milestone show milestone-1     Show milestone progress
+  taskpy milestone assign TASK-ID milestone-1  Assign task
+  taskpy milestone start milestone-2    Mark milestone as active
+  taskpy milestone complete milestone-1 Mark milestone done
+
+QUERYING & STATS
+----------------
+  taskpy list --format ids              List task IDs only
+  taskpy list --format tsv              TSV output for scripting
+  taskpy stats                          Project statistics
+  taskpy stats --epic FEAT              Epic-specific stats
+  taskpy stats --milestone milestone-1  Milestone stats
+  taskpy kanban                         Kanban board view
+  taskpy kanban --epic FEAT             Epic-specific kanban
+
+REFERENCE LINKING
+-----------------
+  taskpy link TASK-ID --code src/foo.py         Link source file
+  taskpy link TASK-ID --test tests/test_foo.py  Link test file
+  taskpy link TASK-ID --verify "pytest tests/"  Set verification command
+  taskpy verify TASK-ID --update                Run and update verification
+
+WORKFLOW STATUSES
+-----------------
+  stub → backlog → ready → in_progress → qa → done → archived
+
+  stub         Incomplete, needs grooming
+  backlog      Groomed, ready for work
+  ready        Selected for sprint
+  in_progress  Actively being developed
+  qa           In testing/review
+  done         Completed
+  archived     Long-term storage
+  blocked      Blocked by dependencies (special state)
+
+USEFUL FLAGS
+------------
+  --view=data                           Plain output (no boxy formatting)
+  --no-boxy                             Same as --view=data
+  --priority critical|high|medium|low   Set task priority
+  --milestone milestone-N               Assign to milestone
+  --sp N                                Set story points
+
+CONFIGURATION
+-------------
+  data/kanban/info/epics.toml           Epic definitions
+  data/kanban/info/nfrs.toml            Non-functional requirements
+  data/kanban/info/milestones.toml      Milestone definitions
+  data/kanban/info/config.toml          TaskPy configuration
+
+TIPS
+----
+  • Tasks stored as markdown in data/kanban/status/
+  • Git-friendly: commit config/, ignore task data
+  • Use --view=data for scripting/automation
+  • Sprint = session-scoped work queue
+  • Milestones = multi-phase project organization
+
+==================================================
+"""
+    print(tour_text)
+
+
 def cmd_sprint(args):
     """Route sprint subcommands."""
     subcommand_handlers = {
