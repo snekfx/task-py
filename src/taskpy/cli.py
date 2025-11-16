@@ -16,8 +16,8 @@ class VersionAction(argparse.Action):
     """Custom version action that displays logo and version info."""
 
     def __call__(self, parser, namespace, values, option_string=None):
-        # Read logo from root of package
-        logo_path = Path(__file__).parent.parent.parent / "logo.txt"
+        # Read logo from package directory (bundled with the package)
+        logo_path = Path(__file__).parent / "logo.txt"
         try:
             with open(logo_path, "r") as f:
                 logo = f.read().rstrip()

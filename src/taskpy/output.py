@@ -362,7 +362,9 @@ def display_kanban_column(column_name: str, tasks: List[Dict[str, Any]]):
     lines.append("=" * 40)
 
     for task in tasks:
-        lines.append(f"  • {task['id']}: {task['title']} [{task.get('story_points', 0)} SP]")
+        # Add sprint badge for sprint tasks
+        sprint_badge = "🏃 " if task.get('in_sprint', 'false') == 'true' else ""
+        lines.append(f"  • {sprint_badge}{task['id']}: {task['title']} [{task.get('story_points', 0)} SP]")
 
     content = "\n".join(lines)
     boxy_display(content, Theme.INFO, column_name.replace("_", " ").title())

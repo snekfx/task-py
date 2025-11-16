@@ -1,6 +1,6 @@
 [project]
 name = "taskpy"
-version = "0.2.0"
+version = "0.2.3"
 description = "File-based agile task management tool for META PROCESS v3 workflows"
 authors = [
     {name = "snekfx", email = "noreply@snekfx.dev"}
@@ -47,3 +47,6 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+taskpy = ["logo.txt"]

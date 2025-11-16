@@ -398,7 +398,7 @@ def cmd_list(args):
             print()  # Spacing
 
     else:  # table
-        headers = ["ID", "Epic", "#", "Title", "Status", "SP", "Priority"]
+        headers = ["ID", "Epic", "#", "Title", "Status", "SP", "Priority", "Sprint"]
         rows = [_manifest_row_to_table(task) for task in tasks]
         rolo_table(headers, rows, f"Tasks ({len(tasks)} found)")
 
@@ -1120,8 +1120,8 @@ def _cmd_sprint_list(args):
         print_info("No tasks in sprint")
         return
 
-    # Display tasks as table
-    headers = ["ID", "Epic", "#", "Title", "Status", "SP", "Priority"]
+    # Display tasks as table (include Sprint column for consistency)
+    headers = ["ID", "Epic", "#", "Title", "Status", "SP", "Priority", "Sprint"]
     table_rows = [_manifest_row_to_table(task) for task in sprint_tasks]
     rolo_table(headers, table_rows, f"Sprint Tasks ({len(sprint_tasks)} found)")
 
@@ -1426,6 +1426,9 @@ def _format_title_column(title: Optional[str]) -> str:
 
 def _manifest_row_to_table(row: Dict[str, str]) -> List[str]:
     """Convert manifest row dict to table row for display."""
+    # Sprint indicator: checkmark for sprint tasks, empty for others
+    sprint_indicator = '✓' if row.get('in_sprint', 'false') == 'true' else ''
+
     return [
         row.get('id', ''),
         row.get('epic', ''),
@@ -1434,6 +1437,7 @@ def _manifest_row_to_table(row: Dict[str, str]) -> List[str]:
         row.get('status', ''),
         row.get('story_points', '0'),
         row.get('priority', ''),
+        sprint_indicator,
     ]
 
 
