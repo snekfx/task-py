@@ -31,52 +31,89 @@ class VersionAction(argparse.Action):
         parser.exit()
 
 
+def _create_global_parser() -> argparse.ArgumentParser:
+    """
+    Create parser with options shared between root parser and subcommands.
+
+    This allows flags to work in both positions:
+    - taskpy --agent list
+    - taskpy list --agent
+    """
+    global_parser = argparse.ArgumentParser(add_help=False)
+
+    global_parser.add_argument(
+        "-v", "--version",
+        action=VersionAction,
+        nargs=0,
+        default=argparse.SUPPRESS,
+        help="Show version and logo"
+    )
+
+    global_parser.add_argument(
+        "--view",
+        choices=["pretty", "data"],
+        default=argparse.SUPPRESS,
+        help="Output mode: pretty (boxy) or data (plain)"
+    )
+
+    global_parser.add_argument(
+        "--data",
+        action="store_true",
+        default=argparse.SUPPRESS,
+        help="Plain data output (same as --view=data)"
+    )
+
+    global_parser.add_argument(
+        "--no-boxy",
+        action="store_true",
+        default=argparse.SUPPRESS,
+        help="Disable boxy output (same as --view=data)"
+    )
+
+    global_parser.add_argument(
+        "--agent",
+        action="store_true",
+        default=argparse.SUPPRESS,
+        help="Agent-friendly output (same as --view=data)"
+    )
+
+    return global_parser
+
+
 def create_parser() -> argparse.ArgumentParser:
     """Create the main argument parser."""
+    global_parser = _create_global_parser()
 
     parser = argparse.ArgumentParser(
         prog="taskpy",
         description="File-based agile task management for META PROCESS v4",
-        epilog="For more information, see: README.md"
+        epilog="For more information, see: README.md",
+        parents=[global_parser],
+        add_help=True
     )
 
-    parser.add_argument(
-        "-v", "--version",
-        action=VersionAction,
-        nargs=0,
-        help="Show version and logo"
-    )
-
-    parser.add_argument(
-        "--view",
-        choices=["pretty", "data"],
-        default="pretty",
-        help="Output mode: pretty (boxy) or data (plain)"
-    )
-
-    parser.add_argument(
-        "--data",
-        action="store_true",
-        help="Plain data output (same as --view=data)"
-    )
-
-    parser.add_argument(
-        "--no-boxy",
-        action="store_true",
-        help="Disable boxy output (same as --view=data)"
-    )
-
-    parser.add_argument(
-        "--agent",
-        action="store_true",
-        help="Agent-friendly output (same as --view=data)"
+    # Set defaults for global flags
+    parser.set_defaults(
+        view="pretty",
+        data=False,
+        no_boxy=False,
+        agent=False
     )
 
     # Subcommands
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
+    def add_subparser(name: str, **kwargs) -> argparse.ArgumentParser:
+        """Helper that attaches global options to each subparser."""
+        return subparsers.add_parser(
+            name,
+            parents=[global_parser],
+            add_help=True,
+            **kwargs
+        )
+
     # taskpy init
-    init_parser = subparsers.add_parser(
+    init_parser = add_subparser(
         "init",
         help="Initialize TaskPy kanban structure"
     )
@@ -92,7 +129,7 @@ def create_parser() -> argparse.ArgumentParser:
     )
 
     # taskpy create <EPIC> <title>
-    create_parser = subparsers.add_parser(
+    create_parser = add_subparser(
         "create",
         help="Create a new task"
     )
@@ -148,7 +185,7 @@ def create_parser() -> argparse.ArgumentParser:
     )
 
     # taskpy list [filters]
-    list_parser = subparsers.add_parser(
+    list_parser = add_subparser(
         "list",
         help="List tasks with optional filters"
     )
@@ -201,7 +238,7 @@ def create_parser() -> argparse.ArgumentParser:
     )
 
     # taskpy show <TASK-ID>
-    show_parser = subparsers.add_parser(
+    show_parser = add_subparser(
         "show",
         help="Display one or more tasks"
     )
@@ -212,7 +249,7 @@ def create_parser() -> argparse.ArgumentParser:
     )
 
     # taskpy edit <TASK-ID>
-    edit_parser = subparsers.add_parser(
+    edit_parser = add_subparser(
         "edit",
         help="Edit a task in $EDITOR"
     )
@@ -222,7 +259,7 @@ def create_parser() -> argparse.ArgumentParser:
     )
 
     # taskpy promote <TASK-ID> [--to STATUS]
-    promote_parser = subparsers.add_parser(
+    promote_parser = add_subparser(
         "promote",
         help="Move task forward in workflow"
     )
@@ -250,7 +287,7 @@ def create_parser() -> argparse.ArgumentParser:
     )
 
     # taskpy demote <TASK-ID> [--to STATUS] --reason REASON
-    demote_parser = subparsers.add_parser(
+    demote_parser = add_subparser(
         "demote",
         help="Move task backwards in workflow"
     )
@@ -273,7 +310,7 @@ def create_parser() -> argparse.ArgumentParser:
     )
 
     # taskpy info <TASK-ID>
-    info_parser = subparsers.add_parser(
+    info_parser = add_subparser(
         "info",
         help="Show task status and gate requirements"
     )
@@ -283,7 +320,7 @@ def create_parser() -> argparse.ArgumentParser:
     )
 
     # taskpy stoplight <TASK-ID>
-    stoplight_parser = subparsers.add_parser(
+    stoplight_parser = add_subparser(
         "stoplight",
         help="Validate gate requirements (exit codes: 0=ready, 1=missing, 2=blocked)"
     )
@@ -293,7 +330,7 @@ def create_parser() -> argparse.ArgumentParser:
     )
 
     # taskpy block <TASK-ID> --reason REASON
-    block_parser = subparsers.add_parser(
+    block_parser = add_subparser(
         "block",
         help="Block a task with required reason"
     )
@@ -308,7 +345,7 @@ def create_parser() -> argparse.ArgumentParser:
     )
 
     # taskpy unblock <TASK-ID>
-    unblock_parser = subparsers.add_parser(
+    unblock_parser = add_subparser(
         "unblock",
         help="Unblock a task and return to backlog"
     )
@@ -318,7 +355,7 @@ def create_parser() -> argparse.ArgumentParser:
     )
 
     # taskpy move <TASK-ID> <STATUS>
-    move_parser = subparsers.add_parser(
+    move_parser = add_subparser(
         "move",
         help="Move task(s) to specific status"
     )
@@ -339,7 +376,7 @@ def create_parser() -> argparse.ArgumentParser:
     )
 
     # taskpy kanban
-    kanban_parser = subparsers.add_parser(
+    kanban_parser = add_subparser(
         "kanban",
         help="Display kanban board"
     )
@@ -349,7 +386,7 @@ def create_parser() -> argparse.ArgumentParser:
     )
 
     # taskpy verify <TASK-ID>
-    verify_parser = subparsers.add_parser(
+    verify_parser = add_subparser(
         "verify",
         help="Run verification tests for a task"
     )
@@ -364,7 +401,7 @@ def create_parser() -> argparse.ArgumentParser:
     )
 
     # taskpy epics
-    epics_parser = subparsers.add_parser(
+    epics_parser = add_subparser(
         "epics",
         help="List available epics"
     )
@@ -375,7 +412,7 @@ def create_parser() -> argparse.ArgumentParser:
     )
 
     # taskpy nfrs
-    nfrs_parser = subparsers.add_parser(
+    nfrs_parser = add_subparser(
         "nfrs",
         help="List NFRs"
     )
@@ -386,13 +423,13 @@ def create_parser() -> argparse.ArgumentParser:
     )
 
     # taskpy milestones
-    milestones_parser = subparsers.add_parser(
+    milestones_parser = add_subparser(
         "milestones",
         help="List project milestones"
     )
 
     # taskpy milestone (with subcommands)
-    milestone_parser = subparsers.add_parser(
+    milestone_parser = add_subparser(
         "milestone",
         help="Manage individual milestones"
     )
@@ -412,7 +449,7 @@ def create_parser() -> argparse.ArgumentParser:
     milestone_assign.add_argument("milestone_id", help="Milestone ID (e.g., milestone-1)")
 
     # taskpy link <TASK-ID>
-    link_parser = subparsers.add_parser(
+    link_parser = add_subparser(
         "link",
         help="Link references to a task"
     )
@@ -461,7 +498,7 @@ def create_parser() -> argparse.ArgumentParser:
     )
 
     # taskpy issues <TASK-ID>
-    issues_parser = subparsers.add_parser(
+    issues_parser = add_subparser(
         "issues",
         help="Display issues/problems tracked for a task"
     )
@@ -471,7 +508,7 @@ def create_parser() -> argparse.ArgumentParser:
     )
 
     # taskpy history <TASK-ID> or taskpy history --all
-    history_parser = subparsers.add_parser(
+    history_parser = add_subparser(
         "history",
         help="Display task history and audit trail"
     )
@@ -487,7 +524,7 @@ def create_parser() -> argparse.ArgumentParser:
     )
 
     # taskpy resolve <TASK-ID> --resolution TYPE --reason REASON
-    resolve_parser = subparsers.add_parser(
+    resolve_parser = add_subparser(
         "resolve",
         help="Resolve a bug task (BUGS*, REG*, DEF*) with special resolution"
     )
@@ -512,19 +549,19 @@ def create_parser() -> argparse.ArgumentParser:
     )
 
     # taskpy tour
-    tour_parser = subparsers.add_parser(
+    tour_parser = add_subparser(
         "tour",
         help="Display TaskPy quick reference guide"
     )
 
     # taskpy overrides
-    overrides_parser = subparsers.add_parser(
+    overrides_parser = add_subparser(
         "overrides",
         help="View override usage history"
     )
 
     # taskpy manifest
-    manifest_parser = subparsers.add_parser(
+    manifest_parser = add_subparser(
         "manifest",
         help="Manage the TSV manifest index"
     )
@@ -535,7 +572,7 @@ def create_parser() -> argparse.ArgumentParser:
     )
 
     # taskpy groom
-    groom_parser = subparsers.add_parser(
+    groom_parser = add_subparser(
         "groom",
         help="Audit stub tasks for sufficient detail"
     )
@@ -558,7 +595,7 @@ def create_parser() -> argparse.ArgumentParser:
     )
 
     # taskpy session
-    session_parser = subparsers.add_parser(
+    session_parser = add_subparser(
         "session",
         help="Manage work sessions"
     )
@@ -573,7 +610,7 @@ def create_parser() -> argparse.ArgumentParser:
     session_status = session_subparsers.add_parser("status", help="Show current session")
 
     # taskpy sprint
-    sprint_parser = subparsers.add_parser(
+    sprint_parser = add_subparser(
         "sprint",
         help="Manage sprint tasks"
     )
@@ -592,7 +629,7 @@ def create_parser() -> argparse.ArgumentParser:
     sprint_stats = sprint_subparsers.add_parser("stats", help="Show sprint statistics")
 
     # taskpy stats
-    stats_parser = subparsers.add_parser(
+    stats_parser = add_subparser(
         "stats",
         help="Show task statistics"
     )
