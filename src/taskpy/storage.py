@@ -283,7 +283,8 @@ show_tags = true
         headers = [
             "id", "epic", "number", "status", "title",
             "story_points", "priority", "created", "updated",
-            "tags", "dependencies", "blocks", "verification_status", "assigned"
+            "tags", "dependencies", "blocks", "verification_status", "assigned",
+            "milestone", "blocked_reason"
         ]
         with open(self.manifest_file, 'w', newline='') as f:
             writer = csv.writer(f, delimiter='\t')
@@ -512,7 +513,7 @@ show_tags = true
 
         # Simple fields
         for key in ['id', 'title', 'epic', 'number', 'status', 'story_points',
-                    'priority', 'created', 'updated', 'assigned']:
+                    'priority', 'created', 'updated', 'assigned', 'milestone', 'blocked_reason']:
             value = fm[key]
             if value is not None:
                 frontmatter_lines.append(f"{key}: {value}")

@@ -103,9 +103,9 @@ def create_parser() -> argparse.ArgumentParser:
     )
     create_parser.add_argument(
         "--status",
-        choices=["backlog", "ready", "in_progress", "review"],
-        default="backlog",
-        help="Initial status"
+        choices=["stub", "backlog", "ready", "in_progress", "qa", "blocked"],
+        default="stub",
+        help="Initial status (default: stub for incomplete tasks)"
     )
     create_parser.add_argument(
         "--tags",

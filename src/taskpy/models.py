@@ -14,12 +14,14 @@ import re
 
 class TaskStatus(Enum):
     """Task lifecycle states (Kanban)."""
+    STUB = "stub"
     BACKLOG = "backlog"
     READY = "ready"
     IN_PROGRESS = "in_progress"
-    REVIEW = "review"
+    QA = "qa"
     DONE = "done"
     ARCHIVED = "archived"
+    BLOCKED = "blocked"
 
 
 class Priority(Enum):
@@ -94,6 +96,8 @@ class Task:
     tags: List[str] = field(default_factory=list)
     dependencies: List[str] = field(default_factory=list)  # Task IDs this depends on
     blocks: List[str] = field(default_factory=list)  # Task IDs this blocks
+    milestone: Optional[str] = None  # Milestone ID (e.g., "milestone-1")
+    blocked_reason: Optional[str] = None  # Reason if status is BLOCKED
 
     # Compliance
     nfrs: List[str] = field(default_factory=list)  # NFR-XXX-NNN references
@@ -166,6 +170,8 @@ class Task:
             'created': self.created.isoformat(),
             'updated': self.updated.isoformat(),
             'assigned': self.assigned,
+            'milestone': self.milestone,
+            'blocked_reason': self.blocked_reason,
             'tags': self.tags,
             'dependencies': self.dependencies,
             'blocks': self.blocks,
@@ -191,6 +197,8 @@ class Task:
             ','.join(self.blocks),
             self.verification.status.value,
             self.assigned or '',
+            self.milestone or '',
+            self.blocked_reason or '',
         ]
 
 

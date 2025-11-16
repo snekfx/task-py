@@ -58,8 +58,8 @@ class TestCLI:
         assert result.returncode == 0
         assert "FEAT-01" in result.stdout
 
-        # Check file exists
-        task_file = temp_dir / "data" / "kanban" / "status" / "backlog" / "FEAT-01.md"
+        # Check file exists (created in stub by default)
+        task_file = temp_dir / "data" / "kanban" / "status" / "stub" / "FEAT-01.md"
         assert task_file.exists()
 
     def test_list_tasks(self, temp_dir):
@@ -87,15 +87,19 @@ class TestCLI:
 
     def test_promote_task(self, temp_dir):
         """Test promoting a task."""
-        # Init and create
+        # Init and create (starts in stub)
         self.run_taskpy(["init"], cwd=temp_dir)
         self.run_taskpy(["create", "FEAT", "Feature"], cwd=temp_dir)
 
-        # Promote
+        # Promote stub → backlog
         result = self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
         assert result.returncode == 0
 
-        # Check it moved
+        # Promote backlog → ready
+        result = self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
+        assert result.returncode == 0
+
+        # Check it moved to ready
         ready_file = temp_dir / "data" / "kanban" / "status" / "ready" / "FEAT-01.md"
         assert ready_file.exists()
 

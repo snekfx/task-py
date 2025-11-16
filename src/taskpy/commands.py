@@ -259,8 +259,8 @@ def cmd_promote(args):
     path, current_status = result
 
     # Determine target status
-    workflow = [TaskStatus.BACKLOG, TaskStatus.READY, TaskStatus.IN_PROGRESS,
-                TaskStatus.REVIEW, TaskStatus.DONE]
+    workflow = [TaskStatus.STUB, TaskStatus.BACKLOG, TaskStatus.READY, TaskStatus.IN_PROGRESS,
+                TaskStatus.QA, TaskStatus.DONE]
 
     if args.target_status:
         target_status = TaskStatus(args.target_status)
@@ -306,8 +306,8 @@ def cmd_kanban(args):
 
     # Group tasks by status
     tasks_by_status = {}
-    for status in [TaskStatus.BACKLOG, TaskStatus.READY, TaskStatus.IN_PROGRESS,
-                   TaskStatus.REVIEW, TaskStatus.DONE]:
+    for status in [TaskStatus.STUB, TaskStatus.BACKLOG, TaskStatus.READY, TaskStatus.IN_PROGRESS,
+                   TaskStatus.QA, TaskStatus.DONE]:
         tasks_by_status[status] = []
 
     # Read all tasks from manifest
@@ -321,8 +321,8 @@ def cmd_kanban(args):
             tasks_by_status[status].append(row)
 
     # Display columns
-    for status in [TaskStatus.BACKLOG, TaskStatus.READY, TaskStatus.IN_PROGRESS,
-                   TaskStatus.REVIEW, TaskStatus.DONE]:
+    for status in [TaskStatus.STUB, TaskStatus.BACKLOG, TaskStatus.READY, TaskStatus.IN_PROGRESS,
+                   TaskStatus.QA, TaskStatus.DONE]:
         display_kanban_column(status.value, tasks_by_status[status])
 
 
