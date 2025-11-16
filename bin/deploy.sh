@@ -3,6 +3,8 @@ set -e
 
 # Configuration
 SNEK_BIN_DIR="$HOME/.local/bin/snek"
+BUNDLE_DIR="$SNEK_BIN_DIR/taskpy-bundle"
+SYSTEM_PYTHON="${TASKPY_PYTHON:-$(command -v python3)}"
 
 # Resolve repository root from bin/
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
@@ -30,53 +32,49 @@ echo ""
 # Deploy taskpy via pip
 echo "📋 Deploying taskpy tool..."
 
-# Display Python/pip info
-echo "🐍 Python: $(python --version 2>&1)"
-echo "📦 pip: $(pip --version | cut -d' ' -f1-2)"
+if [ -z "$SYSTEM_PYTHON" ]; then
+    echo "✗ Could not find python3 on PATH"
+    exit 1
+fi
+
+echo "🐍 Python: $($SYSTEM_PYTHON --version 2>&1)"
+PIP_CMD=("$SYSTEM_PYTHON" -m pip)
+"${PIP_CMD[@]}" --version >/dev/null 2>&1 || "$SYSTEM_PYTHON" -m ensurepip --upgrade >/dev/null 2>&1 || true
+echo "📦 pip: $("${PIP_CMD[@]}" --version | cut -d' ' -f1-2)"
 echo ""
 
-# Create snek directory
 mkdir -p "$SNEK_BIN_DIR"
+rm -rf "$BUNDLE_DIR"
 
-# Create wrapper script in snek directory
+echo "📦 Building bundled site-packages at $BUNDLE_DIR"
+"${PIP_CMD[@]}" install --upgrade --no-deps --target "$BUNDLE_DIR" "$ROOT_DIR"
+
 echo "📦 Creating taskpy wrapper in snek directory..."
 TASKPY_TARGET="$SNEK_BIN_DIR/taskpy"
-
 cat > "$TASKPY_TARGET" << WRAPPER_EOF
-#!/usr/bin/python3
-# -*- coding: utf-8 -*-
-import sys
+#!/usr/bin/env python3
 import os
+import sys
 
-# Add taskpy src to path
-TASKPY_SRC = "$ROOT_DIR/src"
-if os.path.exists(TASKPY_SRC):
-    sys.path.insert(0, TASKPY_SRC)
+BUNDLE_DIR = "$BUNDLE_DIR"
+if BUNDLE_DIR not in sys.path:
+    sys.path.insert(0, BUNDLE_DIR)
 
 from taskpy.cli import main
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     sys.exit(main())
 WRAPPER_EOF
-
-# Make executable
 chmod +x "$TASKPY_TARGET"
 
-# Copy logo
 if [ -f "$ROOT_DIR/logo.txt" ]; then
     cp "$ROOT_DIR/logo.txt" "$SNEK_BIN_DIR/taskpy_logo.txt"
 fi
 
-echo "✅ taskpy deployed successfully"
+echo "✅ taskpy bundled successfully"
 
-# Test the deployment
 echo "📋 Testing taskpy deployment..."
-if command -v taskpy >/dev/null 2>&1; then
-    echo "✅ taskpy is available in PATH"
-    taskpy --version
-else
-    echo "⚠️  Warning: taskpy not found in PATH (may need to restart shell)"
-fi
+"$TASKPY_TARGET" --version
 
 echo ""
 echo "╔════════════════════════════════════════════════╗"
@@ -84,7 +82,8 @@ echo "║          DEPLOYMENT SUCCESSFUL!                ║"
 echo "╚════════════════════════════════════════════════╝"
 echo "  Deployed: taskpy v$VERSION                     "
 echo "  Location: $SNEK_BIN_DIR/taskpy                 "
-echo "  Method:   wrapper → pip package                "
+echo "  Bundle:   $BUNDLE_DIR                           "
+echo "  Method:   pip --target bundle                   "
 echo ""
 echo "📋 taskpy task management commands:"
 echo "   taskpy init                 # Initialize kanban structure"

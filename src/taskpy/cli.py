@@ -129,6 +129,11 @@ def create_parser() -> argparse.ArgumentParser:
         "--body",
         help="Task body/description content"
     )
+    create_parser.add_argument(
+        "--stub",
+        action="store_true",
+        help="Allow creation in stub status without body"
+    )
 
     # taskpy list [filters]
     list_parser = subparsers.add_parser(
@@ -431,6 +436,29 @@ def create_parser() -> argparse.ArgumentParser:
     manifest_subparsers.add_parser(
         "rebuild",
         help="Scan task files and rebuild manifest.tsv"
+    )
+
+    # taskpy groom
+    groom_parser = subparsers.add_parser(
+        "groom",
+        help="Audit stub tasks for sufficient detail"
+    )
+    groom_parser.add_argument(
+        "--ratio",
+        type=float,
+        default=0.6,
+        help="Minimum ratio of stub content length vs done median (default: 0.6)"
+    )
+    groom_parser.add_argument(
+        "--min-chars",
+        type=int,
+        default=500,
+        help="Absolute minimum characters required for stub tasks"
+    )
+    groom_parser.add_argument(
+        "--override",
+        action="store_true",
+        help="Acknowledge short tasks (report only, no warnings)"
     )
 
     # taskpy session

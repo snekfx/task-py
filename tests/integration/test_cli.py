@@ -71,7 +71,8 @@ class TestCLI:
         # List
         result = self.run_taskpy(["list"], cwd=temp_dir)
         assert result.returncode == 0
-        assert "BUGS-01" in result.stdout
+        assert "BUGS" in result.stdout
+        assert "Fix bug" in result.stdout
 
     def test_show_task(self, temp_dir):
         """Test showing a task."""
@@ -193,6 +194,44 @@ class TestCLI:
         result = self.run_taskpy(["milestones"], cwd=temp_dir)
         # Both should show active status (🟢)
         assert result.returncode == 0
+
+    def test_stoplight_ready_output(self, temp_dir):
+        """Stoplight should report readiness when requirements met."""
+        self.run_taskpy(["init"], cwd=temp_dir)
+        body = "Detailed description with enough context to satisfy gating requirements."
+        self.run_taskpy([
+            "create", "FEAT", "Gated Task", "--sp", "3", "--body", body
+        ], cwd=temp_dir)
+
+        result = self.run_taskpy(["--view=data", "stoplight", "FEAT-01"], cwd=temp_dir)
+        assert result.returncode == 0
+        assert "Ready" in result.stdout
+        assert "FEAT-01" in result.stdout
+
+    def test_stoplight_missing_requirements(self, temp_dir):
+        """Stoplight should explain why promotion is blocked."""
+        self.run_taskpy(["init"], cwd=temp_dir)
+        # No story points/body provided, remains stub with missing requirements
+        self.run_taskpy(["create", "FEAT", "Needs Points"], cwd=temp_dir)
+
+        result = self.run_taskpy(["--view=data", "stoplight", "FEAT-01"], cwd=temp_dir)
+        assert result.returncode == 1
+        assert "Missing requirements" in result.stdout
+        assert "story points" in result.stdout.lower()
+
+    def test_stoplight_blocked(self, temp_dir):
+        """Stoplight should mark blocked tasks."""
+        self.run_taskpy(["init"], cwd=temp_dir)
+        body = "Detailed description so the task can eventually leave stub."
+        self.run_taskpy([
+            "create", "FEAT", "Block Me", "--sp", "2", "--body", body
+        ], cwd=temp_dir)
+        self.run_taskpy(["block", "FEAT-01", "--reason", "Waiting on API"], cwd=temp_dir)
+
+        result = self.run_taskpy(["--view=data", "stoplight", "FEAT-01"], cwd=temp_dir)
+        assert result.returncode == 2
+        assert "blocked" in result.stdout.lower()
+        assert "Waiting on API" in result.stdout
 
     def test_create_with_milestone(self, temp_dir):
         """Test creating task with milestone assignment."""

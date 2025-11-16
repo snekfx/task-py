@@ -84,6 +84,10 @@ taskpy promote FEAT-01               # backlog → ready
 taskpy promote FEAT-01               # ready → in_progress
 taskpy move FEAT-01 qa               # Move to specific status
 
+# Block/unblock with reasons
+taskpy block FEAT-01 --reason "Waiting on API"
+taskpy unblock FEAT-01
+
 # Milestone management
 taskpy milestones                    # List all milestones
 taskpy milestone show milestone-1    # Show milestone progress
@@ -101,6 +105,18 @@ taskpy link FEAT-01 --code src/auth.py --test tests/test_auth.py
 # Run verification
 taskpy verify FEAT-01
 
+# Sprint helpers
+taskpy sprint add FEAT-01
+taskpy sprint list
+taskpy sprint stats
+
+# Groom detail depth (stub/backlog)
+taskpy groom
+
+# Stoplight gate check (0=ready, 1=missing, 2=blocked)
+taskpy stoplight FEAT-01
+
+
 # Show statistics
 taskpy stats
 taskpy stats --epic FEAT
@@ -108,6 +124,13 @@ taskpy stats --milestone milestone-1
 
 # Rebuild manifest index (resync existing task files)
 taskpy manifest rebuild
+
+# Audit stub/backlog detail depth
+taskpy groom
+
+# Stoplight gate check (0=ready, 1=missing, 2=blocked)
+taskpy stoplight FEAT-01
+
 ```
 
 ## Directory Structure

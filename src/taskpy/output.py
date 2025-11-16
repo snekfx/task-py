@@ -36,6 +36,7 @@ class Theme(Enum):
 _OUTPUT_MODE = OutputMode.PRETTY
 _BOXY_AVAILABLE = None
 _ROLO_AVAILABLE = None
+_TABLE_WIDTH = None
 
 
 def check_boxy_availability() -> bool:
@@ -148,7 +149,12 @@ def boxy_display(
         cmd.extend(["--theme", theme.value])
 
     if title:
-        cmd.extend(["--title", title])
+        cleaned_title = title.lstrip()
+        while cleaned_title and not cleaned_title[0].isalnum():
+            cleaned_title = cleaned_title[1:].lstrip()
+        if not cleaned_title:
+            cleaned_title = title.strip()
+        cmd.extend(["--title", cleaned_title])
 
     if width:
         cmd.extend(["--width", width])
@@ -206,9 +212,27 @@ def rolo_table(
 
     tsv_input = "\n".join(tsv_lines)
 
+    def _get_table_width() -> int:
+        """Determine desired table width with env override."""
+        global _TABLE_WIDTH
+        if _TABLE_WIDTH is not None:
+            return _TABLE_WIDTH
+
+        env_width = os.getenv("TASKPY_TABLE_WIDTH")
+        if env_width:
+            try:
+                _TABLE_WIDTH = max(80, int(env_width))
+                return _TABLE_WIDTH
+            except ValueError:
+                pass
+
+        term_width = shutil.get_terminal_size(fallback=(120, 40)).columns
+        _TABLE_WIDTH = max(140, term_width)
+        return _TABLE_WIDTH
+
     try:
         result = subprocess.run(
-            ["rolo", "table", "--border=unicode", "--fit"],
+            ["rolo", "table", "--border=unicode", f"--width={_get_table_width()}"],
             input=tsv_input,
             text=True,
             capture_output=True,

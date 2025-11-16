@@ -5,11 +5,12 @@ Each command is implemented as cmd_<name>(args) function.
 """
 
 import os
+import statistics
 import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Iterable, Tuple
 
 from taskpy.models import Task, TaskStatus, Priority, TaskReference, Verification, utc_now
 from taskpy.storage import TaskStorage, StorageError
@@ -256,10 +257,39 @@ def cmd_create(args):
             milestone = args.milestone
 
     # Generate content template or use provided body
-    if hasattr(args, 'body') and args.body:
-        content = f"# {title}\n\n## Description\n\n{args.body}\n\n## Acceptance Criteria\n\n- [ ] Criterion 1\n- [ ] Criterion 2\n\n## Notes\n\n<!-- Add notes here -->\n"
+    provided_body = getattr(args, 'body', None)
+    if provided_body:
+        body_text = provided_body.replace("\\n", "\n").strip()
+        if not body_text:
+            body_text = "<!-- Add task description here -->"
     else:
-        content = f"# {title}\n\n## Description\n\n<!-- Add task description here -->\n\n## Acceptance Criteria\n\n- [ ] Criterion 1\n- [ ] Criterion 2\n\n## Notes\n\n<!-- Add notes here -->\n"
+        body_text = ""
+
+    description_section = (
+        f"## Description\n\n{body_text}\n\n"
+        if body_text
+        else "## Description\n\n<!-- Add task description here -->\n\n"
+    )
+
+    content = (
+        f"# {title}\n\n"
+        f"{description_section}"
+        "## Acceptance Criteria\n\n"
+        "- [ ] Criterion 1\n"
+        "- [ ] Criterion 2\n\n"
+        "## Notes\n\n"
+        "<!-- Add notes here -->\n"
+    )
+
+    wants_stub = getattr(args, 'stub', False)
+    if wants_stub:
+        args.status = 'stub'
+    if args.status != "stub" and not wants_stub:
+        if not body_text:
+            print_error(
+                "Backlog-ready tasks require --body unless you pass --stub to acknowledge a skeletal ticket."
+            )
+            sys.exit(1)
 
     # Create task
     task = Task(
@@ -299,6 +329,16 @@ def cmd_create(args):
                 for blocker in blockers:
                     gate_info += f"  • {blocker}\n"
 
+        grooming_msg = (
+            "Next steps:\n"
+            f"  1. Open {task_path} (or run: taskpy edit {task_id}) and expand the Description,"
+            " Acceptance Criteria, and Notes with the latest discovery or requirement details.\n"
+            f"  2. Capture reproduction steps / implementation notes directly in the markdown so"
+            " agents have context.\n"
+            f"  3. Use `taskpy link {task_id}` to attach code, docs, plans, and verification commands"
+            " when they are known.\n"
+        )
+
         print_success(
             f"Created task: {task_id}\n"
             f"Title: {title}\n"
@@ -309,6 +349,7 @@ def cmd_create(args):
             f"{milestone_info}"
             f"Default NFRs: {len(default_nfrs)}\n"
             f"File: {task_path}\n"
+            f"{grooming_msg}"
             f"{gate_info}\n"
             f"View: taskpy show {task_id}\n"
             f"Edit: taskpy edit {task_id}",
@@ -357,7 +398,7 @@ def cmd_list(args):
             print()  # Spacing
 
     else:  # table
-        headers = ["Epic", "#", "Title", "Status", "SP", "Priority"]
+        headers = ["ID", "Epic", "#", "Title", "Status", "SP", "Priority"]
         rows = [_manifest_row_to_table(task) for task in tasks]
         rolo_table(headers, rows, f"Tasks ({len(tasks)} found)")
 
@@ -639,18 +680,22 @@ def cmd_stoplight(args):
     storage = get_storage()
 
     if not storage.is_initialized():
-        sys.exit(2)  # Blocked
+        print_error("TaskPy not initialized. Run: taskpy init")
+        sys.exit(2)
 
     # Find task
     result = storage.find_task_file(args.task_id)
     if not result:
-        sys.exit(2)  # Blocked
+        print_error(f"Task not found: {args.task_id}")
+        sys.exit(2)
 
     path, current_status = result
     task = storage.read_task_file(path)
 
     # Check if task is blocked
     if task.status == TaskStatus.BLOCKED:
+        reason = task.blocked_reason or "No reason provided"
+        print_warning(f"Task {task.id} is blocked: {reason}")
         sys.exit(2)  # Blocked
 
     # Determine next status in workflow
@@ -660,6 +705,7 @@ def cmd_stoplight(args):
     current_idx = workflow.index(current_status)
     if current_idx >= len(workflow) - 1:
         # Task is done
+        print_success(f"Task {task.id} is already at final status ({current_status.value})")
         sys.exit(0)  # Ready (no more promotions)
 
     next_status = workflow[current_idx + 1]
@@ -668,10 +714,18 @@ def cmd_stoplight(args):
     is_valid, blockers = validate_promotion(task, next_status, None)
 
     if is_valid:
-        # Ready to promote
+        print_success(
+            f"Ready: {task.id} can move {current_status.value} → {next_status.value}",
+            "Stoplight"
+        )
         sys.exit(0)
     else:
-        # Missing requirements
+        print_warning(
+            f"Missing requirements for {task.id}: {current_status.value} → {next_status.value}",
+            "Stoplight"
+        )
+        for blocker in blockers:
+            print(f"  • {blocker}")
         sys.exit(1)
 
 
@@ -883,6 +937,10 @@ DAILY WORKFLOW
 
   taskpy promote TASK-ID                Move task forward in workflow
   taskpy move TASK-ID done              Jump to specific status
+  taskpy block TASK-ID --reason REASON  Block with required reason
+  taskpy unblock TASK-ID                Return blocked task to backlog
+  taskpy groom                          Audit stub/backlog detail depth
+  taskpy stoplight TASK-ID              Gate check (0=ready, 1=missing, 2=blocked)
 
 SPRINT MANAGEMENT
 -----------------
@@ -916,6 +974,12 @@ REFERENCE LINKING
   taskpy link TASK-ID --test tests/test_foo.py  Link test file
   taskpy link TASK-ID --verify "pytest tests/"  Set verification command
   taskpy verify TASK-ID --update                Run and update verification
+  taskpy overrides                           View override history
+
+DATA MAINTENANCE
+----------------
+  taskpy manifest rebuild                 Resync manifest.tsv
+  taskpy groom                            Audit stub/backlog detail depth
 
 WORKFLOW STATUSES
 -----------------
@@ -1057,7 +1121,7 @@ def _cmd_sprint_list(args):
         return
 
     # Display tasks as table
-    headers = ["Epic", "#", "Title", "Status", "SP", "Priority"]
+    headers = ["ID", "Epic", "#", "Title", "Status", "SP", "Priority"]
     table_rows = [_manifest_row_to_table(task) for task in sprint_tasks]
     rolo_table(headers, table_rows, f"Sprint Tasks ({len(sprint_tasks)} found)")
 
@@ -1363,6 +1427,7 @@ def _format_title_column(title: Optional[str]) -> str:
 def _manifest_row_to_table(row: Dict[str, str]) -> List[str]:
     """Convert manifest row dict to table row for display."""
     return [
+        row.get('id', ''),
         row.get('epic', ''),
         _format_task_number(row.get('number')),
         _format_title_column(row.get('title')),
@@ -1422,6 +1487,29 @@ def _read_manifest_with_filters(storage: TaskStorage, args):
         rows = [r for r in rows if r.get('in_sprint', 'false') == 'true']
 
     return rows
+
+
+def _collect_status_tasks(storage: TaskStorage, statuses: Iterable[TaskStatus]) -> List[Tuple[Task, int]]:
+    """Collect Task objects and their content lengths for given statuses."""
+    tasks: List[Tuple[Task, int]] = []
+    for status in statuses:
+        dir_path = storage.status_dir / status.value
+        if not dir_path.exists():
+            continue
+        for path in sorted(dir_path.glob('*.md')):
+            try:
+                content = path.read_text()
+            except OSError as exc:
+                print_warning(f"Unable to read {path}: {exc}")
+                continue
+            length = len(content)
+            try:
+                task = storage.read_task_file(path)
+            except Exception as exc:
+                print_warning(f"Unable to parse {path}: {exc}")
+                continue
+            tasks.append((task, length))
+    return tasks
 
 
 def cmd_milestones(args):
@@ -1525,6 +1613,107 @@ def _cmd_manifest_rebuild(args):
             f"Path: {storage.manifest_file}",
             "Manifest Rebuilt"
         )
+
+
+def cmd_groom(args):
+    """Audit stub tasks for sufficient detail."""
+    storage = get_storage()
+
+    if not storage.is_initialized():
+        print_error("TaskPy not initialized. Run: taskpy init")
+        sys.exit(1)
+
+    done_tasks = _collect_status_tasks(storage, [TaskStatus.DONE, TaskStatus.ARCHIVED])
+    done_lengths = [length for _, length in done_tasks]
+
+    if done_lengths:
+        done_median = statistics.median(done_lengths)
+        threshold = max(int(done_median * args.ratio), args.min_chars)
+    else:
+        done_median = None
+        fallback_done = 1000
+        threshold = max(int(fallback_done * args.ratio), args.min_chars, 500)
+
+    stub_tasks = _collect_status_tasks(storage, [TaskStatus.STUB])
+    stub_lengths = [length for _, length in stub_tasks]
+
+    print_info(
+        (
+            f"Stub tasks audited: {len(stub_tasks)}\n"
+            f"Done median: {done_median:.0f} chars\n" if done_median else "No done tasks found, using fallback median (1000 chars).\n"
+        ) + f"Detail threshold: {threshold} chars",
+        "Groom Summary"
+    )
+
+    short_tasks = []
+    if not stub_tasks:
+        print_success("No stub tasks found", "Groom Check")
+    else:
+        short_tasks = [
+            (task, length, threshold - length)
+            for task, length in stub_tasks
+            if length < threshold
+        ]
+
+        if not short_tasks:
+            print_success(
+                f"All stub tasks meet the minimum detail threshold ({threshold} chars)",
+                "Groom Check"
+            )
+        else:
+            headers = ["ID", "Chars", "Short By", "Title"]
+            rows = [
+                [
+                    t.id,
+                    length,
+                    deficit,
+                    t.title[:80]
+                ]
+                for t, length, deficit in short_tasks
+            ]
+            rolo_table(headers, rows, "Stub tasks needing more detail")
+
+            if args.override:
+                print_info(
+                    "Override acknowledged. No warnings emitted, but please review the tasks above to confirm they are intentionally brief.",
+                    "Groom Override"
+                )
+            else:
+                print_warning(
+                    "These stub tasks look under-specified. Review Description/Acceptance Criteria/Notes and flesh them out if the brevity was unintentional.",
+                    "Groom Review Required"
+                )
+
+    backlog_tasks = _collect_status_tasks(storage, [TaskStatus.BACKLOG])
+    backlog_short = [
+        (task, length, threshold - length)
+        for task, length in backlog_tasks
+        if length < threshold
+    ]
+
+    if backlog_short:
+        headers = ["ID", "Chars", "Short By", "Title"]
+        rows = [
+            [
+                t.id,
+                length,
+                deficit,
+                t.title[:80]
+            ]
+            for t, length, deficit in backlog_short
+        ]
+        rolo_table(headers, rows, "Backlog tasks needing more detail")
+
+        if args.override:
+            print_info(
+                "Override acknowledged for backlog items. No warnings emitted, but double-check these tickets before sprinting.",
+                "Backlog Groom Override"
+            )
+        else:
+            print_warning(
+                "Backlog tasks above look under-specified. Review and add details before sprinting.",
+                "Backlog Groom Review Required"
+            )
 
 
 def _cmd_milestone_show(args):
