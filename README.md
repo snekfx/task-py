@@ -105,6 +105,9 @@ taskpy verify FEAT-01
 taskpy stats
 taskpy stats --epic FEAT
 taskpy stats --milestone milestone-1
+
+# Rebuild manifest index (resync existing task files)
+taskpy manifest rebuild
 ```
 
 ## Directory Structure

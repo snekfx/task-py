@@ -7,7 +7,7 @@ import tempfile
 import shutil
 from pathlib import Path
 from taskpy.models import Task, Epic, NFR, TaskStatus, Priority
-from taskpy.storage import TaskStorage, StorageError
+from taskpy.storage import TaskStorage, StorageError, MANIFEST_HEADERS
 
 
 class TestTaskStorage:
@@ -165,3 +165,30 @@ class TestTaskStorage:
 
         content = gitignore.read_text()
         assert "data/kanban" in content
+
+    def test_rebuild_manifest_from_existing_files(self, storage):
+        """Rebuild manifest should index existing task files."""
+        storage.initialize()
+
+        task = Task(
+            id="FEAT-001",
+            title="Existing task",
+            epic="FEAT",
+            number=1,
+            status=TaskStatus.STUB,
+            story_points=3,
+            priority=Priority.MEDIUM,
+        )
+
+        storage.write_task_file(task)
+
+        # Simulate missing entries by truncating manifest to header only
+        header_line = "\t".join(MANIFEST_HEADERS)
+        storage.manifest_file.write_text(f"{header_line}\n")
+
+        rebuilt = storage.rebuild_manifest()
+        assert rebuilt == 1
+
+        manifest_rows = storage.manifest_file.read_text().splitlines()
+        assert len(manifest_rows) == 2
+        assert "FEAT-001" in manifest_rows[1]

@@ -422,6 +422,17 @@ def create_parser() -> argparse.ArgumentParser:
         help="View override usage history"
     )
 
+    # taskpy manifest
+    manifest_parser = subparsers.add_parser(
+        "manifest",
+        help="Manage the TSV manifest index"
+    )
+    manifest_subparsers = manifest_parser.add_subparsers(dest="manifest_command")
+    manifest_subparsers.add_parser(
+        "rebuild",
+        help="Scan task files and rebuild manifest.tsv"
+    )
+
     # taskpy session
     session_parser = subparsers.add_parser(
         "session",

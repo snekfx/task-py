@@ -208,7 +208,7 @@ def rolo_table(
 
     try:
         result = subprocess.run(
-            ["rolo", "table", "--border=unicode"],
+            ["rolo", "table", "--border=unicode", "--fit"],
             input=tsv_input,
             text=True,
             capture_output=True,

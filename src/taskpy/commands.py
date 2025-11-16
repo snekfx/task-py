@@ -9,7 +9,7 @@ import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List, Dict
 
 from taskpy.models import Task, TaskStatus, Priority, TaskReference, Verification, utc_now
 from taskpy.storage import TaskStorage, StorageError
@@ -357,17 +357,8 @@ def cmd_list(args):
             print()  # Spacing
 
     else:  # table
-        headers = ["ID", "Title", "Status", "SP", "Priority"]
-        rows = [
-            [
-                task['id'],
-                task['title'][:50],  # Truncate long titles
-                task['status'],
-                task['story_points'],
-                task['priority']
-            ]
-            for task in tasks
-        ]
+        headers = ["Epic", "#", "Title", "Status", "SP", "Priority"]
+        rows = [_manifest_row_to_table(task) for task in tasks]
         rolo_table(headers, rows, f"Tasks ({len(tasks)} found)")
 
 
@@ -1066,17 +1057,8 @@ def _cmd_sprint_list(args):
         return
 
     # Display tasks as table
-    headers = ["ID", "Title", "Status", "SP", "Priority"]
-    table_rows = [
-        [
-            task['id'],
-            task['title'][:50],  # Truncate long titles
-            task['status'],
-            task['story_points'],
-            task['priority']
-        ]
-        for task in sprint_tasks
-    ]
+    headers = ["Epic", "#", "Title", "Status", "SP", "Priority"]
+    table_rows = [_manifest_row_to_table(task) for task in sprint_tasks]
     rolo_table(headers, table_rows, f"Sprint Tasks ({len(sprint_tasks)} found)")
 
 
@@ -1354,15 +1336,61 @@ def _move_task(storage: TaskStorage, task_id: str, current_path: Path, target_st
         sys.exit(1)
 
 
+
+def _format_task_number(number_value: Optional[str]) -> str:
+    """Format manifest number column similar to Task IDs."""
+    if not number_value:
+        return "-"
+    try:
+        number = int(number_value)
+    except (TypeError, ValueError):
+        return str(number_value)
+
+    if number < 10:
+        return f"0{number}"
+    if number < 100:
+        return f"{number:02d}"
+    return str(number)
+
+
+def _format_title_column(title: Optional[str]) -> str:
+    """Return clean title string without manual truncation."""
+    if not title:
+        return ""
+    return title.strip()
+
+
+def _manifest_row_to_table(row: Dict[str, str]) -> List[str]:
+    """Convert manifest row dict to table row for display."""
+    return [
+        row.get('epic', ''),
+        _format_task_number(row.get('number')),
+        _format_title_column(row.get('title')),
+        row.get('status', ''),
+        row.get('story_points', '0'),
+        row.get('priority', ''),
+    ]
+
+
 def _read_manifest(storage: TaskStorage):
     """Read all rows from manifest."""
     import csv
 
-    rows = []
-    with open(storage.manifest_file, 'r', newline='') as f:
-        reader = csv.DictReader(f, delimiter='\t')
-        for row in reader:
-            rows.append(row)
+    def _load_rows() -> List[Dict[str, str]]:
+        rows: List[Dict[str, str]] = []
+        if not storage.manifest_file.exists():
+            storage._create_manifest_header()
+        with open(storage.manifest_file, 'r', newline='') as f:
+            reader = csv.DictReader(f, delimiter='\t')
+            for row in reader:
+                rows.append(row)
+        return rows
+
+    rows = _load_rows()
+    if not rows:
+        rebuilt = storage.rebuild_manifest()
+        if rebuilt > 0:
+            rows = _load_rows()
     return rows
 
 
@@ -1456,6 +1484,47 @@ def cmd_milestone(args):
     else:
         print_error(f"Unknown milestone subcommand: {args.milestone_command}")
         sys.exit(1)
+
+
+def cmd_manifest(args):
+    """Manage manifest operations."""
+    if not args.manifest_command:
+        print_error("Please specify a manifest subcommand: rebuild")
+        sys.exit(1)
+
+    handlers = {
+        'rebuild': _cmd_manifest_rebuild,
+    }
+
+    handler = handlers.get(args.manifest_command)
+    if handler is None:
+        print_error(f"Unknown manifest subcommand: {args.manifest_command}")
+        sys.exit(1)
+    handler(args)
+
+
+def _cmd_manifest_rebuild(args):
+    """Rebuild manifest.tsv from task files."""
+    storage = get_storage()
+
+    if not storage.is_initialized():
+        print_error("TaskPy not initialized. Run: taskpy init")
+        sys.exit(1)
+
+    count = storage.rebuild_manifest()
+
+    if count == 0:
+        print_warning(
+            "No task files found while rebuilding manifest.\n"
+            "Create tasks with `taskpy create` first.",
+            "Manifest Rebuild"
+        )
+    else:
+        print_success(
+            f"Indexed {count} tasks into manifest.tsv\n"
+            f"Path: {storage.manifest_file}",
+            "Manifest Rebuilt"
+        )
 
 
 def _cmd_milestone_show(args):

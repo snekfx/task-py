@@ -30,6 +30,14 @@ from taskpy.models import (
 )
 
 
+MANIFEST_HEADERS = [
+    "id", "epic", "number", "status", "title",
+    "story_points", "priority", "created", "updated",
+    "tags", "dependencies", "blocks", "verification_status", "assigned",
+    "milestone", "blocked_reason", "in_sprint", "commit_hash", "demotion_reason"
+]
+
+
 class StorageError(Exception):
     """Base exception for storage errors."""
     pass
@@ -443,15 +451,9 @@ show_tags = true
 
     def _create_manifest_header(self):
         """Create manifest TSV with header row."""
-        headers = [
-            "id", "epic", "number", "status", "title",
-            "story_points", "priority", "created", "updated",
-            "tags", "dependencies", "blocks", "verification_status", "assigned",
-            "milestone", "blocked_reason", "in_sprint", "commit_hash", "demotion_reason"
-        ]
         with open(self.manifest_file, 'w', newline='') as f:
             writer = csv.writer(f, delimiter='\t')
-            writer.writerow(headers)
+            writer.writerow(MANIFEST_HEADERS)
 
     def _update_gitignore(self):
         """Add data/kanban to .gitignore if not already present."""
@@ -748,10 +750,14 @@ show_tags = true
         rows = []
         task_found = False
 
+        header_row = MANIFEST_HEADERS
         if self.manifest_file.exists():
             with open(self.manifest_file, 'r', newline='') as f:
                 reader = csv.reader(f, delimiter='\t')
-                headers = next(reader)
+                try:
+                    header_row = next(reader)
+                except StopIteration:  # Empty file without header
+                    header_row = MANIFEST_HEADERS
                 for row in reader:
                     if row and row[0] == task.id:
                         # Update existing row
@@ -767,8 +773,39 @@ show_tags = true
         # Write back
         with open(self.manifest_file, 'w', newline='') as f:
             writer = csv.writer(f, delimiter='\t')
-            writer.writerow(headers)
+            writer.writerow(header_row)
             writer.writerows(rows)
+
+    def rebuild_manifest(self) -> int:
+        """Rebuild manifest.tsv by scanning all status directories.
+
+        Returns:
+            Number of tasks written to the manifest.
+        """
+        tasks: List[Task] = []
+
+        for status in TaskStatus:
+            status_dir = self.status_dir / status.value
+            if not status_dir.exists():
+                continue
+
+            for path in sorted(status_dir.glob('*.md')):
+                try:
+                    task = self.read_task_file(path)
+                except Exception as exc:  # pragma: no cover - defensive guard
+                    raise StorageError(f"Failed to load task file {path}: {exc}") from exc
+                tasks.append(task)
+
+        # Deterministic ordering keeps manifest diffs readable
+        tasks.sort(key=lambda task: (task.epic, task.number))
+
+        with open(self.manifest_file, 'w', newline='') as f:
+            writer = csv.writer(f, delimiter='\t')
+            writer.writerow(MANIFEST_HEADERS)
+            for task in tasks:
+                writer.writerow(task.to_manifest_row())
+
+        return len(tasks)
 
     def _parse_simple_yaml(self, text: str) -> Dict[str, str]:
         """Parse simplified YAML (key: value format)."""
