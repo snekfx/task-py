@@ -432,6 +432,10 @@ def create_parser() -> argparse.ArgumentParser:
         action="append",
         help="Add issue annotation (appends to ISSUES section with timestamp)"
     )
+    link_parser.add_argument(
+        "--commit",
+        help="Link git commit hash"
+    )
 
     # taskpy issues <TASK-ID>
     issues_parser = subparsers.add_parser(

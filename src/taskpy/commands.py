@@ -1047,6 +1047,9 @@ def cmd_link(args):
             task.verification.command = args.verify[0]
             # Reset verification status to pending when command changes
             task.verification.status = VerificationStatus.PENDING
+        if hasattr(args, 'commit') and args.commit:
+            # Set commit hash
+            task.commit_hash = args.commit
 
         # Save task first (updates frontmatter and references)
         storage.write_task_file(task)
