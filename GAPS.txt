@@ -1,5 +1,5 @@
 
-+ Ticket numbers should limit to <EPIC-99, and only count up to 3 digits when that is passed.
++ Ticket numbers should limit to <EPIC>-99, and only count up to 3 digits when that is passed.
 
 + taskpy demote <ticket> (roll it back to the previous state)
 
@@ -8,5 +8,6 @@
 + create command should provide the ticket title Examples
   > taskpy create FEAT "Add dark mode" --sp 8
   creates:
-    FEAT-NN
-
+    FEAT-99.md
+      # FEAT-NN Add Doc Mode
+      | points: 
