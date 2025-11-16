@@ -1757,6 +1757,12 @@ def _read_manifest_with_filters(storage: TaskStorage, args):
     """Read manifest and apply filters."""
     rows = _read_manifest(storage)
 
+    # Hide done/archived by default unless --show-all or --status=done/archived explicitly requested
+    if hasattr(args, 'show_all'):
+        explicit_status_filter = hasattr(args, 'status') and args.status and args.status in ['done', 'archived']
+        if not args.show_all and not explicit_status_filter:
+            rows = [r for r in rows if r['status'] not in ['done', 'archived']]
+
     # Apply filters
     if hasattr(args, 'epic') and args.epic:
         rows = [r for r in rows if r['epic'] == args.epic.upper()]

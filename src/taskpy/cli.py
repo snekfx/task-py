@@ -181,6 +181,11 @@ def create_parser() -> argparse.ArgumentParser:
         default="table",
         help="Output format"
     )
+    list_parser.add_argument(
+        "--show-all",
+        action="store_true",
+        help="Show done and archived tasks (hidden by default)"
+    )
 
     # taskpy show <TASK-ID>
     show_parser = subparsers.add_parser(

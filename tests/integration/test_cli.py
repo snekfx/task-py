@@ -74,6 +74,59 @@ class TestCLI:
         assert "BUGS" in result.stdout
         assert "Fix bug" in result.stdout
 
+    def test_list_hides_done_by_default(self, temp_dir):
+        """Test that list hides done and archived tasks by default."""
+        # Init and create tasks
+        self.run_taskpy(["init"], cwd=temp_dir)
+        self.run_taskpy(["create", "FEAT", "Active Feature", "--sp", "3"], cwd=temp_dir)
+        self.run_taskpy(["create", "BUGS", "Active Bug", "--sp", "2"], cwd=temp_dir)
+        self.run_taskpy(["create", "DOCS", "Done Doc", "--sp", "1"], cwd=temp_dir)
+
+        # Move DOCS-01 through workflow to done
+        for _ in range(5):  # stub → backlog → ready → active → qa → done
+            self.run_taskpy(["promote", "DOCS-01", "--override", "--reason", "test"], cwd=temp_dir)
+
+        # List without --show-all should hide done tasks
+        result = self.run_taskpy(["list"], cwd=temp_dir)
+        assert result.returncode == 0
+        assert "FEAT-01" in result.stdout
+        assert "BUGS-01" in result.stdout
+        assert "DOCS-01" not in result.stdout  # Done task should be hidden
+
+    def test_list_show_all_includes_done(self, temp_dir):
+        """Test that --show-all flag includes done and archived tasks."""
+        # Init and create tasks
+        self.run_taskpy(["init"], cwd=temp_dir)
+        self.run_taskpy(["create", "FEAT", "Active Feature", "--sp", "3"], cwd=temp_dir)
+        self.run_taskpy(["create", "DOCS", "Done Doc", "--sp", "1"], cwd=temp_dir)
+
+        # Move DOCS-01 to done
+        for _ in range(5):
+            self.run_taskpy(["promote", "DOCS-01", "--override", "--reason", "test"], cwd=temp_dir)
+
+        # List with --show-all should show all tasks
+        result = self.run_taskpy(["list", "--show-all"], cwd=temp_dir)
+        assert result.returncode == 0
+        assert "FEAT-01" in result.stdout
+        assert "DOCS-01" in result.stdout  # Done task should be visible with --show-all
+
+    def test_list_status_done_shows_done_tasks(self, temp_dir):
+        """Test that --status done explicitly shows done tasks."""
+        # Init and create tasks
+        self.run_taskpy(["init"], cwd=temp_dir)
+        self.run_taskpy(["create", "FEAT", "Active Feature", "--sp", "3"], cwd=temp_dir)
+        self.run_taskpy(["create", "DOCS", "Done Doc", "--sp", "1"], cwd=temp_dir)
+
+        # Move DOCS-01 to done
+        for _ in range(5):
+            self.run_taskpy(["promote", "DOCS-01", "--override", "--reason", "test"], cwd=temp_dir)
+
+        # List with --status done should show only done tasks
+        result = self.run_taskpy(["list", "--status", "done"], cwd=temp_dir)
+        assert result.returncode == 0
+        assert "DOCS-01" in result.stdout  # Done task should be visible
+        assert "FEAT-01" not in result.stdout  # Non-done task should not be visible
+
     def test_show_task(self, temp_dir):
         """Test showing a task."""
         # Init and create
