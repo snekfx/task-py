@@ -1,0 +1,7 @@
+2025-11-16T07:12:05 | FEAT-07 | stub→backlog | Reason: Functionality already implemented in FEAT-10 (stub status and validation gates)
+2025-11-16T07:12:05 | FEAT-07 | backlog→ready | Reason: Already implemented
+2025-11-16T07:12:06 | FEAT-07 | ready→in_progress | Reason: Already implemented
+2025-11-16T07:12:06 | FEAT-07 | in_progress→qa | Reason: Implemented in FEAT-10
+2025-11-16T07:12:27 | FEAT-03 | stub→backlog | Reason: Demote command already implemented in FEAT-09
+2025-11-16T07:12:27 | FEAT-03 | backlog→ready | Reason: No reason provided
+2025-11-16T07:12:27 | FEAT-03 | ready→in_progress | Reason: No reason provided
