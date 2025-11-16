@@ -154,6 +154,10 @@ def validate_promotion(task: Task, target_status: TaskStatus, commit_hash: Optio
     elif current == TaskStatus.ACTIVE and target_status == TaskStatus.QA:
         return validate_active_to_qa(task)
 
+    # regression → qa (re-review after fixes)
+    elif current == TaskStatus.REGRESSION and target_status == TaskStatus.QA:
+        return validate_active_to_qa(task)  # Same requirements as active → qa
+
     # qa → done
     elif current == TaskStatus.QA and target_status == TaskStatus.DONE:
         # Temporarily set commit_hash for validation
@@ -922,6 +926,48 @@ def cmd_nfrs(args):
         print()
 
 
+def _append_issue_to_task_file(task_path: Path, issue_description: str):
+    """Append an issue to the task file's ISSUES section."""
+    timestamp = utc_now().strftime("%Y-%m-%d %H:%M:%S UTC")
+    issue_line = f"- **{timestamp}** - {issue_description}\n"
+
+    # Read the file
+    with open(task_path, 'r', encoding='utf-8') as f:
+        content = f.read()
+
+    # Check if ISSUES section exists (must be at start of line, not in code block)
+    lines = content.split('\n')
+    issues_idx = None
+    in_code_block = False
+    for i, line in enumerate(lines):
+        if line.strip().startswith('```'):
+            in_code_block = not in_code_block
+        if line.strip() == "## ISSUES" and not in_code_block and not line.startswith((' ', '\t', '-', '*')):
+            issues_idx = i
+            break
+
+    if issues_idx is not None:
+        # Find next section or end of file
+        next_section_idx = len(lines)
+        for i in range(issues_idx + 1, len(lines)):
+            if lines[i].startswith('## ') and lines[i].strip() != "## ISSUES":
+                next_section_idx = i
+                break
+
+        # Insert before next section (or append if at end)
+        lines.insert(next_section_idx, issue_line)
+        content = '\n'.join(lines)
+    else:
+        # Add ISSUES section at the end
+        if not content.endswith('\n'):
+            content += '\n'
+        content += f"\n## ISSUES\n\n{issue_line}"
+
+    # Write back
+    with open(task_path, 'w', encoding='utf-8') as f:
+        f.write(content)
+
+
 def cmd_link(args):
     """Link references to a task."""
     storage = get_storage()
@@ -958,8 +1004,13 @@ def cmd_link(args):
             # Reset verification status to pending when command changes
             task.verification.status = VerificationStatus.PENDING
 
-        # Save
+        # Save task first (updates frontmatter and references)
         storage.write_task_file(task)
+
+        # Handle issue annotations AFTER write (appends to markdown body)
+        if hasattr(args, 'issue') and args.issue:
+            for issue_desc in args.issue:
+                _append_issue_to_task_file(path, issue_desc)
 
         print_success(f"References linked to {args.task_id}")
 

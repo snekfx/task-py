@@ -420,6 +420,11 @@ def create_parser() -> argparse.ArgumentParser:
         action="append",
         help="Link verification command (can specify multiple)"
     )
+    link_parser.add_argument(
+        "--issue",
+        action="append",
+        help="Add issue annotation (appends to ISSUES section with timestamp)"
+    )
 
     # taskpy tour
     tour_parser = subparsers.add_parser(
