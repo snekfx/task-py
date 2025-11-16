@@ -1196,7 +1196,9 @@ def cmd_history(args):
         for task in tasks_with_history:
             print(f"[{task.id}] {task.title}")
             for entry in task.history:
-                timestamp = entry.timestamp.strftime("%Y-%m-%d %H:%M:%S UTC")
+                # Convert to local timezone
+                local_time = entry.timestamp.astimezone()
+                timestamp = local_time.strftime("%Y-%m-%d %H:%M:%S")
                 action = entry.action
 
                 # Format based on action type
@@ -1242,7 +1244,9 @@ def cmd_history(args):
         print()
 
         for entry in task.history:
-            timestamp = entry.timestamp.strftime("%Y-%m-%d %H:%M:%S UTC")
+            # Convert to local timezone
+            local_time = entry.timestamp.astimezone()
+            timestamp = local_time.strftime("%Y-%m-%d %H:%M:%S")
             action = entry.action
 
             # Format based on action type
