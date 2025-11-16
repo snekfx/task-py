@@ -5,9 +5,31 @@
 
 + demote and promote should error on rolls beyond their boundaries
 
-+ create command should provide the ticket title Examples
++ create command should provide the ticket title; Example:
   > taskpy create FEAT "Add dark mode" --sp 8
   creates:
     FEAT-99.md
       # FEAT-NN Add Doc Mode
-      | points: 
+      etc...
+      <body>
+
+  however this does not provide a detail body or subtasks.
+
++ we should have a --body "" flag
++ we should have link subtask command
+
++ epics are largely self describing in terms of ticket types, some other vanity epics may be used, we should prove a register command like taskpy <register> <epic> <purpose> (? does our epic manifest provide a description like field)
+
++ we should warn on tickets bigger than 3 story points that they need proper breakdown (force into stub status) 
+
++ force incomplete tickets into 'stub' status which cannot be worked on until completed, can be promoted to first stage if necessary details and verification is provided
+
++ taskpy split <ticket> to create a subset of tickets, from a ticket too big (+3), like EPIC-01 is too big -> creates EPIC-01a EPIC-O1b EPIC-01c and links them all together as related deps, all as stubs, waiting for proper details.
+
++ what is an incomplete ticket? 
+  - ticket id
+  - title
+  - body
+  - others?
+  - optional?
+

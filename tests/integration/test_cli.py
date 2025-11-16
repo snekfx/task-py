@@ -56,10 +56,10 @@ class TestCLI:
             cwd=temp_dir
         )
         assert result.returncode == 0
-        assert "FEAT-001" in result.stdout
+        assert "FEAT-01" in result.stdout
 
         # Check file exists
-        task_file = temp_dir / "data" / "kanban" / "status" / "backlog" / "FEAT-001.md"
+        task_file = temp_dir / "data" / "kanban" / "status" / "backlog" / "FEAT-01.md"
         assert task_file.exists()
 
     def test_list_tasks(self, temp_dir):
@@ -71,7 +71,7 @@ class TestCLI:
         # List
         result = self.run_taskpy(["list"], cwd=temp_dir)
         assert result.returncode == 0
-        assert "BUGS-001" in result.stdout
+        assert "BUGS-01" in result.stdout
 
     def test_show_task(self, temp_dir):
         """Test showing a task."""
@@ -80,9 +80,9 @@ class TestCLI:
         self.run_taskpy(["--view=data", "create", "DOCS", "Write docs"], cwd=temp_dir)
 
         # Show with data mode
-        result = self.run_taskpy(["--view=data", "show", "DOCS-001"], cwd=temp_dir)
+        result = self.run_taskpy(["--view=data", "show", "DOCS-01"], cwd=temp_dir)
         assert result.returncode == 0
-        assert "DOCS-001" in result.stdout
+        assert "DOCS-01" in result.stdout
         assert "Write docs" in result.stdout
 
     def test_promote_task(self, temp_dir):
@@ -92,11 +92,11 @@ class TestCLI:
         self.run_taskpy(["create", "FEAT", "Feature"], cwd=temp_dir)
 
         # Promote
-        result = self.run_taskpy(["promote", "FEAT-001"], cwd=temp_dir)
+        result = self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
         assert result.returncode == 0
 
         # Check it moved
-        ready_file = temp_dir / "data" / "kanban" / "status" / "ready" / "FEAT-001.md"
+        ready_file = temp_dir / "data" / "kanban" / "status" / "ready" / "FEAT-01.md"
         assert ready_file.exists()
 
     def test_stats(self, temp_dir):
@@ -133,6 +133,6 @@ class TestCLI:
         # List in data mode
         result = self.run_taskpy(["--view=data", "list", "--format", "ids"], cwd=temp_dir)
         assert result.returncode == 0
-        assert "FEAT-001" in result.stdout
+        assert "FEAT-01" in result.stdout
         # Should not have ANSI color codes
         assert "[38;5;" not in result.stdout

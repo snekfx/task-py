@@ -142,8 +142,16 @@ class Task:
 
     @classmethod
     def make_task_id(cls, epic: str, number: int) -> str:
-        """Generate task ID from epic and number."""
-        return f"{epic}-{number:03d}"
+        """
+        Generate task ID from epic and number.
+        Uses 2-digit format for 1-99, 3-digit format for 100-999.
+        """
+        if number <= 99:
+            return f"{epic}-{number:02d}"
+        elif number <= 999:
+            return f"{epic}-{number:03d}"
+        else:
+            raise ValueError(f"Task number {number} exceeds maximum of 999")
 
     def to_frontmatter_dict(self) -> Dict[str, Any]:
         """Convert task metadata to YAML frontmatter dict."""

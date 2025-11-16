@@ -46,8 +46,17 @@ class TestTask:
 
     def test_make_task_id(self):
         """Test generating task IDs."""
+        # Test 2-digit format for numbers <= 99
         task_id = Task.make_task_id("DOCS", 5)
-        assert task_id == "DOCS-005"
+        assert task_id == "DOCS-05"
+
+        # Test 3-digit format for numbers >= 100
+        task_id = Task.make_task_id("BUGS", 100)
+        assert task_id == "BUGS-100"
+
+        # Test boundary case
+        task_id = Task.make_task_id("FEAT", 99)
+        assert task_id == "FEAT-99"
 
     def test_task_filename(self):
         """Test task filename generation."""
