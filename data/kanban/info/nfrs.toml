@@ -14,7 +14,7 @@ category = "TEST"
 number = 1
 title = "All code must have passing tests"
 description = "Unit tests, integration tests as appropriate. No fake/placeholder tests."
-verification = "pytest tests/ or python -m pytest"
+verification = "cargo test --all or testpy run"
 default = true
 
 [NFR-DOC-001]
@@ -22,7 +22,7 @@ category = "DOC"
 number = 1
 title = "Public APIs must be documented"
 description = "All public functions, types, and modules must have documentation comments."
-verification = "Check docstrings in all public modules and functions"
+verification = "cargo doc --no-deps or featpy lint"
 default = true
 
 [NFR-PERF-001]

@@ -14,7 +14,7 @@ goal_sp = 50
 name = "Feature Complete"
 description = "All planned features implemented"
 priority = 2
-status = "active"
+status = "planned"
 goal_sp = 100
 
 [milestone-3]
@@ -23,13 +23,6 @@ description = "UX improvements, documentation, and release prep"
 priority = 3
 status = "planned"
 goal_sp = 40
-
-[milestone-4]
-name = "Workflow Automation & HANDOFF"
-description = "Work profiling, time tracking, go-flow, and automated context handoff generation"
-priority = 4
-status = "planned"
-goal_sp = 30
 
 # Add custom milestones as needed
 # [milestone-1.5]
