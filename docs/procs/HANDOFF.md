@@ -1,14 +1,22 @@
-# HANDOFF – TaskPy Session (v0.2 bundle prep)
+# HANDOFF – TaskPy Session (v0.2.3 sprint UI complete)
 
 ## Highlights
-- README and `taskpy tour` now document groom/stoplight/block/sprint commands.
+- ✅ **FEAT-26 COMPLETE**: Sprint indicators now visible in all UI views
+  - `taskpy list` shows Sprint column with ✓ for sprint tasks
+  - `taskpy kanban` displays 🏃 emoji badge for sprint tasks
+  - `taskpy sprint list/stats/add/remove` all working correctly
+  - Manifest correctly persists and reads `in_sprint` field
+- ✅ **Logo bundling fixed**: `taskpy --version` now displays correct "taskpy" ASCII art (was showing generic "FEAT")
+  - Moved `logo.txt` into `src/taskpy/` package directory
+  - Updated `pyproject.toml` with package_data configuration
+  - Updated CLI to read logo from package location
 - `bin/deploy.sh` builds a pip bundle (`~/.local/bin/snek/taskpy-bundle`) instead of pointing at live sources; respects `TASKPY_PYTHON`.
 - `taskpy groom` runs clean except for intentionally skeletal test stub `FEAT-25` and backlog docs tasks.
-- Removed legacy `SESSION_NOTES.md`; requirements captured in backlog tickets (FEAT-26/27/28, QOL-07, DOCS-03/04, etc.).
+- All sprint commands functional and UI-complete
 
 ## Next Suggested Work
-1. Implement **FEAT-26** (sprint manifest + UI) so sprint flags show up and the sprint CLI works.
-2. Wire groom thresholds into promotion gates (**QOL-07**) and build the new `taskpy check` dashboard (**FEAT-27**).
+1. Wire groom thresholds into promotion gates (**QOL-07**) so detail checks become enforceable quality gates.
+2. Build the new `taskpy check` dashboard (**FEAT-27**) for at-a-glance project health.
 3. Migrate override logging into the upcoming task history API (**FEAT-28**) once history storage lands.
 
 ## Quick Reference
