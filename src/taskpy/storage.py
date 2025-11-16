@@ -25,7 +25,7 @@ else:
         tomllib = None
 
 from taskpy.models import (
-    Task, Epic, NFR, TaskStatus, Priority,
+    Task, Epic, NFR, Milestone, TaskStatus, Priority,
     TaskReference, Verification, VerificationStatus
 )
 
@@ -110,6 +110,10 @@ class TaskStorage:
         # Create default NFRs config
         if not (self.info_dir / "nfrs.toml").exists() or force:
             self._create_default_nfrs()
+
+        # Create default milestones config
+        if not (self.info_dir / "milestones.toml").exists() or force:
+            self._create_default_milestones()
 
         # Create default config
         if not (self.info_dir / "config.toml").exists() or force:
@@ -236,6 +240,44 @@ default = false
 # default = false
 """
         (self.info_dir / "nfrs.toml").write_text(content)
+
+    def _create_default_milestones(self):
+        """Create default milestones.toml with example milestones."""
+        content = """# Milestone definitions for TaskPy
+# Define project milestones/phases here. Milestones organize multi-phase work.
+# IDs use semantic versioning (milestone-1, milestone-1.5, milestone-2).
+# Priority field controls execution order (1=first, 2=second, etc.).
+
+[milestone-1]
+name = "Foundation MVP"
+description = "Core functionality and basic workflow"
+priority = 1
+status = "active"
+goal_sp = 50
+
+[milestone-2]
+name = "Feature Complete"
+description = "All planned features implemented"
+priority = 2
+status = "planned"
+goal_sp = 100
+
+[milestone-3]
+name = "Polish and Release"
+description = "UX improvements, documentation, and release prep"
+priority = 3
+status = "planned"
+goal_sp = 40
+
+# Add custom milestones as needed
+# [milestone-1.5]
+# name = "Security Hardening"
+# description = "Address security audit findings"
+# priority = 2  # Injected between milestone-1 and milestone-2
+# status = "planned"
+# goal_sp = 20
+"""
+        (self.info_dir / "milestones.toml").write_text(content)
 
     def _create_default_config(self):
         """Create default config.toml."""
@@ -373,6 +415,32 @@ show_tags = true
             )
 
         return nfrs
+
+    def load_milestones(self) -> Dict[str, Milestone]:
+        """Load milestone definitions from milestones.toml."""
+        if tomllib is None:
+            raise StorageError("TOML library not available. Install tomli for Python <3.11")
+
+        milestones_file = self.info_dir / "milestones.toml"
+        if not milestones_file.exists():
+            return {}
+
+        with open(milestones_file, 'rb') as f:
+            data = tomllib.load(f)
+
+        milestones = {}
+        for milestone_id, config in data.items():
+            milestones[milestone_id] = Milestone(
+                id=milestone_id,
+                name=config['name'],
+                description=config['description'],
+                priority=config['priority'],
+                status=config.get('status', 'planned'),
+                goal_sp=config.get('goal_sp'),
+                blocked_reason=config.get('blocked_reason'),
+            )
+
+        return milestones
 
     def get_next_task_number(self, epic: str) -> int:
         """

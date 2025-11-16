@@ -140,3 +140,99 @@ class TestCLI:
         assert "FEAT-01" in result.stdout
         # Should not have ANSI color codes
         assert "[38;5;" not in result.stdout
+
+    def test_milestones_list(self, temp_dir):
+        """Test listing milestones."""
+        # Init
+        self.run_taskpy(["init"], cwd=temp_dir)
+
+        # List milestones
+        result = self.run_taskpy(["milestones"], cwd=temp_dir)
+        assert result.returncode == 0
+        assert "milestone-1" in result.stdout
+        assert "milestone-2" in result.stdout
+        assert "milestone-3" in result.stdout
+        assert "Foundation MVP" in result.stdout
+
+    def test_milestone_show(self, temp_dir):
+        """Test showing milestone details."""
+        # Init
+        self.run_taskpy(["init"], cwd=temp_dir)
+
+        # Show milestone
+        result = self.run_taskpy(["milestone", "show", "milestone-1"], cwd=temp_dir)
+        assert result.returncode == 0
+        assert "Foundation MVP" in result.stdout
+        assert "Priority: 1" in result.stdout
+        assert "Total Tasks: 0" in result.stdout
+
+    def test_milestone_assign(self, temp_dir):
+        """Test assigning task to milestone."""
+        # Init and create task
+        self.run_taskpy(["init"], cwd=temp_dir)
+        self.run_taskpy(["create", "FEAT", "Feature"], cwd=temp_dir)
+
+        # Assign to milestone
+        result = self.run_taskpy(["milestone", "assign", "FEAT-01", "milestone-1"], cwd=temp_dir)
+        assert result.returncode == 0
+
+        # Verify assignment
+        result = self.run_taskpy(["milestone", "show", "milestone-1"], cwd=temp_dir)
+        assert "Total Tasks: 1" in result.stdout
+
+    def test_milestone_start(self, temp_dir):
+        """Test starting a milestone."""
+        # Init
+        self.run_taskpy(["init"], cwd=temp_dir)
+
+        # Start milestone-2 (milestone-1 is already active)
+        result = self.run_taskpy(["milestone", "start", "milestone-2"], cwd=temp_dir)
+        assert result.returncode == 0
+
+        # Verify it's active
+        result = self.run_taskpy(["milestones"], cwd=temp_dir)
+        # Both should show active status (🟢)
+        assert result.returncode == 0
+
+    def test_create_with_milestone(self, temp_dir):
+        """Test creating task with milestone assignment."""
+        # Init
+        self.run_taskpy(["init"], cwd=temp_dir)
+
+        # Create task with milestone
+        result = self.run_taskpy(
+            ["--view=data", "create", "FEAT", "Test Feature", "--milestone", "milestone-1"],
+            cwd=temp_dir
+        )
+        assert result.returncode == 0
+        assert "FEAT-01" in result.stdout
+        assert "Milestone: milestone-1" in result.stdout
+
+    def test_list_filter_by_milestone(self, temp_dir):
+        """Test filtering tasks by milestone."""
+        # Init and create tasks
+        self.run_taskpy(["init"], cwd=temp_dir)
+        self.run_taskpy(["create", "FEAT", "Feature 1", "--milestone", "milestone-1"], cwd=temp_dir)
+        self.run_taskpy(["create", "FEAT", "Feature 2", "--milestone", "milestone-2"], cwd=temp_dir)
+        self.run_taskpy(["create", "FEAT", "Feature 3"], cwd=temp_dir)
+
+        # Filter by milestone-1
+        result = self.run_taskpy(["list", "--milestone", "milestone-1"], cwd=temp_dir)
+        assert result.returncode == 0
+        assert "FEAT-01" in result.stdout
+        assert "FEAT-02" not in result.stdout
+        assert "FEAT-03" not in result.stdout
+
+    def test_stats_filter_by_milestone(self, temp_dir):
+        """Test stats with milestone filter."""
+        # Init and create tasks
+        self.run_taskpy(["init"], cwd=temp_dir)
+        self.run_taskpy(["create", "FEAT", "Feature 1", "--sp", "5", "--milestone", "milestone-1"], cwd=temp_dir)
+        self.run_taskpy(["create", "FEAT", "Feature 2", "--sp", "3", "--milestone", "milestone-1"], cwd=temp_dir)
+        self.run_taskpy(["create", "FEAT", "Feature 3", "--sp", "2"], cwd=temp_dir)
+
+        # Stats for milestone-1
+        result = self.run_taskpy(["stats", "--milestone", "milestone-1"], cwd=temp_dir)
+        assert result.returncode == 0
+        assert "Total Tasks: 2" in result.stdout
+        assert "Total Story Points: 8" in result.stdout

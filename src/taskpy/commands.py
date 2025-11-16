@@ -84,6 +84,19 @@ def cmd_create(args):
     if args.tags:
         tags = [t.strip() for t in args.tags.split(',')]
 
+    # Validate milestone if provided
+    milestone = None
+    if hasattr(args, 'milestone') and args.milestone:
+        milestones = storage.load_milestones()
+        if args.milestone not in milestones:
+            print_warning(
+                f"Milestone '{args.milestone}' not found.\n"
+                f"Available: {', '.join(milestones.keys())}\n"
+                f"Task will be created without milestone assignment."
+            )
+        else:
+            milestone = args.milestone
+
     # Create task
     task = Task(
         id=task_id,
@@ -94,6 +107,7 @@ def cmd_create(args):
         story_points=args.story_points,
         priority=Priority(args.priority),
         tags=tags,
+        milestone=milestone,
         content=f"# {title}\n\n## Description\n\n<!-- Add task description here -->\n\n## Acceptance Criteria\n\n- [ ] Criterion 1\n- [ ] Criterion 2\n\n## Notes\n\n<!-- Add notes here -->\n"
     )
 
@@ -105,6 +119,7 @@ def cmd_create(args):
     # Save task
     try:
         storage.write_task_file(task)
+        milestone_info = f"Milestone: {milestone}\n" if milestone else ""
         print_success(
             f"Created task: {task_id}\n"
             f"Title: {title}\n"
@@ -112,6 +127,7 @@ def cmd_create(args):
             f"Status: {args.status}\n"
             f"Story Points: {args.story_points}\n"
             f"Priority: {args.priority}\n"
+            f"{milestone_info}"
             f"Default NFRs: {len(default_nfrs)}\n\n"
             f"View: taskpy show {task_id}\n"
             f"Edit: taskpy edit {task_id}",
@@ -493,6 +509,9 @@ def cmd_stats(args):
     if args.epic:
         rows = [r for r in rows if r['epic'] == args.epic.upper()]
 
+    if hasattr(args, 'milestone') and args.milestone:
+        rows = [r for r in rows if r.get('milestone') == args.milestone]
+
     # Calculate stats
     total = len(rows)
     by_status = {}
@@ -596,4 +615,286 @@ def _read_manifest_with_filters(storage: TaskStorage, args):
         filter_tags = set(t.strip() for t in args.tags.split(','))
         rows = [r for r in rows if filter_tags.intersection(r['tags'].split(','))]
 
+    if hasattr(args, 'milestone') and args.milestone:
+        rows = [r for r in rows if r.get('milestone') == args.milestone]
+
     return rows
+
+
+def cmd_milestones(args):
+    """List all milestones sorted by priority."""
+    storage = get_storage()
+
+    if not storage.is_initialized():
+        print_error("TaskPy not initialized. Run: taskpy init")
+        sys.exit(1)
+
+    milestones = storage.load_milestones()
+
+    if not milestones:
+        print_info("No milestones defined. Add them to: data/kanban/info/milestones.toml")
+        return
+
+    # Sort by priority
+    sorted_milestones = sorted(milestones.items(), key=lambda x: x[1].priority)
+
+    # Display
+    print("==================================================")
+    print("Milestones (sorted by priority)")
+    print("==================================================\n")
+
+    for milestone_id, m in sorted_milestones:
+        status_color = {
+            'active': '🟢',
+            'planned': '⚪',
+            'blocked': '🔴',
+            'completed': '✅'
+        }.get(m.status, '⚪')
+
+        print(f"{status_color} [{milestone_id}] {m.name}")
+        print(f"   Priority: {m.priority} | Status: {m.status}")
+        if m.goal_sp:
+            print(f"   Goal: {m.goal_sp} SP")
+        print(f"   {m.description}")
+        if m.blocked_reason:
+            print(f"   ⚠️  Blocked: {m.blocked_reason}")
+        print()
+
+
+def cmd_milestone(args):
+    """Route milestone subcommands."""
+    if not args.milestone_command:
+        print_error("Please specify a milestone subcommand: show, start, complete, assign")
+        sys.exit(1)
+
+    # Route to subcommand handler
+    subcommand_handlers = {
+        'show': _cmd_milestone_show,
+        'start': _cmd_milestone_start,
+        'complete': _cmd_milestone_complete,
+        'assign': _cmd_milestone_assign,
+    }
+
+    handler = subcommand_handlers.get(args.milestone_command)
+    if handler:
+        handler(args)
+    else:
+        print_error(f"Unknown milestone subcommand: {args.milestone_command}")
+        sys.exit(1)
+
+
+def _cmd_milestone_show(args):
+    """Show milestone details and task statistics."""
+    storage = get_storage()
+
+    if not storage.is_initialized():
+        print_error("TaskPy not initialized. Run: taskpy init")
+        sys.exit(1)
+
+    # Load milestone
+    milestones = storage.load_milestones()
+    if args.milestone_id not in milestones:
+        print_error(f"Milestone not found: {args.milestone_id}")
+        sys.exit(1)
+
+    milestone = milestones[args.milestone_id]
+
+    # Get tasks for this milestone
+    rows = _read_manifest(storage)
+    milestone_tasks = [r for r in rows if r.get('milestone') == args.milestone_id]
+
+    # Calculate stats
+    total_tasks = len(milestone_tasks)
+    total_sp = sum(int(r['story_points']) for r in milestone_tasks)
+    completed_tasks = [r for r in milestone_tasks if r['status'] in ['done', 'archived']]
+    completed_sp = sum(int(r['story_points']) for r in completed_tasks)
+    remaining_sp = total_sp - completed_sp
+
+    # Group by status
+    by_status = {}
+    for task in milestone_tasks:
+        status = task['status']
+        by_status[status] = by_status.get(status, 0) + 1
+
+    # Display
+    status_emoji = {
+        'active': '🟢',
+        'planned': '⚪',
+        'blocked': '🔴',
+        'completed': '✅'
+    }.get(milestone.status, '⚪')
+
+    print(f"\n{status_emoji} {milestone.name}")
+    print(f"{'='*60}")
+    print(f"ID: {args.milestone_id}")
+    print(f"Priority: {milestone.priority}")
+    print(f"Status: {milestone.status}")
+    if milestone.goal_sp:
+        print(f"Goal: {milestone.goal_sp} SP")
+    print(f"\n{milestone.description}\n")
+
+    if milestone.blocked_reason:
+        print(f"⚠️  Blocked: {milestone.blocked_reason}\n")
+
+    print(f"Task Progress:")
+    print(f"  Total Tasks: {total_tasks}")
+    print(f"  Completed: {len(completed_tasks)} / {total_tasks}")
+    print(f"  Story Points: {completed_sp} / {total_sp} completed ({remaining_sp} remaining)")
+    if milestone.goal_sp:
+        progress_pct = (completed_sp / milestone.goal_sp * 100) if milestone.goal_sp > 0 else 0
+        print(f"  Goal Progress: {progress_pct:.1f}%")
+
+    if by_status:
+        print(f"\nBy Status:")
+        for status, count in sorted(by_status.items()):
+            print(f"  {status:15} {count:3}")
+
+    print()
+
+
+def _cmd_milestone_start(args):
+    """Mark milestone as active."""
+    storage = get_storage()
+
+    if not storage.is_initialized():
+        print_error("TaskPy not initialized. Run: taskpy init")
+        sys.exit(1)
+
+    # Load milestones
+    milestones = storage.load_milestones()
+    if args.milestone_id not in milestones:
+        print_error(f"Milestone not found: {args.milestone_id}")
+        sys.exit(1)
+
+    milestone = milestones[args.milestone_id]
+
+    if milestone.status == 'active':
+        print_info(f"Milestone {args.milestone_id} is already active")
+        return
+
+    # Update status in TOML file
+    _update_milestone_status(storage, args.milestone_id, 'active')
+
+    print_success(
+        f"Milestone {args.milestone_id} marked as active\n"
+        f"Name: {milestone.name}",
+        "Milestone Started"
+    )
+
+
+def _cmd_milestone_complete(args):
+    """Mark milestone as completed."""
+    storage = get_storage()
+
+    if not storage.is_initialized():
+        print_error("TaskPy not initialized. Run: taskpy init")
+        sys.exit(1)
+
+    # Load milestones
+    milestones = storage.load_milestones()
+    if args.milestone_id not in milestones:
+        print_error(f"Milestone not found: {args.milestone_id}")
+        sys.exit(1)
+
+    milestone = milestones[args.milestone_id]
+
+    if milestone.status == 'completed':
+        print_info(f"Milestone {args.milestone_id} is already completed")
+        return
+
+    # Check if all tasks are done
+    rows = _read_manifest(storage)
+    milestone_tasks = [r for r in rows if r.get('milestone') == args.milestone_id]
+    incomplete = [r for r in milestone_tasks if r['status'] not in ['done', 'archived']]
+
+    if incomplete:
+        print_warning(
+            f"Milestone has {len(incomplete)} incomplete tasks:\n" +
+            "\n".join(f"  - {t['id']}: {t['title']}" for t in incomplete[:5])
+        )
+        if len(incomplete) > 5:
+            print_warning(f"  ... and {len(incomplete) - 5} more")
+        print_warning("\nMarking as completed anyway.")
+
+    # Update status in TOML file
+    _update_milestone_status(storage, args.milestone_id, 'completed')
+
+    print_success(
+        f"Milestone {args.milestone_id} marked as completed\n"
+        f"Name: {milestone.name}",
+        "Milestone Completed"
+    )
+
+
+def _cmd_milestone_assign(args):
+    """Assign task to milestone."""
+    storage = get_storage()
+
+    if not storage.is_initialized():
+        print_error("TaskPy not initialized. Run: taskpy init")
+        sys.exit(1)
+
+    # Validate milestone exists
+    milestones = storage.load_milestones()
+    if args.milestone_id not in milestones:
+        print_error(f"Milestone not found: {args.milestone_id}")
+        sys.exit(1)
+
+    # Find task
+    result = storage.find_task_file(args.task_id)
+    if not result:
+        print_error(f"Task not found: {args.task_id}")
+        sys.exit(1)
+
+    path, status = result
+
+    try:
+        # Read task
+        task = storage.read_task_file(path)
+        old_milestone = task.milestone
+
+        # Update milestone
+        task.milestone = args.milestone_id
+
+        # Save task
+        storage.write_task_file(task)
+
+        if old_milestone:
+            print_success(
+                f"Moved {args.task_id} from {old_milestone} to {args.milestone_id}",
+                "Task Reassigned"
+            )
+        else:
+            print_success(
+                f"Assigned {args.task_id} to {args.milestone_id}",
+                "Task Assigned"
+            )
+
+    except Exception as e:
+        print_error(f"Failed to assign task: {e}")
+        sys.exit(1)
+
+
+def _update_milestone_status(storage: TaskStorage, milestone_id: str, new_status: str):
+    """Update milestone status in TOML file."""
+    import re
+
+    milestones_file = storage.info_dir / "milestones.toml"
+    content = milestones_file.read_text()
+
+    # Find the milestone section and update status
+    # Pattern: [milestone-id]\n... status = "old_status" ... next [section or EOF
+    pattern = rf'(\[{re.escape(milestone_id)}\][^\[]*status\s*=\s*")[^"]*(")'
+    replacement = rf'\g<1>{new_status}\g<2>'
+
+    updated_content = re.sub(pattern, replacement, content)
+
+    if updated_content == content:
+        # If pattern didn't match, milestone might not have a status field
+        # Try to add it after the milestone header
+        pattern = rf'(\[{re.escape(milestone_id)}\]\n)'
+        if re.search(pattern, content):
+            replacement = rf'\g<1>status = "{new_status}"\n'
+            updated_content = re.sub(pattern, replacement, content, count=1)
+
+    milestones_file.write_text(updated_content)

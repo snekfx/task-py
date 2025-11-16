@@ -254,6 +254,33 @@ class NFR:
 
 
 @dataclass
+class Milestone:
+    """
+    Milestone definition for organizing multi-phase work.
+
+    Milestones use semantic IDs (milestone-1, milestone-1.5) with
+    independent priority ordering for execution.
+    """
+    id: str  # milestone-1, milestone-1.5, milestone-2, etc.
+    name: str  # Human-readable milestone name
+    description: str
+    priority: int  # Execution order (1=first, 2=second, etc.)
+    status: str = "planned"  # planned, active, blocked, completed
+    goal_sp: Optional[int] = None  # Target story points
+    blocked_reason: Optional[str] = None  # Reason if status is blocked
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            'name': self.name,
+            'description': self.description,
+            'priority': self.priority,
+            'status': self.status,
+            'goal_sp': self.goal_sp,
+            'blocked_reason': self.blocked_reason,
+        }
+
+
+@dataclass
 class Session:
     """
     Development session tracking.

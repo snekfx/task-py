@@ -112,6 +112,10 @@ def create_parser() -> argparse.ArgumentParser:
         help="Comma-separated tags"
     )
     create_parser.add_argument(
+        "--milestone",
+        help="Assign to milestone (e.g., milestone-1)"
+    )
+    create_parser.add_argument(
         "--edit",
         action="store_true",
         help="Open task in $EDITOR after creation"
@@ -141,6 +145,10 @@ def create_parser() -> argparse.ArgumentParser:
     list_parser.add_argument(
         "--assigned",
         help="Filter by assigned user/session"
+    )
+    list_parser.add_argument(
+        "--milestone",
+        help="Filter by milestone (e.g., milestone-1)"
     )
     list_parser.add_argument(
         "--format",
@@ -246,6 +254,32 @@ def create_parser() -> argparse.ArgumentParser:
         help="Show only default NFRs"
     )
 
+    # taskpy milestones
+    milestones_parser = subparsers.add_parser(
+        "milestones",
+        help="List project milestones"
+    )
+
+    # taskpy milestone (with subcommands)
+    milestone_parser = subparsers.add_parser(
+        "milestone",
+        help="Manage individual milestones"
+    )
+    milestone_subparsers = milestone_parser.add_subparsers(dest="milestone_command")
+
+    milestone_show = milestone_subparsers.add_parser("show", help="Show milestone details and stats")
+    milestone_show.add_argument("milestone_id", help="Milestone ID (e.g., milestone-1)")
+
+    milestone_start = milestone_subparsers.add_parser("start", help="Mark milestone as active")
+    milestone_start.add_argument("milestone_id", help="Milestone ID (e.g., milestone-1)")
+
+    milestone_complete = milestone_subparsers.add_parser("complete", help="Mark milestone as completed")
+    milestone_complete.add_argument("milestone_id", help="Milestone ID (e.g., milestone-1)")
+
+    milestone_assign = milestone_subparsers.add_parser("assign", help="Assign task to milestone")
+    milestone_assign.add_argument("task_id", help="Task ID (e.g., FEAT-01)")
+    milestone_assign.add_argument("milestone_id", help="Milestone ID (e.g., milestone-1)")
+
     # taskpy link <TASK-ID>
     link_parser = subparsers.add_parser(
         "link",
@@ -304,6 +338,10 @@ def create_parser() -> argparse.ArgumentParser:
     stats_parser.add_argument(
         "--epic",
         help="Filter by epic"
+    )
+    stats_parser.add_argument(
+        "--milestone",
+        help="Filter by milestone (e.g., milestone-1)"
     )
 
     return parser
