@@ -451,6 +451,11 @@ def cmd_show(args):
             if task.verification.command:
                 print(f"Verification: {task.verification.command}")
                 print(f"Status: {task.verification.status.value}")
+            if task.resolution:
+                print(f"\nResolution: {task.resolution.value}")
+                print(f"Reason: {task.resolution_reason}")
+                if task.duplicate_of:
+                    print(f"Duplicate of: {task.duplicate_of}")
 
     except Exception as e:
         print_error(f"Failed to read task: {e}")
@@ -1016,6 +1021,77 @@ def cmd_link(args):
 
     except Exception as e:
         print_error(f"Failed to link references: {e}")
+        sys.exit(1)
+
+
+def cmd_resolve(args):
+    """
+    Resolve a bug task with special resolution type.
+
+    Only works for bug-like tasks (BUGS*, REG*, DEF*).
+    Bypasses normal QA gates for non-fixed resolutions.
+    """
+    from taskpy.models import ResolutionType
+    import re
+
+    storage = get_storage()
+
+    # Find task file
+    result = storage.find_task_file(args.task_id)
+    if not result:
+        print_error(f"Task not found: {args.task_id}")
+        sys.exit(1)
+
+    path, current_status = result
+    task = storage.read_task_file(path)
+
+    # Validate task is bug-like
+    if not re.match(r'^(BUGS|REG|DEF)', task.epic):
+        print_error(f"Resolve command only works for bug-like tasks (BUGS*, REG*, DEF*)")
+        print_error(f"Task {args.task_id} has epic: {task.epic}")
+        print_error(f"Use normal promote workflow for feature tasks")
+        sys.exit(1)
+
+    # Convert resolution string to enum
+    resolution = ResolutionType(args.resolution)
+
+    # Validate duplicate_of is provided for duplicate resolutions
+    if resolution == ResolutionType.DUPLICATE and not args.duplicate_of:
+        print_error("--duplicate-of is required when resolution is 'duplicate'")
+        sys.exit(1)
+
+    # Set resolution metadata
+    task.resolution = resolution
+    task.resolution_reason = args.reason
+    if args.duplicate_of:
+        task.duplicate_of = args.duplicate_of
+
+    # Move to done
+    old_status = task.status
+    task.status = TaskStatus.DONE
+    task.updated = utc_now()
+
+    # Save task
+    try:
+        # Delete old file if status changed
+        if old_status != TaskStatus.DONE:
+            path.unlink()
+
+        storage.write_task_file(task)
+
+        # Display resolution
+        print_success(f"Resolved {args.task_id}: {old_status.value} → done")
+        print_info(f"Resolution: {resolution.value}")
+        print_info(f"Reason: {args.reason}")
+        if args.duplicate_of:
+            print_info(f"Duplicate of: {args.duplicate_of}")
+
+        # Note about bypassed gates
+        if resolution != ResolutionType.FIXED:
+            print_warning("⚠️  Bypassed normal QA gates (non-code resolution)")
+
+    except Exception as e:
+        print_error(f"Failed to resolve task: {e}")
         sys.exit(1)
 
 

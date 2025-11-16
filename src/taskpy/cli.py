@@ -426,6 +426,31 @@ def create_parser() -> argparse.ArgumentParser:
         help="Add issue annotation (appends to ISSUES section with timestamp)"
     )
 
+    # taskpy resolve <TASK-ID> --resolution TYPE --reason REASON
+    resolve_parser = subparsers.add_parser(
+        "resolve",
+        help="Resolve a bug task (BUGS*, REG*, DEF*) with special resolution"
+    )
+    resolve_parser.add_argument(
+        "task_id",
+        help="Task ID (e.g., BUGS-001, REG-05, DEF-10)"
+    )
+    resolve_parser.add_argument(
+        "--resolution",
+        required=True,
+        choices=["fixed", "duplicate", "cannot_reproduce", "wont_fix", "config_change", "docs_only"],
+        help="Resolution type"
+    )
+    resolve_parser.add_argument(
+        "--reason",
+        required=True,
+        help="Explanation for this resolution"
+    )
+    resolve_parser.add_argument(
+        "--duplicate-of",
+        help="Reference to duplicate task (used with --resolution duplicate)"
+    )
+
     # taskpy tour
     tour_parser = subparsers.add_parser(
         "tour",

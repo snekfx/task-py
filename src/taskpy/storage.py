@@ -687,6 +687,15 @@ show_tags = true
         if 'verification.status' in metadata:
             task.verification.status = VerificationStatus(metadata.get('verification.status'))
 
+        # Parse resolution (if present)
+        if 'resolution' in metadata:
+            from taskpy.models import ResolutionType
+            task.resolution = ResolutionType(metadata.get('resolution'))
+        if 'resolution_reason' in metadata:
+            task.resolution_reason = metadata.get('resolution_reason')
+        if 'duplicate_of' in metadata:
+            task.duplicate_of = metadata.get('duplicate_of')
+
         return task
 
     def write_task_file(self, task: Task):
@@ -710,7 +719,8 @@ show_tags = true
         # Simple fields
         for key in ['id', 'title', 'epic', 'number', 'status', 'story_points',
                     'priority', 'created', 'updated', 'assigned', 'milestone', 'blocked_reason',
-                    'in_sprint', 'commit_hash', 'demotion_reason']:
+                    'in_sprint', 'commit_hash', 'demotion_reason', 'resolution', 'resolution_reason',
+                    'duplicate_of']:
             value = fm[key]
             if value is not None:
                 frontmatter_lines.append(f"{key}: {value}")

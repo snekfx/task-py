@@ -46,6 +46,16 @@ class VerificationStatus(Enum):
     SKIPPED = "skipped"
 
 
+class ResolutionType(Enum):
+    """Bug task resolution types."""
+    FIXED = "fixed"  # Normal code fix through QA workflow
+    DUPLICATE = "duplicate"  # Duplicate of another issue
+    CANNOT_REPRODUCE = "cannot_reproduce"  # Unable to reproduce
+    WONT_FIX = "wont_fix"  # Working as intended
+    CONFIG_CHANGE = "config_change"  # Fixed via configuration only
+    DOCS_ONLY = "docs_only"  # Addressed with documentation
+
+
 @dataclass
 class TaskReference:
     """References to code, docs, or other resources."""
@@ -125,6 +135,11 @@ class Task:
     commit_hash: Optional[str] = None  # Git commit hash when task completed
     demotion_reason: Optional[str] = None  # Reason for demotion from done
 
+    # Bug resolution (for BUGS*, REG*, DEF* tasks)
+    resolution: Optional[ResolutionType] = None  # How the bug was resolved
+    resolution_reason: Optional[str] = None  # Explanation for resolution
+    duplicate_of: Optional[str] = None  # Task ID if resolution is DUPLICATE
+
     @property
     def filename(self) -> str:
         """Generate filename for this task."""
@@ -186,6 +201,9 @@ class Task:
             'in_sprint': self.in_sprint,
             'commit_hash': self.commit_hash,
             'demotion_reason': self.demotion_reason,
+            'resolution': self.resolution.value if self.resolution else None,
+            'resolution_reason': self.resolution_reason,
+            'duplicate_of': self.duplicate_of,
             'tags': self.tags,
             'dependencies': self.dependencies,
             'blocks': self.blocks,
