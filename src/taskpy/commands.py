@@ -1165,6 +1165,63 @@ def cmd_history(args):
     """Display task history and audit trail."""
     storage = get_storage()
 
+    # Check if showing all tasks or single task
+    if args.all:
+        # Read all tasks from manifest
+        rows = _read_manifest(storage)
+
+        # Collect all tasks with history
+        tasks_with_history = []
+        for row in rows:
+            task_id = row['id']
+            result = storage.find_task_file(task_id)
+            if result:
+                path, _ = result
+                try:
+                    task = storage.read_task_file(path)
+                    if task.history:
+                        tasks_with_history.append(task)
+                except Exception:
+                    continue
+
+        if not tasks_with_history:
+            print_info("No tasks with history entries found")
+            return
+
+        # Display all history
+        total_entries = sum(len(t.history) for t in tasks_with_history)
+        print_success(f"History for {len(tasks_with_history)} tasks ({total_entries} total entries)", "All Task History")
+        print()
+
+        for task in tasks_with_history:
+            print(f"[{task.id}] {task.title}")
+            for entry in task.history:
+                timestamp = entry.timestamp.strftime("%Y-%m-%d %H:%M:%S UTC")
+                action = entry.action
+
+                # Format based on action type
+                if entry.from_status and entry.to_status:
+                    transition = f"{entry.from_status} → {entry.to_status}"
+                    action_display = f"{action}: {transition}"
+                else:
+                    action_display = action
+
+                print(f"  [{timestamp}] {action_display}")
+                if entry.reason:
+                    print(f"    Reason: {entry.reason}")
+                if entry.actor:
+                    print(f"    Actor: {entry.actor}")
+                if entry.metadata:
+                    for key, value in entry.metadata.items():
+                        print(f"    {key}: {value}")
+            print()
+        return
+
+    # Single task mode
+    if not args.task_id:
+        print_error("Task ID required (or use --all to show all)")
+        sys.exit(1)
+
     # Find task file
     result = storage.find_task_file(args.task_id)
     if not result:
@@ -1854,10 +1911,10 @@ def _read_manifest_with_filters(storage: TaskStorage, args):
     """Read manifest and apply filters."""
     rows = _read_manifest(storage)
 
-    # Hide done/archived by default unless --show-all or --status=done/archived explicitly requested
-    if hasattr(args, 'show_all'):
+    # Hide done/archived by default unless --all or --status=done/archived explicitly requested
+    if hasattr(args, 'all'):
         explicit_status_filter = hasattr(args, 'status') and args.status and args.status in ['done', 'archived']
-        if not args.show_all and not explicit_status_filter:
+        if not args.all and not explicit_status_filter:
             rows = [r for r in rows if r['status'] not in ['done', 'archived']]
 
     # Apply filters

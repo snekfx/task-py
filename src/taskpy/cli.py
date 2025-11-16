@@ -188,9 +188,16 @@ def create_parser() -> argparse.ArgumentParser:
         help="Output format"
     )
     list_parser.add_argument(
-        "--show-all",
+        "--all",
         action="store_true",
         help="Show done and archived tasks (hidden by default)"
+    )
+    # Keep --show-all as alias for backward compatibility
+    list_parser.add_argument(
+        "--show-all",
+        dest="all",
+        action="store_true",
+        help=argparse.SUPPRESS  # Hidden alias
     )
 
     # taskpy show <TASK-ID>
@@ -463,14 +470,20 @@ def create_parser() -> argparse.ArgumentParser:
         help="Task ID (e.g., FEAT-01)"
     )
 
-    # taskpy history <TASK-ID>
+    # taskpy history <TASK-ID> or taskpy history --all
     history_parser = subparsers.add_parser(
         "history",
         help="Display task history and audit trail"
     )
     history_parser.add_argument(
         "task_id",
-        help="Task ID (e.g., FEAT-01)"
+        nargs="?",
+        help="Task ID (e.g., FEAT-01) - omit to show all with --all"
+    )
+    history_parser.add_argument(
+        "--all",
+        action="store_true",
+        help="Show history for all tasks"
     )
 
     # taskpy resolve <TASK-ID> --resolution TYPE --reason REASON
