@@ -114,21 +114,34 @@ All tasks below were moved from done → qa due to missing verification.
 ### Positive
 - All 3 done tasks have valid commits
 - All done tasks have code and test references
-- 12 of 15 QA tasks have valid commits
+- **ALL 15 QA tasks have valid commits** (updated finding)
 - No tasks marked done without any work
 
-### Issues
+### Issues - Code/Test References (Gate Requirements)
+- **0 of 15 QA tasks** have test references
+- **5 of 15 QA tasks** missing code references:
+  - REF-02, FEAT-14, FEAT-11, FEAT-10, FEAT-07
+- **10 of 15 QA tasks** have code references:
+  - REF-01, QOL-01, FEAT-22, FEAT-21, FEAT-12, FEAT-09, FEAT-04, FEAT-03, FEAT-02, DOCS-02
+
+### Issues - Verification
 - 0 of 18 total tasks have run verification commands
 - All verification.status = "pending"
-- 3 QA tasks missing commit hashes (REF-02, QOL-01, needs investigation)
+
+### Root Cause
+- Tasks likely completed **before QA gates were implemented**
+- Gate validation (code/test refs) added later in FEAT-10/FEAT-09
+- Tasks were marked done without meeting current gate requirements
 
 ## Recommendations
 
 ### Immediate Actions
 1. Keep FEAT-26, FEAT-29, QOL-08 in done (valid work)
-2. For QA tasks with commits: Add verification commands
-3. For QA tasks without commits (REF-02, QOL-01): Investigate if work was done
-4. Run `pytest` on all QA tasks before re-promoting to done
+2. **Add missing code references** to 5 tasks: REF-02, FEAT-14, FEAT-11, FEAT-10, FEAT-07
+3. **Add test references** to all 15 QA tasks
+4. Add verification commands to all 15 QA tasks
+5. Run `pytest` and update verification.status
+6. Only re-promote to done after gates pass
 
 ### Process Improvements
 1. QOL-07: Integrate detail audits into gates (prevent this)
@@ -151,3 +164,34 @@ All tasks below were moved from done → qa due to missing verification.
 **Risk Level:** LOW
 - All work appears genuine
 - Missing verification is procedural, not substantive
+
+## QA Tasks Remediation Checklist
+
+### Tasks Missing Code References (5)
+- [ ] REF-02 - Add code refs (check commit ef474b5)
+- [ ] FEAT-14 - Add code refs (check commit 13716b8)
+- [ ] FEAT-11 - Add code refs (check commit 13716b8)
+- [ ] FEAT-10 - Add code refs (check commit 1055f6d)
+- [ ] FEAT-07 - Add code refs (check commit ef474b5)
+
+### Tasks With Code Refs, Need Test Refs (10)
+- [ ] REF-01 - Add test refs
+- [ ] QOL-01 - Add test refs
+- [ ] FEAT-22 - Add test refs
+- [ ] FEAT-21 - Add test refs
+- [ ] FEAT-12 - Add test refs
+- [ ] FEAT-09 - Add test refs
+- [ ] FEAT-04 - Add test refs
+- [ ] FEAT-03 - Add test refs
+- [ ] FEAT-02 - Add test refs
+- [ ] DOCS-02 - Add test refs
+
+### All QA Tasks Need (15)
+- [ ] Add verification.command
+- [ ] Run verification
+- [ ] Update verification.status
+
+**Command to add refs:**
+```bash
+taskpy link TASK-ID --code src/path/to/file.py --test tests/path/to/test.py
+```
