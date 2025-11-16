@@ -41,6 +41,16 @@
 - ✅ Respects --view=data mode for scripting
 - ✅ List command uses rolo for table format
 
+**FEAT-07: Stub Status (DONE - marked as implemented in FEAT-10)**
+- Already implemented in FEAT-10 (commit 1055f6d)
+- Stub status exists in TaskStatus enum
+- Gates validate stub→backlog promotion
+
+**FEAT-03: Demote Command (DONE - marked as implemented in FEAT-09)**
+- Already implemented in FEAT-09 (commit ef474b5)
+- cmd_demote with --reason validation
+- Demotion tracking in task model
+
 ### Key Files Modified
 - `src/taskpy/models.py` - commit_hash, demotion_reason, blocked_reason fields
 - `src/taskpy/storage.py` - Updated for new fields
@@ -50,14 +60,15 @@
 - `tests/integration/test_cli.py` - 17 new tests (10 gating + 3 override + 4 blocking)
 
 ### Milestone-1 Progress
-- **6/12 tasks done (50%), 23/33 SP complete (70%)**
-- Done: FEAT-09, FEAT-10, FEAT-22, REF-02, FEAT-12, FEAT-02
-- Stub: 6 tasks need grooming (DOCS-02, FEAT-04, FEAT-07, REF-01, FEAT-03, QOL-01)
+- **8/12 tasks done (67%), 28/33 SP complete (85%)**
+- Done: FEAT-09, FEAT-10, FEAT-22, REF-02, FEAT-12, FEAT-02, FEAT-07, FEAT-03
+- Stub: 4 tasks remaining (DOCS-02, FEAT-04, REF-01, QOL-01) - 5 SP total
 
 ### Next Actions (Milestone-1)
-1. Groom stub tasks to move them to backlog
-2. Consider tackling high-priority stub tasks (DOCS-02, FEAT-07, QOL-01)
-3. Continue milestone-1 tasks to reach completion
+1. **REF-01**: Replace datetime.utcnow() with timezone-aware (2 SP, medium) - Technical debt
+2. **DOCS-02**: Define required vs optional task fields (1 SP, high) - Documentation
+3. **FEAT-04**: Add --body flag to create command (1 SP, medium) - Enhancement
+4. **QOL-01**: Add boundary validation for promote/demote (1 SP, high) - QOL improvement
 
 ### Blocking System Usage
 ```bash
@@ -86,4 +97,4 @@ taskpy overrides
 Log format: `2025-11-16T05:36:28 | TASK-ID | from→to | Reason: text`
 
 ### Token Usage
-~85K/200K used this session (42%)
+~104K/200K used this session (52%)
