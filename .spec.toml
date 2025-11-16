@@ -1,0 +1,25 @@
+# Project specification (.spec.toml)
+# Shared configuration for featpy, testpy, taskpy and other tooling
+
+# Global configuration (shared across all tools)
+project_name = "task-py"
+languages = ["python"]
+
+exclude = [
+    "**/tests/**",
+    "**/target/**",
+    "**/__pycache__/**",
+    "**/data/kanban/**",  # TaskPy kanban data
+]
+
+# Feature documentation configuration (featpy)
+[features]
+features_root = "src"
+docs_root = "docs/feats"
+doc_pattern = "FEATURES_{FEATURE}.md"
+auto_discover = true
+
+# TaskPy configuration (for self-hosting taskpy development)
+[taskpy]
+kanban_root = "data/kanban"
+auto_init = false

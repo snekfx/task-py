@@ -1,0 +1,31 @@
+we need to create a python tool to manage our META PROCESS which defines our agentic development cycle, currently we
+  put instruction docs in docs/dev to spell out the guidelines, and an agent employ meta process to creat docs/procs
+  which create self hydrating docs like QUICKREF TASKS DONE etc, the ai agents have to manually update this and it
+  gets messy. we arent quite ready for a db-driven task system, maybe just a file-base one with a TSV or CSV. so i
+  createdf this task-py project to help us on that front, basically we want to follow a typical agile process with
+  vanity epic namespaces for certain tasks types, either relating to the project or context specific like BUGS-NN,
+  DOCS-NN, REF-NN (refactor), RX-NN (research) with story point breakdowns and possible subtasks, think like a
+  text-based JIRA but simpler. the agent should be able to use the taskpy tool to determine next priorities change
+  status of tickets, create and move tickes (to done or backlog), and link reference docs and code to tickets; as a
+  reference most of our rust projects and some of our projects use docs/procs to a varying degree and manually update
+  all their docs including a HANDOFF.md; i think a tool would power this better. i think the tool should have a taskpy
+  init command to stub out a data folder relative to the project root ./data/kanban and in a typical light weight
+  kanban move tasks across different states (and back as needed) add notes and feedback etc, and init should also add
+  the kanban to gitignore (create it if its missing); I feel like each task should have its own md file so that
+  sufficient detail can be provided as needed. we could do taskpy promote <TASK>-<NN> or something like that to
+  migrate through the kanban buckets -- we can have data/kanban/info for meta information like creating a doc that
+  lists the allowed EPIC names and allow users to register new ones, so when tasks are created they use one of the
+  defined ones; and buckets are just data/kanban/status/<status_dir> so actual tickets get moved literaly through
+  taskpy and a manifest gets updated. taskpy can query the manifest to get a list of tasks either all or through some
+  filter -- for reference you can find repos/docs/brain i think has a canonical copy of meta process should be there
+  and a sample procs/procs.sample that shows how a repo used this meta process - it gets a little sloppy as agents
+  start creating files all over the place, i think a better approach is to use  our standard docs/plan directory to
+  create strategic detail documents with a PLAN-NN prefix and ot be able to link them to relevant tasks as a
+  reference, we also have NFR's that we should keep a manifest of, including a default set; so they can be appended to
+  tasks for verification -- and maybe a taskpy verify command that checks that the tests for the particular work done
+  are green -- for example at one stage in the lifecycle the developer/agent can add the tests needed for the
+  particular ticket via a lifecycle command -- taskpy can call the runner to verify whatever test is needed. we also
+  have a testpy and featpy tools that help validate test structure and module structure (module spec v4) and they
+  could play together nicely. you can refer to the adjacent python projects to see what theyre using. and we primarily
+  want to use this right now with our rust projects but this could branch out to our node and pythong projects so we
+  should leave room for extensibility.
