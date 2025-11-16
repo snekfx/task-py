@@ -541,3 +541,60 @@ class TestCLI:
         assert "FEAT-01" in result.stdout
         assert "stub→backlog" in result.stdout
         assert "Test override" in result.stdout
+
+    def test_block_task(self, temp_dir):
+        """Test blocking a task with reason."""
+        self.run_taskpy(["init"], cwd=temp_dir)
+        self.run_taskpy(["create", "FEAT", "Test Feature", "--sp", "3"], cwd=temp_dir)
+
+        # Block task
+        result = self.run_taskpy(["block", "FEAT-01", "--reason", "Waiting on API spec"], cwd=temp_dir)
+        assert result.returncode == 0
+        assert "blocked" in result.stdout.lower()
+
+        # Verify task is in blocked status
+        result = self.run_taskpy(["--view", "data", "show", "FEAT-01"], cwd=temp_dir)
+        assert "Status: blocked" in result.stdout or "status: blocked" in result.stdout
+
+    def test_unblock_task(self, temp_dir):
+        """Test unblocking a task."""
+        self.run_taskpy(["init"], cwd=temp_dir)
+        self.run_taskpy(["create", "FEAT", "Test Feature", "--sp", "3"], cwd=temp_dir)
+
+        # Block then unblock
+        self.run_taskpy(["block", "FEAT-01", "--reason", "Testing"], cwd=temp_dir)
+        result = self.run_taskpy(["unblock", "FEAT-01"], cwd=temp_dir)
+        assert result.returncode == 0
+        assert "unblocked" in result.stdout.lower()
+
+        # Verify task is back in backlog
+        result = self.run_taskpy(["--view", "data", "show", "FEAT-01"], cwd=temp_dir)
+        assert "Status: backlog" in result.stdout or "status: backlog" in result.stdout
+
+    def test_blocked_task_cannot_promote(self, temp_dir):
+        """Test that blocked tasks cannot be promoted."""
+        self.run_taskpy(["init"], cwd=temp_dir)
+        self.run_taskpy(["create", "FEAT", "Test Feature", "--sp", "3"], cwd=temp_dir)
+
+        # Promote to backlog first
+        self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
+
+        # Block task
+        self.run_taskpy(["block", "FEAT-01", "--reason", "Blocked for testing"], cwd=temp_dir)
+
+        # Try to promote - should fail
+        result = self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
+        assert result.returncode == 1
+        assert "blocked" in result.stdout.lower()
+
+    def test_stoplight_blocked_task(self, temp_dir):
+        """Test stoplight returns code 2 for blocked tasks."""
+        self.run_taskpy(["init"], cwd=temp_dir)
+        self.run_taskpy(["create", "FEAT", "Test Feature", "--sp", "3"], cwd=temp_dir)
+
+        # Block task
+        self.run_taskpy(["block", "FEAT-01", "--reason", "Testing stoplight"], cwd=temp_dir)
+
+        # Stoplight should return 2 (blocked)
+        result = self.run_taskpy(["stoplight", "FEAT-01"], cwd=temp_dir)
+        assert result.returncode == 2

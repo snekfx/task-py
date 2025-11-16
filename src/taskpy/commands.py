@@ -140,6 +140,11 @@ def validate_promotion(task: Task, target_status: TaskStatus, commit_hash: Optio
     """
     current = task.status
 
+    # Check if task is blocked
+    if current == TaskStatus.BLOCKED:
+        reason = task.blocked_reason or "No reason provided"
+        return (False, [f"Task is blocked: {reason}. Use 'taskpy unblock {task.id}' to unblock."])
+
     # stub → backlog
     if current == TaskStatus.STUB and target_status == TaskStatus.BACKLOG:
         return validate_stub_to_backlog(task)
@@ -631,6 +636,10 @@ def cmd_stoplight(args):
     path, current_status = result
     task = storage.read_task_file(path)
 
+    # Check if task is blocked
+    if task.status == TaskStatus.BLOCKED:
+        sys.exit(2)  # Blocked
+
     # Determine next status in workflow
     workflow = [TaskStatus.STUB, TaskStatus.BACKLOG, TaskStatus.READY, TaskStatus.IN_PROGRESS,
                 TaskStatus.QA, TaskStatus.DONE]
@@ -648,9 +657,6 @@ def cmd_stoplight(args):
     if is_valid:
         # Ready to promote
         sys.exit(0)
-    elif task.status == TaskStatus.BLOCKED:
-        # Blocked status
-        sys.exit(2)
     else:
         # Missing requirements
         sys.exit(1)
@@ -1221,6 +1227,74 @@ def cmd_overrides(args):
         print(line.rstrip())
 
     print()
+
+
+def cmd_block(args):
+    """Block a task with required reason."""
+    storage = get_storage()
+
+    if not storage.is_initialized():
+        print_error("TaskPy not initialized. Run: taskpy init")
+        sys.exit(1)
+
+    # Find task
+    result = storage.find_task_file(args.task_id)
+    if not result:
+        print_error(f"Task not found: {args.task_id}")
+        sys.exit(1)
+
+    path, current_status = result
+    task = storage.read_task_file(path)
+
+    # Check if already blocked
+    if task.status == TaskStatus.BLOCKED:
+        print_info(f"Task {args.task_id} is already blocked")
+        print(f"Reason: {task.blocked_reason or '(no reason provided)'}")
+        return
+
+    # Store previous status and set blocked
+    task.blocked_reason = args.reason
+
+    # Move to blocked status
+    _move_task(storage, args.task_id, path, TaskStatus.BLOCKED, task)
+
+    print_info(f"Reason: {args.reason}")
+
+
+def cmd_unblock(args):
+    """Unblock a task and return to previous status."""
+    storage = get_storage()
+
+    if not storage.is_initialized():
+        print_error("TaskPy not initialized. Run: taskpy init")
+        sys.exit(1)
+
+    # Find task
+    result = storage.find_task_file(args.task_id)
+    if not result:
+        print_error(f"Task not found: {args.task_id}")
+        sys.exit(1)
+
+    path, current_status = result
+    task = storage.read_task_file(path)
+
+    # Check if blocked
+    if task.status != TaskStatus.BLOCKED:
+        print_info(f"Task {args.task_id} is not blocked (status: {task.status.value})")
+        return
+
+    # Determine target status - default to backlog if can't determine
+    # In a more sophisticated implementation, we'd store previous_status
+    # For now, use backlog as safe default
+    target_status = TaskStatus.BACKLOG
+
+    # Clear blocked reason
+    task.blocked_reason = None
+
+    # Move back to target status
+    _move_task(storage, args.task_id, path, target_status, task)
+
+    print_info(f"Task {args.task_id} unblocked and moved to {target_status.value}")
 
 
 # Helper functions

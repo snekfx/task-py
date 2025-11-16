@@ -253,6 +253,31 @@ def create_parser() -> argparse.ArgumentParser:
         help="Task ID (e.g., BUGS-001)"
     )
 
+    # taskpy block <TASK-ID> --reason REASON
+    block_parser = subparsers.add_parser(
+        "block",
+        help="Block a task with required reason"
+    )
+    block_parser.add_argument(
+        "task_id",
+        help="Task ID (e.g., BUGS-001)"
+    )
+    block_parser.add_argument(
+        "--reason",
+        required=True,
+        help="Reason for blocking (required)"
+    )
+
+    # taskpy unblock <TASK-ID>
+    unblock_parser = subparsers.add_parser(
+        "unblock",
+        help="Unblock a task and return to backlog"
+    )
+    unblock_parser.add_argument(
+        "task_id",
+        help="Task ID (e.g., BUGS-001)"
+    )
+
     # taskpy move <TASK-ID> <STATUS>
     move_parser = subparsers.add_parser(
         "move",
