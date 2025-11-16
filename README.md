@@ -26,16 +26,17 @@ META PROCESS v4 is an evolution of v3 that addresses key inefficiencies through 
 ## Features
 
 - ✅ **Epic-based organization** (BUGS-NN, DOCS-NN, FEAT-NN, etc.)
-- ✅ **Kanban workflow** (backlog → ready → in_progress → review → done)
-- ✅ **Story point tracking**
+- ✅ **Kanban workflow** (stub → backlog → ready → in_progress → qa → done)
+- ✅ **Milestone management** (organize multi-phase work with priority ordering)
+- ✅ **Story point tracking** with milestone progress
 - ✅ **Priority management** (critical, high, medium, low)
 - ✅ **NFR compliance** (link Non-Functional Requirements to tasks)
 - ✅ **Reference linking** (code files, docs, test files, plans)
-- ✅ **Test verification** (integrate with testpy/cargo test)
+- ✅ **Test verification** (integrate with pytest/cargo test)
 - ✅ **Pretty output** via boxy/rolo or plain data mode
 - ✅ **Git-friendly** (plain text, human-readable)
 - ✅ **Fast queries** via TSV manifest
-- ✅ **Extensible** (TOML configuration for epics and NFRs)
+- ✅ **Extensible** (TOML configuration for epics, NFRs, and milestones)
 
 ## Installation
 
@@ -60,34 +61,50 @@ pip install git+https://github.com/snekfx/task-py
 # Initialize TaskPy in your project
 taskpy init
 
-# Create a task
+# Create a task (starts in stub status)
 taskpy create FEAT "Add user authentication" --sp 5 --priority high
+
+# Create task with milestone assignment
+taskpy create FEAT "OAuth integration" --sp 8 --milestone milestone-1
 
 # List tasks
 taskpy list
+taskpy list --milestone milestone-1    # Filter by milestone
+taskpy list --status backlog            # Filter by status
 
 # Show task details
-taskpy show FEAT-001
+taskpy show FEAT-01
 
 # Edit task (opens in $EDITOR)
-taskpy edit FEAT-001
+taskpy edit FEAT-01
 
 # Move task through workflow
-taskpy promote FEAT-001              # Move to next status
-taskpy move FEAT-001 in_progress     # Move to specific status
+taskpy promote FEAT-01               # stub → backlog
+taskpy promote FEAT-01               # backlog → ready
+taskpy promote FEAT-01               # ready → in_progress
+taskpy move FEAT-01 qa               # Move to specific status
+
+# Milestone management
+taskpy milestones                    # List all milestones
+taskpy milestone show milestone-1    # Show milestone progress
+taskpy milestone assign FEAT-01 milestone-1
+taskpy milestone start milestone-2
+taskpy milestone complete milestone-1
 
 # View kanban board
 taskpy kanban
+taskpy kanban --epic FEAT
 
 # Link references
-taskpy link FEAT-001 --code src/auth.rs --test tests/auth_test.rs
+taskpy link FEAT-01 --code src/auth.py --test tests/test_auth.py
 
 # Run verification
-taskpy verify FEAT-001
+taskpy verify FEAT-01
 
 # Show statistics
 taskpy stats
 taskpy stats --epic FEAT
+taskpy stats --milestone milestone-1
 ```
 
 ## Directory Structure
@@ -95,17 +112,20 @@ taskpy stats --epic FEAT
 ```
 your-project/
 ├── data/kanban/              # TaskPy data (gitignored by default)
-│   ├── info/
+│   ├── info/                 # Configuration files (tracked in git)
 │   │   ├── epics.toml        # Epic definitions
 │   │   ├── nfrs.toml         # NFR definitions
+│   │   ├── milestones.toml   # Milestone definitions
 │   │   └── config.toml       # TaskPy config
 │   ├── status/               # Task files organized by status
-│   │   ├── backlog/
-│   │   ├── ready/
-│   │   ├── in_progress/
-│   │   ├── review/
-│   │   ├── done/
-│   │   └── archived/
+│   │   ├── stub/             # Incomplete tasks (default)
+│   │   ├── backlog/          # Ready for work
+│   │   ├── ready/            # Prioritized for next sprint
+│   │   ├── in_progress/      # Actively being worked on
+│   │   ├── qa/               # In testing/review
+│   │   ├── done/             # Completed
+│   │   ├── archived/         # Long-term storage
+│   │   └── blocked/          # Blocked by dependencies
 │   ├── manifest.tsv          # Fast query index
 │   └── references/
 │       └── PLAN-*.md         # Strategic planning docs
@@ -116,7 +136,7 @@ your-project/
 │   │   └── QUICK_REF.txt     # Auto-generated summary
 │   └── dev/
 │       └── MODULE_SPEC.md
-└── .gitignore                # Updated to exclude data/kanban/
+└── .gitignore                # Updated to exclude task data, track config
 ```
 
 ## Task File Format
@@ -125,7 +145,7 @@ Tasks are stored as Markdown files with YAML frontmatter:
 
 ```markdown
 ---
-id: FEAT-001
+id: FEAT-01
 title: Add user authentication
 epic: FEAT
 number: 1
@@ -135,13 +155,15 @@ priority: high
 created: 2025-11-15T12:00:00
 updated: 2025-11-15T14:30:00
 assigned: session-001
+milestone: milestone-1
+blocked_reason: null
 tags: [security, auth]
 dependencies: []
-blocks: [FEAT-002]
+blocks: [FEAT-02]
 nfrs: [NFR-SEC-001, NFR-TEST-001]
-references.code: [src/auth.rs, src/user.rs]
-references.tests: [tests/auth_test.rs]
-verification.command: cargo test auth::
+references.code: [src/auth.py, src/user.py]
+references.tests: [tests/test_auth.py]
+verification.command: pytest tests/test_auth.py
 verification.status: pending
 ---
 
@@ -199,6 +221,64 @@ active = true
 story_point_budget = 100  # Optional SP limit
 ```
 
+## Milestone Management
+
+Define project milestones in `data/kanban/info/milestones.toml`:
+
+```toml
+[milestone-1]
+name = "Foundation MVP"
+description = "Core functionality and basic workflow"
+priority = 1
+status = "active"
+goal_sp = 50
+
+[milestone-2]
+name = "Feature Complete"
+description = "All planned features implemented"
+priority = 2
+status = "planned"
+goal_sp = 100
+
+[milestone-3]
+name = "Polish and Release"
+description = "UX improvements, documentation, and release prep"
+priority = 3
+status = "planned"
+goal_sp = 40
+
+# Milestones use semantic versioning for IDs
+[milestone-1.5]
+name = "Security Hardening"
+description = "Address security audit findings"
+priority = 2  # Injected between milestone-1 and milestone-2
+status = "planned"
+goal_sp = 20
+```
+
+### Milestone Commands
+
+```bash
+# List all milestones (sorted by priority)
+taskpy milestones
+
+# Show milestone details and progress
+taskpy milestone show milestone-1
+
+# Mark milestone as active (multiple can be active)
+taskpy milestone start milestone-2
+
+# Mark milestone as completed
+taskpy milestone complete milestone-1
+
+# Assign task to milestone
+taskpy milestone assign FEAT-01 milestone-1
+
+# Filter tasks by milestone
+taskpy list --milestone milestone-1
+taskpy stats --milestone milestone-1
+```
+
 ## NFR Management
 
 Define Non-Functional Requirements in `data/kanban/info/nfrs.toml`:
@@ -224,32 +304,43 @@ default = false  # Manually applied
 ## Workflow
 
 ```
-backlog → ready → in_progress → review → done → archived
-   ↑         ↑          ↑           ↑       ↑
-   └─────────┴──────────┴───────────┴───────┘
-         (tasks can move backwards)
+stub → backlog → ready → in_progress → qa → done → archived
+ ↑        ↑        ↑           ↑        ↑      ↑
+ └────────┴────────┴───────────┴────────┴──────┘
+            (tasks can move backwards)
+
+                    blocked (special state)
+                       ↕
+              (can block from any status)
 ```
 
 ### Workflow Commands
 
 ```bash
-# Create task (starts in backlog)
+# Create task (starts in stub by default)
 taskpy create FEAT "My feature"
 
 # Promote through workflow
-taskpy promote FEAT-001        # backlog → ready
-taskpy promote FEAT-001        # ready → in_progress
-taskpy promote FEAT-001        # in_progress → review
-taskpy promote FEAT-001        # review → done
+taskpy promote FEAT-01        # stub → backlog
+taskpy promote FEAT-01        # backlog → ready
+taskpy promote FEAT-01        # ready → in_progress
+taskpy promote FEAT-01        # in_progress → qa
+taskpy promote FEAT-01        # qa → done
 
 # Move backwards
-taskpy move FEAT-001 in_progress
+taskpy move FEAT-01 in_progress
 
 # Skip to specific status
-taskpy move FEAT-001 done
+taskpy move FEAT-01 done
+
+# Block task
+taskpy move FEAT-01 blocked
 
 # Archive completed tasks
-taskpy move FEAT-001 archived
+taskpy move FEAT-01 archived
+
+# Create task directly in backlog (skip stub)
+taskpy create FEAT "Well-defined feature" --status backlog
 ```
 
 ## Integration with Other Tools
@@ -298,11 +389,14 @@ taskpy list --status in_progress
 # By priority
 taskpy list --priority critical
 
+# By milestone
+taskpy list --milestone milestone-1
+
 # By tags
 taskpy list --tags security,auth
 
 # Combined filters
-taskpy list --epic FEAT --status in_progress --priority high
+taskpy list --epic FEAT --status in_progress --priority high --milestone milestone-1
 ```
 
 ### Output Formats
@@ -379,7 +473,7 @@ apply_default_nfrs = true
 default_priority = "medium"
 
 [workflow]
-statuses = ["backlog", "ready", "in_progress", "review", "done", "archived"]
+statuses = ["stub", "backlog", "ready", "in_progress", "qa", "done", "archived"]
 auto_archive_days = 0  # Auto-archive done tasks after N days
 
 [verification]
@@ -493,15 +587,40 @@ taskpy link FEAT-001 --verify "cargo test && cargo clippy && cargo fmt --check"
 
 ## Roadmap
 
-- [ ] Session management with auto HANDOFF generation
+### Milestone 1: Foundation MVP (In Progress)
+- [x] Milestone system with priority ordering
+- [x] Stub/QA/Blocked status support
+- [ ] Promotion gating and status lifecycle validation
+- [ ] Blocking system for tasks and milestones
+- [ ] Task demote command
 - [ ] Rolo integration for better table formatting
+- [ ] Validation warnings and boundary checks
+
+### Milestone 2: Feature Complete (Planned)
+- [ ] Sub-task support and hierarchy
+- [ ] Subtask linking commands
+- [ ] Task split command for breaking down large tasks
+- [ ] Auto-incrementing sequence ID for sorting
+- [ ] Session sprint selection and management
+- [ ] Dynamic epic registration command
+
+### Milestone 3: Polish and Release (Planned)
+- [ ] Examples directory with real-world usage
+- [ ] Enhanced documentation
+
+### Milestone 4: Workflow Automation & HANDOFF (Future)
+- [ ] Go-flow system (load/go/rem/fin commands)
+- [ ] Work session time tracking
+- [ ] Git snapshot and dirty state handling
+- [ ] Task reminder and warning system
+- [ ] History logging and audit trail
+- [ ] HANDOFF generation commands (create/read)
 - [ ] Dependency graph visualization
 - [ ] Burndown charts and velocity tracking
+
+### Future Considerations
 - [ ] GitHub issues sync
 - [ ] Template system for task content
-- [ ] Sub-task support
-- [ ] Time tracking
-- [ ] Sprint planning helpers
 - [ ] Export to JIRA/Linear/etc
 
 ## Contributing
