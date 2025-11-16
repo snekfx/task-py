@@ -610,6 +610,16 @@ class TestCLI:
         result = self.run_taskpy(["--view", "data", "show", "FEAT-01"], cwd=temp_dir)
         assert "Status: backlog" in result.stdout or "status: backlog" in result.stdout
 
+    def test_block_requires_reason(self, temp_dir):
+        """Test that block command requires --reason flag."""
+        self.run_taskpy(["init"], cwd=temp_dir)
+        self.run_taskpy(["create", "FEAT", "Test Feature", "--sp", "3"], cwd=temp_dir)
+
+        # Attempt to block without --reason should fail
+        result = self.run_taskpy(["block", "FEAT-01"], cwd=temp_dir)
+        assert result.returncode != 0
+        assert "required" in result.stderr.lower() or "required" in result.stdout.lower()
+
     def test_blocked_task_cannot_promote(self, temp_dir):
         """Test that blocked tasks cannot be promoted."""
         self.run_taskpy(["init"], cwd=temp_dir)
