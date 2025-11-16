@@ -5,6 +5,63 @@ Separating help content from command logic makes it easier to maintain
 and update documentation without touching code.
 """
 
+# Command descriptions for argparse
+COMMAND_HELP = {
+    "init": "Initialize TaskPy kanban structure in current project",
+    "create": "Create a new task under an epic (FEAT, BUGS, DOCS, etc.)",
+    "list": "List tasks with optional filters (hides done/archived by default)",
+    "show": "Display detailed information for one or more tasks",
+    "edit": "Edit a task's markdown file in $EDITOR",
+    "promote": "Move task forward in workflow (stub→backlog→ready→active→qa→done→archived)",
+    "demote": "Move task backwards in workflow (requires --reason)",
+    "move": "Jump task to specific status (requires --reason for non-sequential moves)",
+    "info": "Show task status and quality gate requirements",
+    "stoplight": "Validate gate requirements (exit codes: 0=ready, 1=missing, 2=blocked)",
+    "block": "Block a task with required reason",
+    "unblock": "Unblock a task and return to backlog",
+    "kanban": "Display kanban board view of all tasks",
+    "verify": "Run verification tests for a task and update status",
+    "epics": "List available epics from epics.toml",
+    "nfrs": "List non-functional requirements from nfrs.toml",
+    "milestones": "List project milestones with progress",
+    "milestone": "Manage individual milestone (show, start, complete, assign)",
+    "link": "Link code/test/doc references or set verification command",
+    "issues": "Display tracked issues/problems for a task",
+    "history": "Display task state change history and audit trail",
+    "resolve": "Resolve a bug task (BUGS*, REG*, DEF*) with special resolution workflow",
+    "tour": "Display comprehensive quick reference guide",
+    "overrides": "View gate override history log",
+    "manifest": "Manage the TSV manifest index (rebuild)",
+    "groom": "Audit stub/backlog tasks for sufficient detail depth",
+    "session": "Manage work sessions (start, stop, status)",
+    "sprint": "Manage sprint task queue (add, remove, list, clear, stats)",
+    "stats": "Show project statistics (overall or filtered by epic/milestone)",
+}
+
+# Extended epilog for main help
+MAIN_EPILOG = """
+Common Workflows:
+  Create and work on a feature:
+    taskpy create FEAT "Add user authentication" --sp 5
+    taskpy promote FEAT-01
+    taskpy link FEAT-01 --code src/auth.py --test tests/test_auth.py
+    taskpy verify FEAT-01 --update
+    taskpy promote FEAT-01
+
+  Sprint management:
+    taskpy sprint add FEAT-01
+    taskpy sprint list
+    taskpy sprint stats
+
+  View progress:
+    taskpy list --sprint
+    taskpy kanban --epic FEAT
+    taskpy stats --milestone milestone-1
+
+For comprehensive guide, run: taskpy tour
+For more information, see: README.md
+"""
+
 TOUR_TEXT = """
 ==================================================
 TaskPy Quick Reference Tour

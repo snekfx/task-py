@@ -77,19 +77,29 @@ def _create_global_parser() -> argparse.ArgumentParser:
         help="Agent-friendly output (same as --view=data)"
     )
 
+    global_parser.add_argument(
+        "--all",
+        action="store_true",
+        default=argparse.SUPPRESS,
+        help="Show all items including done/archived (for list/history commands)"
+    )
+
     return global_parser
 
 
 def create_parser() -> argparse.ArgumentParser:
     """Create the main argument parser."""
+    from taskpy.help import MAIN_EPILOG, COMMAND_HELP
+
     global_parser = _create_global_parser()
 
     parser = argparse.ArgumentParser(
         prog="taskpy",
         description="File-based agile task management for META PROCESS v4",
-        epilog="For more information, see: README.md",
+        epilog=MAIN_EPILOG,
         parents=[global_parser],
-        add_help=True
+        add_help=True,
+        formatter_class=argparse.RawDescriptionHelpFormatter
     )
 
     # Set defaults for global flags
@@ -97,7 +107,8 @@ def create_parser() -> argparse.ArgumentParser:
         view="pretty",
         data=False,
         no_boxy=False,
-        agent=False
+        agent=False,
+        all=False
     )
 
     # Subcommands
@@ -105,6 +116,9 @@ def create_parser() -> argparse.ArgumentParser:
 
     def add_subparser(name: str, **kwargs) -> argparse.ArgumentParser:
         """Helper that attaches global options to each subparser."""
+        # Use command help from help.py if available
+        if 'help' not in kwargs and name in COMMAND_HELP:
+            kwargs['help'] = COMMAND_HELP[name]
         return subparsers.add_parser(
             name,
             parents=[global_parser],
@@ -113,10 +127,7 @@ def create_parser() -> argparse.ArgumentParser:
         )
 
     # taskpy init
-    init_parser = add_subparser(
-        "init",
-        help="Initialize TaskPy kanban structure"
-    )
+    init_parser = add_subparser("init")
     init_parser.add_argument(
         "--force",
         action="store_true",
@@ -224,11 +235,7 @@ def create_parser() -> argparse.ArgumentParser:
         default="table",
         help="Output format"
     )
-    list_parser.add_argument(
-        "--all",
-        action="store_true",
-        help="Show done and archived tasks (hidden by default)"
-    )
+    # Note: --all is now a global flag, defined in global_parser
     # Keep --show-all as alias for backward compatibility
     list_parser.add_argument(
         "--show-all",
@@ -517,11 +524,7 @@ def create_parser() -> argparse.ArgumentParser:
         nargs="?",
         help="Task ID (e.g., FEAT-01) - omit to show all with --all"
     )
-    history_parser.add_argument(
-        "--all",
-        action="store_true",
-        help="Show history for all tasks"
-    )
+    # Note: --all is now a global flag, defined in global_parser
 
     # taskpy resolve <TASK-ID> --resolution TYPE --reason REASON
     resolve_parser = add_subparser(
