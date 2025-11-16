@@ -598,3 +598,85 @@ class TestCLI:
         # Stoplight should return 2 (blocked)
         result = self.run_taskpy(["stoplight", "FEAT-01"], cwd=temp_dir)
         assert result.returncode == 2
+
+    def test_project_type_auto_detect_python(self, temp_dir):
+        """Test auto-detection of Python project."""
+        # Create pyproject.toml marker
+        (temp_dir / "pyproject.toml").write_text("")
+
+        # Init should detect Python
+        result = self.run_taskpy(["--view", "data", "init"], cwd=temp_dir)
+        assert result.returncode == 0
+        assert "python" in result.stdout.lower()
+        assert "auto-detected" in result.stdout.lower()
+
+        # Verify config
+        config = (temp_dir / "data" / "kanban" / "info" / "config.toml").read_text()
+        assert 'type = "python"' in config
+        assert 'auto_detected = true' in config
+        assert 'verify_command = "pytest tests/"' in config
+
+    def test_project_type_auto_detect_rust(self, temp_dir):
+        """Test auto-detection of Rust project."""
+        # Create Cargo.toml marker
+        (temp_dir / "Cargo.toml").write_text("")
+
+        # Init should detect Rust
+        result = self.run_taskpy(["--view", "data", "init"], cwd=temp_dir)
+        assert result.returncode == 0
+        assert "rust" in result.stdout.lower()
+        assert "auto-detected" in result.stdout.lower()
+
+        # Verify config
+        config = (temp_dir / "data" / "kanban" / "info" / "config.toml").read_text()
+        assert 'type = "rust"' in config
+        assert 'auto_detected = true' in config
+        assert 'verify_command = "cargo test"' in config
+
+    def test_project_type_auto_detect_node(self, temp_dir):
+        """Test auto-detection of Node.js project."""
+        # Create package.json marker
+        (temp_dir / "package.json").write_text("{}")
+
+        # Init should detect Node
+        result = self.run_taskpy(["--view", "data", "init"], cwd=temp_dir)
+        assert result.returncode == 0
+        assert "node" in result.stdout.lower()
+        assert "auto-detected" in result.stdout.lower()
+
+        # Verify config
+        config = (temp_dir / "data" / "kanban" / "info" / "config.toml").read_text()
+        assert 'type = "node"' in config
+        assert 'auto_detected = true' in config
+        assert 'verify_command = "npm test"' in config
+
+    def test_project_type_explicit_flag(self, temp_dir):
+        """Test explicit --type flag overrides auto-detection."""
+        # Create Python marker but request Rust
+        (temp_dir / "pyproject.toml").write_text("")
+
+        # Init with explicit type
+        result = self.run_taskpy(["--view", "data", "init", "--type", "rust"], cwd=temp_dir)
+        assert result.returncode == 0
+        assert "rust" in result.stdout.lower()
+        assert "explicitly set" in result.stdout.lower()
+
+        # Verify config shows explicit type
+        config = (temp_dir / "data" / "kanban" / "info" / "config.toml").read_text()
+        assert 'type = "rust"' in config
+        assert 'auto_detected = false' in config
+        assert 'verify_command = "cargo test"' in config
+
+    def test_project_type_generic_fallback(self, temp_dir):
+        """Test fallback to generic when no markers detected."""
+        # No project markers
+
+        # Init should use generic
+        result = self.run_taskpy(["--view", "data", "init"], cwd=temp_dir)
+        assert result.returncode == 0
+        assert "generic" in result.stdout.lower()
+
+        # Verify config
+        config = (temp_dir / "data" / "kanban" / "info" / "config.toml").read_text()
+        assert 'type = "generic"' in config
+        assert 'verify_command = ""' in config

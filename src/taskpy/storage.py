@@ -35,6 +35,81 @@ class StorageError(Exception):
     pass
 
 
+def detect_project_type(root_path: Path) -> tuple[Optional[str], bool]:
+    """
+    Detect project type based on marker files.
+
+    Returns:
+        (project_type, auto_detected) where project_type is one of:
+        "rust", "python", "node", "generic" or None if detection fails
+        auto_detected is True if type was detected, False otherwise
+    """
+    # Detection priority order
+    if (root_path / "Cargo.toml").exists():
+        return ("rust", True)
+
+    if (root_path / "pyproject.toml").exists() or \
+       (root_path / "setup.py").exists() or \
+       (root_path / "requirements.txt").exists():
+        return ("python", True)
+
+    if (root_path / "package.json").exists():
+        return ("node", True)
+
+    # Check for shell project (multiple .sh files in bin/ or src/)
+    bin_dir = root_path / "bin"
+    src_dir = root_path / "src"
+    shell_count = 0
+    if bin_dir.exists():
+        shell_count += len(list(bin_dir.glob("*.sh")))
+    if src_dir.exists():
+        shell_count += len(list(src_dir.glob("*.sh")))
+
+    if shell_count >= 2:
+        return ("shell", True)
+
+    # Default to generic
+    return ("generic", False)
+
+
+def get_project_defaults(project_type: str) -> dict:
+    """
+    Get default configuration for a project type.
+
+    Returns:
+        Dict with verify_command, code_patterns, test_patterns
+    """
+    defaults = {
+        "rust": {
+            "verify_command": "cargo test",
+            "code_patterns": ["src/**/*.rs", "tests/**/*.rs"],
+            "test_patterns": ["tests/**/*.rs"],
+        },
+        "python": {
+            "verify_command": "pytest tests/",
+            "code_patterns": ["src/**/*.py", "tests/**/*.py"],
+            "test_patterns": ["tests/**/*.py", "test_*.py"],
+        },
+        "node": {
+            "verify_command": "npm test",
+            "code_patterns": ["src/**/*.js", "src/**/*.ts", "test/**/*.js"],
+            "test_patterns": ["test/**/*.js", "__tests__/**/*.js"],
+        },
+        "shell": {
+            "verify_command": "./run_tests.sh",
+            "code_patterns": ["bin/**/*.sh", "src/**/*.sh"],
+            "test_patterns": ["tests/**/*.sh", "test_*.sh"],
+        },
+        "generic": {
+            "verify_command": "",
+            "code_patterns": ["src/**/*"],
+            "test_patterns": ["tests/**/*", "test/**/*"],
+        },
+    }
+
+    return defaults.get(project_type, defaults["generic"])
+
+
 class TaskStorage:
     """
     Manages task persistence and retrieval.
@@ -80,18 +155,39 @@ class TaskStorage:
             and self.manifest_file.exists()
         )
 
-    def initialize(self, force: bool = False):
+    def initialize(self, force: bool = False, project_type: Optional[str] = None):
         """
         Create kanban directory structure.
 
         Args:
             force: If True, recreate structure even if it exists
+            project_type: Explicit project type ("rust", "python", "node", "shell", "generic")
+                         If None, auto-detect from project files
 
         Raises:
             StorageError: If already initialized and force=False
+
+        Returns:
+            Tuple of (project_type, auto_detected) where auto_detected indicates
+            whether the type was auto-detected or explicitly set
         """
         if self.is_initialized() and not force:
             raise StorageError("TaskPy already initialized. Use --force to reinitialize.")
+
+        # Detect or validate project type
+        if project_type is None:
+            detected_type, auto_detected = detect_project_type(self.root)
+            project_type = detected_type
+        else:
+            # Explicit type provided
+            auto_detected = False
+            # Validate project type
+            valid_types = ["rust", "python", "node", "shell", "generic"]
+            if project_type not in valid_types:
+                raise StorageError(
+                    f"Invalid project type: {project_type}. "
+                    f"Valid types: {', '.join(valid_types)}"
+                )
 
         # Create directory structure
         self.kanban.mkdir(parents=True, exist_ok=True)
@@ -115,9 +211,9 @@ class TaskStorage:
         if not (self.info_dir / "milestones.toml").exists() or force:
             self._create_default_milestones()
 
-        # Create default config
+        # Create default config with project type
         if not (self.info_dir / "config.toml").exists() or force:
-            self._create_default_config()
+            self._create_default_config(project_type, auto_detected)
 
         # Create manifest header
         if not self.manifest_file.exists() or force:
@@ -125,6 +221,8 @@ class TaskStorage:
 
         # Update .gitignore
         self._update_gitignore()
+
+        return (project_type, auto_detected)
 
     def _create_default_epics(self):
         """Create default epics.toml with standard epic types."""
@@ -279,9 +377,33 @@ goal_sp = 40
 """
         (self.info_dir / "milestones.toml").write_text(content)
 
-    def _create_default_config(self):
-        """Create default config.toml."""
-        content = """# TaskPy configuration
+    def _create_default_config(self, project_type: str = "generic", auto_detected: bool = False):
+        """Create default config.toml with project-specific defaults."""
+        # Get project defaults
+        defaults = get_project_defaults(project_type)
+
+        # Build verify command comment
+        verify_cmd = defaults["verify_command"]
+        verify_comment = f'test_command = "{verify_cmd}"' if verify_cmd else '# test_command = "pytest tests/"'
+
+        content = f"""# TaskPy configuration
+
+[project]
+# Project type: rust, python, node, shell, generic
+type = "{project_type}"
+
+# Whether project type was auto-detected
+auto_detected = {str(auto_detected).lower()}
+
+[project.defaults]
+# Default verification command for this project type
+verify_command = "{verify_cmd}"
+
+# Code file patterns
+code_patterns = {defaults["code_patterns"]}
+
+# Test file patterns
+test_patterns = {defaults["test_patterns"]}
 
 [general]
 # Default story point estimate for new tasks
@@ -301,9 +423,8 @@ statuses = ["backlog", "ready", "in_progress", "review", "done", "archived"]
 auto_archive_days = 0
 
 [verification]
-# Test runner command (default: auto-detect)
-# test_command = "cargo test --all"
-# test_command = "testpy run"
+# Test runner command (uses project.defaults.verify_command if not set)
+{verify_comment}
 
 # Require tests to pass before promoting to 'done'
 require_tests = false

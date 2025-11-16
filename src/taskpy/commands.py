@@ -172,18 +172,34 @@ def cmd_init(args):
     storage = get_storage()
 
     try:
-        storage.initialize(force=args.force)
+        # Get explicit type from args if provided
+        project_type = getattr(args, 'type', None)
+
+        # Initialize with project type detection
+        detected_type, auto_detected = storage.initialize(
+            force=args.force,
+            project_type=project_type
+        )
+
+        # Build project type message
+        if auto_detected:
+            type_msg = f"  • Project type: {detected_type} (auto-detected)\n"
+        else:
+            type_msg = f"  • Project type: {detected_type} (explicitly set)\n"
+
         print_success(
             f"TaskPy initialized at: {storage.kanban}\n\n"
             f"Structure created:\n"
             f"  • data/kanban/info/     - Configuration (epics, NFRs)\n"
             f"  • data/kanban/status/   - Task files by status\n"
             f"  • data/kanban/manifest.tsv - Fast query index\n"
-            f"  • .gitignore            - Updated to exclude kanban data\n\n"
+            f"  • .gitignore            - Updated to exclude kanban data\n"
+            f"{type_msg}\n"
             f"Next steps:\n"
-            f"  1. Review epics: data/kanban/info/epics.toml\n"
-            f"  2. Review NFRs: data/kanban/info/nfrs.toml\n"
-            f"  3. Create your first task: taskpy create FEAT \"Your feature\"\n",
+            f"  1. Review config: data/kanban/info/config.toml\n"
+            f"  2. Review epics: data/kanban/info/epics.toml\n"
+            f"  3. Review NFRs: data/kanban/info/nfrs.toml\n"
+            f"  4. Create your first task: taskpy create FEAT \"Your feature\"\n",
             "TaskPy Initialized"
         )
     except StorageError as e:

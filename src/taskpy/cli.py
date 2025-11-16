@@ -73,6 +73,11 @@ def create_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Reinitialize even if already initialized"
     )
+    init_parser.add_argument(
+        "--type",
+        choices=["rust", "python", "node", "shell", "generic"],
+        help="Explicitly set project type (default: auto-detect)"
+    )
 
     # taskpy create <EPIC> <title>
     create_parser = subparsers.add_parser(
