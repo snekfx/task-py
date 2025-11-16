@@ -196,6 +196,10 @@ def create_parser() -> argparse.ArgumentParser:
         dest="target_status",
         help="Target status (default: next in workflow)"
     )
+    promote_parser.add_argument(
+        "--commit",
+        help="Git commit hash (required for qa → done)"
+    )
 
     # taskpy move <TASK-ID> <STATUS>
     move_parser = subparsers.add_parser(

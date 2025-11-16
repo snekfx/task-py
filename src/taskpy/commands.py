@@ -25,6 +25,131 @@ def get_storage() -> TaskStorage:
     return TaskStorage(Path.cwd())
 
 
+# Gate Validation Functions
+
+def validate_stub_to_backlog(task: Task) -> tuple[bool, list[str]]:
+    """
+    Validate stub → backlog promotion.
+
+    Requirements:
+    - Task must have content (body)
+    - Must have story points
+
+    Returns:
+        (is_valid, list of blockers)
+    """
+    blockers = []
+
+    if not task.content or len(task.content.strip()) < 20:
+        blockers.append("Task needs description (minimum 20 characters)")
+
+    if task.story_points == 0:
+        blockers.append("Task needs story points estimation")
+
+    return (len(blockers) == 0, blockers)
+
+
+def validate_in_progress_to_qa(task: Task) -> tuple[bool, list[str]]:
+    """
+    Validate in_progress → qa promotion.
+
+    Requirements:
+    - Must have code references
+    - Must have test references
+    - Verification must pass (if configured)
+
+    Returns:
+        (is_valid, list of blockers)
+    """
+    blockers = []
+
+    if not task.references.code:
+        blockers.append("Task needs code references (use: taskpy link TASK-ID --code path/to/file.py)")
+
+    if not task.references.tests:
+        blockers.append("Task needs test references (use: taskpy link TASK-ID --test path/to/test.py)")
+
+    # Check verification if command is set
+    if task.verification.command:
+        from taskpy.models import VerificationStatus
+        if task.verification.status != VerificationStatus.PASSED:
+            blockers.append(f"Verification must pass (status: {task.verification.status.value})")
+
+    return (len(blockers) == 0, blockers)
+
+
+def validate_qa_to_done(task: Task) -> tuple[bool, list[str]]:
+    """
+    Validate qa → done promotion.
+
+    Requirements:
+    - Must have commit hash
+
+    Returns:
+        (is_valid, list of blockers)
+    """
+    blockers = []
+
+    if not task.commit_hash:
+        blockers.append("Task needs commit hash (use: taskpy promote TASK-ID --commit HASH)")
+
+    return (len(blockers) == 0, blockers)
+
+
+def validate_done_demotion(task: Task, reason: Optional[str]) -> tuple[bool, list[str]]:
+    """
+    Validate demotion from done status.
+
+    Requirements:
+    - Must provide reason
+
+    Returns:
+        (is_valid, list of blockers)
+    """
+    blockers = []
+
+    if not reason:
+        blockers.append("Demotion from 'done' requires --reason flag")
+
+    return (len(blockers) == 0, blockers)
+
+
+def validate_promotion(task: Task, target_status: TaskStatus, commit_hash: Optional[str] = None) -> tuple[bool, list[str]]:
+    """
+    Validate task promotion based on current and target status.
+
+    Args:
+        task: Task to validate
+        target_status: Target status
+        commit_hash: Optional commit hash (for qa→done)
+
+    Returns:
+        (is_valid, list of blockers)
+    """
+    current = task.status
+
+    # stub → backlog
+    if current == TaskStatus.STUB and target_status == TaskStatus.BACKLOG:
+        return validate_stub_to_backlog(task)
+
+    # in_progress → qa
+    elif current == TaskStatus.IN_PROGRESS and target_status == TaskStatus.QA:
+        return validate_in_progress_to_qa(task)
+
+    # qa → done
+    elif current == TaskStatus.QA and target_status == TaskStatus.DONE:
+        # Temporarily set commit_hash for validation
+        original_hash = task.commit_hash
+        if commit_hash:
+            task.commit_hash = commit_hash
+        result = validate_qa_to_done(task)
+        task.commit_hash = original_hash
+        return result
+
+    # No gates for other transitions
+    return (True, [])
+
+
 def cmd_init(args):
     """Initialize TaskPy kanban structure."""
     storage = get_storage()
@@ -274,11 +399,14 @@ def cmd_promote(args):
 
     path, current_status = result
 
+    # Read task for validation
+    task = storage.read_task_file(path)
+
     # Determine target status
     workflow = [TaskStatus.STUB, TaskStatus.BACKLOG, TaskStatus.READY, TaskStatus.IN_PROGRESS,
                 TaskStatus.QA, TaskStatus.DONE]
 
-    if args.target_status:
+    if hasattr(args, 'target_status') and args.target_status:
         target_status = TaskStatus(args.target_status)
     else:
         # Next in workflow
@@ -288,8 +416,24 @@ def cmd_promote(args):
             return
         target_status = workflow[current_idx + 1]
 
+    # Validate promotion gates
+    commit_hash = getattr(args, 'commit', None)
+    is_valid, blockers = validate_promotion(task, target_status, commit_hash)
+
+    if not is_valid:
+        print_error(f"Cannot promote {args.task_id}: {current_status.value} → {target_status.value}")
+        print()
+        print("❌ Blockers:")
+        for blocker in blockers:
+            print(f"  • {blocker}")
+        sys.exit(1)
+
+    # Set commit_hash if provided
+    if commit_hash:
+        task.commit_hash = commit_hash
+
     # Move task
-    _move_task(storage, args.task_id, path, target_status)
+    _move_task(storage, args.task_id, path, target_status, task)
 
 
 def cmd_move(args):
@@ -853,11 +997,12 @@ def _open_in_editor(path: Path):
     subprocess.run([editor, str(path)])
 
 
-def _move_task(storage: TaskStorage, task_id: str, current_path: Path, target_status: TaskStatus):
+def _move_task(storage: TaskStorage, task_id: str, current_path: Path, target_status: TaskStatus, task: Optional[Task] = None):
     """Move a task to a new status."""
     try:
-        # Read task
-        task = storage.read_task_file(current_path)
+        # Read task if not provided
+        if task is None:
+            task = storage.read_task_file(current_path)
 
         # Update status
         old_status = task.status
