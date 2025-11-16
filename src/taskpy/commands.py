@@ -1185,8 +1185,9 @@ WORKFLOW STATUSES
 
 USEFUL FLAGS
 ------------
-  --view=data                           Plain output (no boxy formatting)
-  --no-boxy                             Same as --view=data
+  --agent                               Agent-friendly output (no boxy formatting)
+  --view=data                           Plain output (same as --agent)
+  --no-boxy                             Same as --agent
   --priority critical|high|medium|low   Set task priority
   --milestone milestone-N               Assign to milestone
   --sp N                                Set story points
