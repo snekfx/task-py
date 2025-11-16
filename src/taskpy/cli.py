@@ -120,6 +120,10 @@ def create_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Open task in $EDITOR after creation"
     )
+    create_parser.add_argument(
+        "--body",
+        help="Task body/description content"
+    )
 
     # taskpy list [filters]
     list_parser = subparsers.add_parser(

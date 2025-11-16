@@ -239,6 +239,12 @@ def cmd_create(args):
         else:
             milestone = args.milestone
 
+    # Generate content template or use provided body
+    if hasattr(args, 'body') and args.body:
+        content = f"# {title}\n\n## Description\n\n{args.body}\n\n## Acceptance Criteria\n\n- [ ] Criterion 1\n- [ ] Criterion 2\n\n## Notes\n\n<!-- Add notes here -->\n"
+    else:
+        content = f"# {title}\n\n## Description\n\n<!-- Add task description here -->\n\n## Acceptance Criteria\n\n- [ ] Criterion 1\n- [ ] Criterion 2\n\n## Notes\n\n<!-- Add notes here -->\n"
+
     # Create task
     task = Task(
         id=task_id,
@@ -250,7 +256,7 @@ def cmd_create(args):
         priority=Priority(args.priority),
         tags=tags,
         milestone=milestone,
-        content=f"# {title}\n\n## Description\n\n<!-- Add task description here -->\n\n## Acceptance Criteria\n\n- [ ] Criterion 1\n- [ ] Criterion 2\n\n## Notes\n\n<!-- Add notes here -->\n"
+        content=content
     )
 
     # Apply default NFRs
