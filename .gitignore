@@ -3,7 +3,7 @@ __pycache__/
 *.py[codz]
 *$py.class
 
-jrnl/
+jrnl
 
 # C extensions
 *.so
