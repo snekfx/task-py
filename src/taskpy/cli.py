@@ -55,6 +55,12 @@ def create_parser() -> argparse.ArgumentParser:
     )
 
     parser.add_argument(
+        "--data",
+        action="store_true",
+        help="Plain data output (same as --view=data)"
+    )
+
+    parser.add_argument(
         "--no-boxy",
         action="store_true",
         help="Disable boxy output (same as --view=data)"
@@ -580,7 +586,7 @@ def main():
     args = parser.parse_args()
 
     # Handle output mode
-    if args.no_boxy or args.agent or args.view == "data":
+    if args.data or args.no_boxy or args.agent or args.view == "data":
         set_output_mode(OutputMode.DATA)
     else:
         set_output_mode(OutputMode.PRETTY)
