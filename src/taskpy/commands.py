@@ -497,12 +497,17 @@ def cmd_promote(args):
     if hasattr(args, 'target_status') and args.target_status:
         target_status = TaskStatus(args.target_status)
     else:
-        # Next in workflow
-        current_idx = workflow.index(current_status)
-        if current_idx >= len(workflow) - 1:
-            print_info(f"Task {args.task_id} is already at final status: {current_status.value}")
-            return
-        target_status = workflow[current_idx + 1]
+        # Special case: REGRESSION promotes back to QA for re-review
+        if current_status == TaskStatus.REGRESSION:
+            target_status = TaskStatus.QA
+            print_info(f"Re-submitting {args.task_id} from regression to QA for review")
+        else:
+            # Normal workflow: next in workflow
+            current_idx = workflow.index(current_status)
+            if current_idx >= len(workflow) - 1:
+                print_info(f"Task {args.task_id} is already at final status: {current_status.value}")
+                return
+            target_status = workflow[current_idx + 1]
 
     # Check for override flag
     override = getattr(args, 'override', False)
@@ -598,12 +603,21 @@ def cmd_demote(args):
         if hasattr(args, 'to') and args.to:
             target_status = TaskStatus(args.to)
         else:
-            # Previous in workflow
-            current_idx = workflow.index(current_status)
-            if current_idx <= 0:
-                print_info(f"Task {args.task_id} is already at initial status: {current_status.value}")
-                return
-            target_status = workflow[current_idx - 1]
+            # Special case: QA demotions go to REGRESSION (not back to ACTIVE)
+            if current_status == TaskStatus.QA:
+                target_status = TaskStatus.REGRESSION
+                print_info(f"QA failure: moving {args.task_id} to regression status")
+            # REGRESSION can go back to ACTIVE or promote to QA
+            elif current_status == TaskStatus.REGRESSION:
+                target_status = TaskStatus.ACTIVE
+                print_info(f"Regression needs rework: moving {args.task_id} to active")
+            else:
+                # Normal workflow: previous in workflow
+                current_idx = workflow.index(current_status)
+                if current_idx <= 0:
+                    print_info(f"Task {args.task_id} is already at initial status: {current_status.value}")
+                    return
+                target_status = workflow[current_idx - 1]
 
     # Move task
     _move_task(storage, args.task_id, path, target_status, task)
