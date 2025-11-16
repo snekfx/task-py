@@ -347,7 +347,9 @@ def display_task_card(task_data: Dict[str, Any]):
     # Choose theme based on status
     theme_map = {
         'done': Theme.SUCCESS,
-        'in_progress': Theme.INFO,
+        'active': Theme.INFO,
+        'qa': Theme.INFO,
+        'regression': Theme.WARNING,
         'blocked': Theme.WARNING,
         'backlog': Theme.PLAIN,
     }

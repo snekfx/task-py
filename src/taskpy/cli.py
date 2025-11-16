@@ -108,7 +108,7 @@ def create_parser() -> argparse.ArgumentParser:
     )
     create_parser.add_argument(
         "--status",
-        choices=["stub", "backlog", "ready", "in_progress", "qa", "blocked"],
+        choices=["stub", "backlog", "ready", "active", "qa", "blocked"],
         default="stub",
         help="Initial status (default: stub for incomplete tasks)"
     )
@@ -304,7 +304,7 @@ def create_parser() -> argparse.ArgumentParser:
     )
     move_parser.add_argument(
         "status",
-        choices=["stub", "backlog", "ready", "in_progress", "qa", "done", "archived", "blocked"],
+        choices=["stub", "backlog", "ready", "active", "qa", "regression", "done", "archived", "blocked"],
         help="Target status"
     )
 

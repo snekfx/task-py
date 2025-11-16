@@ -131,7 +131,7 @@ class TaskStorage:
         ├── status/
         │   ├── backlog/
         │   ├── ready/
-        │   ├── in_progress/
+        │   ├── active/
         │   ├── review/
         │   ├── done/
         │   └── archived/
@@ -425,7 +425,7 @@ default_priority = "medium"
 
 [workflow]
 # Available task statuses (in workflow order)
-statuses = ["backlog", "ready", "in_progress", "review", "done", "archived"]
+statuses = ["backlog", "ready", "active", "review", "done", "archived"]
 
 # Auto-archive done tasks after N days (0 = never)
 auto_archive_days = 0

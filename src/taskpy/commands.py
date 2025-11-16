@@ -62,9 +62,9 @@ def validate_stub_to_backlog(task: Task) -> tuple[bool, list[str]]:
     return (len(blockers) == 0, blockers)
 
 
-def validate_in_progress_to_qa(task: Task) -> tuple[bool, list[str]]:
+def validate_active_to_qa(task: Task) -> tuple[bool, list[str]]:
     """
-    Validate in_progress → qa promotion.
+    Validate active → qa promotion.
 
     Requirements:
     - Must have code references
@@ -150,9 +150,9 @@ def validate_promotion(task: Task, target_status: TaskStatus, commit_hash: Optio
     if current == TaskStatus.STUB and target_status == TaskStatus.BACKLOG:
         return validate_stub_to_backlog(task)
 
-    # in_progress → qa
-    elif current == TaskStatus.IN_PROGRESS and target_status == TaskStatus.QA:
-        return validate_in_progress_to_qa(task)
+    # active → qa
+    elif current == TaskStatus.ACTIVE and target_status == TaskStatus.QA:
+        return validate_active_to_qa(task)
 
     # qa → done
     elif current == TaskStatus.QA and target_status == TaskStatus.DONE:
@@ -317,7 +317,7 @@ def cmd_create(args):
         milestone_info = f"Milestone: {milestone}\n" if milestone else ""
 
         # Show gate requirements for next promotion
-        workflow = [TaskStatus.STUB, TaskStatus.BACKLOG, TaskStatus.READY, TaskStatus.IN_PROGRESS,
+        workflow = [TaskStatus.STUB, TaskStatus.BACKLOG, TaskStatus.READY, TaskStatus.ACTIVE,
                     TaskStatus.QA, TaskStatus.DONE]
         current_idx = workflow.index(task.status)
         gate_info = ""
@@ -491,7 +491,7 @@ def cmd_promote(args):
     task = storage.read_task_file(path)
 
     # Determine target status
-    workflow = [TaskStatus.STUB, TaskStatus.BACKLOG, TaskStatus.READY, TaskStatus.IN_PROGRESS,
+    workflow = [TaskStatus.STUB, TaskStatus.BACKLOG, TaskStatus.READY, TaskStatus.ACTIVE,
                 TaskStatus.QA, TaskStatus.DONE]
 
     if hasattr(args, 'target_status') and args.target_status:
@@ -565,7 +565,7 @@ def cmd_demote(args):
             "Override will be logged to data/kanban/info/override_log.txt"
         )
         # Determine target first for logging
-        workflow = [TaskStatus.STUB, TaskStatus.BACKLOG, TaskStatus.READY, TaskStatus.IN_PROGRESS,
+        workflow = [TaskStatus.STUB, TaskStatus.BACKLOG, TaskStatus.READY, TaskStatus.ACTIVE,
                     TaskStatus.QA, TaskStatus.DONE]
         if hasattr(args, 'to') and args.to:
             target_status = TaskStatus(args.to)
@@ -592,7 +592,7 @@ def cmd_demote(args):
             task.demotion_reason = args.reason
 
         # Determine target status (previous in workflow)
-        workflow = [TaskStatus.STUB, TaskStatus.BACKLOG, TaskStatus.READY, TaskStatus.IN_PROGRESS,
+        workflow = [TaskStatus.STUB, TaskStatus.BACKLOG, TaskStatus.READY, TaskStatus.ACTIVE,
                     TaskStatus.QA, TaskStatus.DONE]
 
         if hasattr(args, 'to') and args.to:
@@ -690,7 +690,7 @@ def cmd_info(args):
     task = storage.read_task_file(path)
 
     # Determine next status in workflow
-    workflow = [TaskStatus.STUB, TaskStatus.BACKLOG, TaskStatus.READY, TaskStatus.IN_PROGRESS,
+    workflow = [TaskStatus.STUB, TaskStatus.BACKLOG, TaskStatus.READY, TaskStatus.ACTIVE,
                 TaskStatus.QA, TaskStatus.DONE]
 
     print_info(f"Task: {args.task_id}")
@@ -742,7 +742,7 @@ def cmd_stoplight(args):
         sys.exit(2)  # Blocked
 
     # Determine next status in workflow
-    workflow = [TaskStatus.STUB, TaskStatus.BACKLOG, TaskStatus.READY, TaskStatus.IN_PROGRESS,
+    workflow = [TaskStatus.STUB, TaskStatus.BACKLOG, TaskStatus.READY, TaskStatus.ACTIVE,
                 TaskStatus.QA, TaskStatus.DONE]
 
     current_idx = workflow.index(current_status)
@@ -782,7 +782,7 @@ def cmd_kanban(args):
 
     # Group tasks by status
     tasks_by_status = {}
-    for status in [TaskStatus.STUB, TaskStatus.BACKLOG, TaskStatus.READY, TaskStatus.IN_PROGRESS,
+    for status in [TaskStatus.STUB, TaskStatus.BACKLOG, TaskStatus.READY, TaskStatus.ACTIVE,
                    TaskStatus.QA, TaskStatus.DONE]:
         tasks_by_status[status] = []
 
@@ -797,7 +797,7 @@ def cmd_kanban(args):
             tasks_by_status[status].append(row)
 
     # Display columns
-    for status in [TaskStatus.STUB, TaskStatus.BACKLOG, TaskStatus.READY, TaskStatus.IN_PROGRESS,
+    for status in [TaskStatus.STUB, TaskStatus.BACKLOG, TaskStatus.READY, TaskStatus.ACTIVE,
                    TaskStatus.QA, TaskStatus.DONE]:
         display_kanban_column(status.value, tasks_by_status[status])
 
@@ -1031,12 +1031,12 @@ DATA MAINTENANCE
 
 WORKFLOW STATUSES
 -----------------
-  stub → backlog → ready → in_progress → qa → done → archived
+  stub → backlog → ready → active → qa → done → archived
 
   stub         Incomplete, needs grooming
   backlog      Groomed, ready for work
   ready        Selected for sprint
-  in_progress  Actively being developed
+  active  Actively being developed
   qa           In testing/review
   done         Completed
   archived     Long-term storage
@@ -1244,7 +1244,7 @@ def _cmd_sprint_stats(args):
     print(f"Total Story Points: {total_sp}\n")
 
     print("By Status:")
-    for status in ['stub', 'backlog', 'ready', 'in_progress', 'qa', 'done', 'blocked']:
+    for status in ['stub', 'backlog', 'ready', 'active', 'qa', 'regression', 'done', 'blocked']:
         count = by_status.get(status, 0)
         if count > 0:
             print(f"  {status:15} {count:3}")

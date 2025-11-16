@@ -22,8 +22,9 @@ class TaskStatus(Enum):
     STUB = "stub"
     BACKLOG = "backlog"
     READY = "ready"
-    IN_PROGRESS = "in_progress"
+    ACTIVE = "active"  # Renamed from IN_PROGRESS
     QA = "qa"
+    REGRESSION = "regression"  # Branch state for QA failures
     DONE = "done"
     ARCHIVED = "archived"
     BLOCKED = "blocked"
