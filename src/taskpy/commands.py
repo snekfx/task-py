@@ -610,23 +610,66 @@ def cmd_demote(args):
 
 
 def cmd_move(args):
-    """Move task to specific status."""
+    """Move task(s) to specific status."""
     storage = get_storage()
 
     if not storage.is_initialized():
         print_error("TaskPy not initialized. Run: taskpy init")
         sys.exit(1)
 
-    # Find task
-    result = storage.find_task_file(args.task_id)
-    if not result:
-        print_error(f"Task not found: {args.task_id}")
+    # Parse task IDs - support both space-separated and comma-delimited
+    task_ids = []
+    for item in args.task_ids:
+        # Split on comma if present
+        if ',' in item:
+            task_ids.extend([tid.strip().upper() for tid in item.split(',') if tid.strip()])
+        else:
+            task_ids.append(item.strip().upper())
+
+    # Remove duplicates while preserving order
+    seen = set()
+    task_ids = [tid for tid in task_ids if tid not in seen and not seen.add(tid)]
+
+    if not task_ids:
+        print_error("No valid task IDs provided")
         sys.exit(1)
 
-    path, current_status = result
     target_status = TaskStatus(args.status)
 
-    _move_task(storage, args.task_id, path, target_status)
+    # Track results
+    successes = []
+    failures = []
+
+    # Process each task
+    for task_id in task_ids:
+        result = storage.find_task_file(task_id)
+        if not result:
+            failures.append((task_id, f"Task not found: {task_id}"))
+            continue
+
+        path, current_status = result
+        try:
+            _move_task(storage, task_id, path, target_status)
+            successes.append(task_id)
+        except Exception as e:
+            failures.append((task_id, str(e)))
+
+    # Print summary if multiple tasks
+    if len(task_ids) > 1:
+        print()
+        if successes:
+            print_success(f"Successfully moved {len(successes)} of {len(task_ids)} tasks")
+            for tid in successes:
+                print(f"  ✓ {tid}")
+        if failures:
+            print()
+            print_error(f"Failed to move {len(failures)} tasks:")
+            for tid, error in failures:
+                print(f"  ✗ {tid}: {error}")
+
+    # Exit with error code if any failures
+    if failures:
+        sys.exit(1)
 
 
 def cmd_info(args):

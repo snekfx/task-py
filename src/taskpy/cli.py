@@ -295,11 +295,12 @@ def create_parser() -> argparse.ArgumentParser:
     # taskpy move <TASK-ID> <STATUS>
     move_parser = subparsers.add_parser(
         "move",
-        help="Move task to specific status"
+        help="Move task(s) to specific status"
     )
     move_parser.add_argument(
-        "task_id",
-        help="Task ID (e.g., BUGS-001)"
+        "task_ids",
+        nargs='+',
+        help="One or more task IDs (e.g., BUGS-001 or BUGS-001,BUGS-002 or BUGS-001 BUGS-002)"
     )
     move_parser.add_argument(
         "status",

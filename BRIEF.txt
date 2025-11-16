@@ -29,3 +29,61 @@ we need to create a python tool to manage our META PROCESS which defines our age
   could play together nicely. you can refer to the adjacent python projects to see what theyre using. and we primarily
   want to use this right now with our rust projects but this could branch out to our node and pythong projects so we
   should leave room for extensibility.
+
+ as a backlog item id encourage you to see how our other pytho tools are using our installed boxy and rolo, boxy
+provides a decorative casin, and rolo provides structured data formatting, we typically support a --view=data flag
+to provide a no frills output, but these tools can help create meaningful "views" for the stakeholders, we want to
+provide ergonomic UX for non-agentic users, and tabular data, and task cards, etc are just some possibilities.
+
+
+
+
+
+all state data for taspy should be in data/kanban you can use that folder however you need to. including a history
+ log and active file cursor etc. 1. yes this is more like an opt in system, you dont have to use it it just helps
+keep the agent on task. maybe we can have a taskpy strict mode that creates a config entry or marker that requires
+the go-flow, session sprint is a little different as thats just saying what to work on overall, what set of tasks do
+ we want to target, the go-flow is what am i doing exactly next. 2. tasks shouldnt begin if there are uncommitted
+changes, and generally we should snapshot commit anything that is hanging around just so we have a proper record of
+the changes. snapshots to branches sounds extra -- but if the auto commit thing is a problem i can just run taskpy
+rem to see what was being done. this stuff is really extra and needs its own milestone -- probably needs more
+grooming lol -- so yeah its own mileston-4 or whatever, yeah this is sort of tied to a postential taskpy handoff
+command maybe handoff create and handoff read, dunno yet. It is useful but its complex, and i want to get the mvp
+first before we start adding sparkles
+
+
+
+
+> another backlog item -- for the verify command, maybe even init you need to say what type of project it is, node,
+rust, python, shell; we only mostly doing rust and python but soon nodejs
+
+ok next we should discuss promotion gating, i think demote only needs gating if its already in done state, like
+specificying a reason, then adding that to the ticket, or even marking it as a regression. for promotion from
+backlog/new we just need like a grooming/design/stakeholder review if the requirements arent clear, that should be a
+ success criteria for backlog/new/stub tasks by default. that would be enough to get it into dev, promoting from dev
+ to.. testing? ready? what did you have for post development? that needs the success criteria of proper test and
+code references, and the verify test has to pass. or else it cant be promoted. for promoting out to done, we need a
+commit hash to close it out. which we really only want one commit hash per ticket so that works -- waht do you
+think?
+
+> yes and there have been times when we had to skip between milestones lol or go back and forth, so making more than
+ one active should be allowed. we can also force a milestone into blocked status, which ive had to do manually
+sometimes, oh tasks should have blocked status too -- with a reason field eh? like it can other work, or some other
+condition, or indefinite -- looking ok so far, the only thing  we'd now is a way to shuttle tasks between miletsones
+ as neeeeeeeeeded
+
+
+> yeah stub is formal for incomplete status. I think new and backlog are mostly the same, unless u see a reason to
+differentiate; a backlog item isnt necessarily stub, maybe stub is more like new. ready I think is the pool of tasks
+ to bring into the 'session sprint' agents wont have time needs in the same way human teams will. i would say ready
+means groomed right? then those are chosen for what to work on next e.g. "session" sprint. you can hav "QA" for the
+testing phase, thats clear and easy. i dont konw what we would generate for a grooming checklist
+
+
+> we should also have a select field that marks tickets for the current session sprint whenver those are decided.
+maybe a taskpy sprint command, and the list command can show whats in the sprint vs whats on the board. also for the
+ kanban view, you can pipe rolo into boxy, for a table like view.
+
+> also lets add a ticket to create an auto task id for sorting, AUTO_ID or something, then we can use this to sort
+the kanban and list views, in order they were created, by ticker sort, or by status. i think no matter what though
+priority and status should be default sort order for clarity
