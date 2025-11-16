@@ -325,6 +325,11 @@ def create_parser() -> argparse.ArgumentParser:
         choices=["stub", "backlog", "ready", "active", "qa", "regression", "done", "archived", "blocked"],
         help="Target status"
     )
+    move_parser.add_argument(
+        "--reason",
+        required=True,
+        help="Reason for moving task (required)"
+    )
 
     # taskpy kanban
     kanban_parser = subparsers.add_parser(
@@ -454,6 +459,16 @@ def create_parser() -> argparse.ArgumentParser:
         help="Display issues/problems tracked for a task"
     )
     issues_parser.add_argument(
+        "task_id",
+        help="Task ID (e.g., FEAT-01)"
+    )
+
+    # taskpy history <TASK-ID>
+    history_parser = subparsers.add_parser(
+        "history",
+        help="Display task history and audit trail"
+    )
+    history_parser.add_argument(
         "task_id",
         help="Task ID (e.g., FEAT-01)"
     )

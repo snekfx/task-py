@@ -26,6 +26,8 @@ classifiers = [
 dependencies = [
     # TOML parsing (Python 3.11+ has tomllib built-in)
     "tomli>=2.0.0; python_version<'3.11'",
+    # YAML parsing for task history
+    "PyYAML>=6.0",
 ]
 
 [project.optional-dependencies]

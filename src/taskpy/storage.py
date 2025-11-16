@@ -644,10 +644,32 @@ show_tags = true
         frontmatter_text = content[4:end_idx]
         body = content[end_idx + 5:].strip()
 
-        # Parse YAML frontmatter (simplified - just handle key: value)
-        metadata = self._parse_simple_yaml(frontmatter_text)
+        # Parse YAML frontmatter using full YAML parser for complex structures
+        import yaml
+        try:
+            metadata = yaml.safe_load(frontmatter_text)
+            if metadata is None:
+                metadata = {}
+        except yaml.YAMLError:
+            # Fallback to simple parser for backward compatibility
+            metadata = self._parse_simple_yaml(frontmatter_text)
 
         # Build Task object
+        # Handle both dict (from yaml.safe_load) and string (from simple parser) metadata
+        def get_list(key, default=''):
+            val = metadata.get(key, default)
+            if isinstance(val, list):
+                return val
+            return self._parse_list(val if isinstance(val, str) else str(val))
+
+        def get_bool(key, default=False):
+            val = metadata.get(key, default)
+            if isinstance(val, bool):
+                return val
+            if isinstance(val, str):
+                return val.lower() == 'true'
+            return default
+
         task = Task(
             id=metadata['id'],
             title=metadata['title'],
@@ -656,36 +678,53 @@ show_tags = true
             status=TaskStatus(metadata.get('status', 'backlog')),
             story_points=int(metadata.get('story_points', 0)),
             priority=Priority(metadata.get('priority', 'medium')),
-            created=datetime.fromisoformat(metadata['created']),
-            updated=datetime.fromisoformat(metadata['updated']),
+            created=datetime.fromisoformat(str(metadata['created'])),
+            updated=datetime.fromisoformat(str(metadata['updated'])),
             assigned=metadata.get('assigned'),
             milestone=metadata.get('milestone'),
             blocked_reason=metadata.get('blocked_reason'),
-            in_sprint=metadata.get('in_sprint', 'false').lower() == 'true',
+            in_sprint=get_bool('in_sprint', False),
             commit_hash=metadata.get('commit_hash'),
             demotion_reason=metadata.get('demotion_reason'),
-            tags=self._parse_list(metadata.get('tags', '')),
-            dependencies=self._parse_list(metadata.get('dependencies', '')),
-            blocks=self._parse_list(metadata.get('blocks', '')),
-            nfrs=self._parse_list(metadata.get('nfrs', '')),
+            tags=get_list('tags'),
+            dependencies=get_list('dependencies'),
+            blocks=get_list('blocks'),
+            nfrs=get_list('nfrs'),
             content=body,
         )
 
-        # Parse references (if present)
-        if 'references.code' in metadata:
-            task.references.code = self._parse_list(metadata.get('references.code', ''))
-        if 'references.docs' in metadata:
-            task.references.docs = self._parse_list(metadata.get('references.docs', ''))
-        if 'references.plans' in metadata:
-            task.references.plans = self._parse_list(metadata.get('references.plans', ''))
-        if 'references.tests' in metadata:
-            task.references.tests = self._parse_list(metadata.get('references.tests', ''))
+        # Parse references (if present) - handle both nested dict and dotted notation
+        if 'references' in metadata and isinstance(metadata['references'], dict):
+            # Nested dict format from YAML
+            refs = metadata['references']
+            task.references.code = get_list('code', '') if 'code' not in refs else (refs['code'] if isinstance(refs['code'], list) else get_list('code', ''))
+            task.references.docs = refs.get('docs', []) if isinstance(refs.get('docs'), list) else []
+            task.references.plans = refs.get('plans', []) if isinstance(refs.get('plans'), list) else []
+            task.references.tests = refs.get('tests', []) if isinstance(refs.get('tests'), list) else []
+        else:
+            # Dotted notation format from simple parser
+            if 'references.code' in metadata:
+                task.references.code = get_list('references.code')
+            if 'references.docs' in metadata:
+                task.references.docs = get_list('references.docs')
+            if 'references.plans' in metadata:
+                task.references.plans = get_list('references.plans')
+            if 'references.tests' in metadata:
+                task.references.tests = get_list('references.tests')
 
-        # Parse verification (if present)
-        if 'verification.command' in metadata:
-            task.verification.command = metadata.get('verification.command')
-        if 'verification.status' in metadata:
-            task.verification.status = VerificationStatus(metadata.get('verification.status'))
+        # Parse verification (if present) - handle both nested dict and dotted notation
+        if 'verification' in metadata and isinstance(metadata['verification'], dict):
+            # Nested dict format from YAML
+            verif = metadata['verification']
+            task.verification.command = verif.get('command')
+            if 'status' in verif:
+                task.verification.status = VerificationStatus(verif['status'])
+        else:
+            # Dotted notation format from simple parser
+            if 'verification.command' in metadata:
+                task.verification.command = metadata.get('verification.command')
+            if 'verification.status' in metadata:
+                task.verification.status = VerificationStatus(metadata.get('verification.status'))
 
         # Parse resolution (if present)
         if 'resolution' in metadata:
@@ -695,6 +734,22 @@ show_tags = true
             task.resolution_reason = metadata.get('resolution_reason')
         if 'duplicate_of' in metadata:
             task.duplicate_of = metadata.get('duplicate_of')
+
+        # Parse history (if present)
+        if 'history' in metadata and metadata['history']:
+            from taskpy.models import HistoryEntry
+            for entry_data in metadata['history']:
+                if isinstance(entry_data, dict):
+                    history_entry = HistoryEntry(
+                        timestamp=datetime.fromisoformat(entry_data['timestamp']),
+                        action=entry_data['action'],
+                        from_status=entry_data.get('from_status'),
+                        to_status=entry_data.get('to_status'),
+                        reason=entry_data.get('reason'),
+                        actor=entry_data.get('actor'),
+                        metadata=entry_data.get('metadata', {})
+                    )
+                    task.history.append(history_entry)
 
         return task
 
@@ -742,6 +797,23 @@ show_tags = true
         if verif['command']:
             frontmatter_lines.append(f"verification.command: {verif['command']}")
         frontmatter_lines.append(f"verification.status: {verif['status']}")
+
+        # History (YAML list)
+        history = fm['history']
+        if history:
+            import yaml
+            frontmatter_lines.append("history:")
+            for entry in history:
+                # Dump entry as dict, then format as list item
+                entry_yaml = yaml.dump(entry, default_flow_style=False, sort_keys=False)
+                lines = entry_yaml.strip().split('\n')
+                # First line gets list marker
+                if lines:
+                    frontmatter_lines.append(f"  - {lines[0]}")
+                    # Remaining lines get additional indentation
+                    for line in lines[1:]:
+                        if line.strip():
+                            frontmatter_lines.append(f"    {line}")
 
         frontmatter_lines.append("---")
 

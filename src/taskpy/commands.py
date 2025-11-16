@@ -95,9 +95,9 @@ def validate_active_to_qa(task: Task) -> tuple[bool, list[str]]:
     Validate active → qa promotion.
 
     Requirements:
-    - Must have code references
-    - Must have test references
-    - Must have verification command set
+    - Must have code/doc references
+    - Must have test references (unless DOCS* epic)
+    - Must have verification command set (unless DOCS* epic)
     - Verification must pass
 
     Returns:
@@ -105,19 +105,28 @@ def validate_active_to_qa(task: Task) -> tuple[bool, list[str]]:
     """
     blockers = []
 
-    if not task.references.code:
-        blockers.append("Task needs code references (use: taskpy link TASK-ID --code path/to/file.py)")
+    # Check if this is a DOCS task
+    is_docs_task = task.epic_prefix.startswith('DOCS')
 
-    if not task.references.tests:
-        blockers.append("Task needs test references (use: taskpy link TASK-ID --test path/to/test.py)")
+    if not task.references.code and not task.references.docs:
+        blockers.append("Task needs code or doc references (use: taskpy link TASK-ID --code path/to/file.py or --docs path/to/doc.md)")
 
-    # Check verification command is set and has passed
-    if not task.verification.command:
-        blockers.append("Task needs verification command (use: taskpy link TASK-ID --verify \"test command\")")
+    # DOCS tasks don't need test references or verification
+    if not is_docs_task:
+        if not task.references.tests:
+            blockers.append("Task needs test references (use: taskpy link TASK-ID --test path/to/test.py)")
+
+        # Check verification command is set and has passed
+        if not task.verification.command:
+            blockers.append("Task needs verification command (use: taskpy link TASK-ID --verify \"test command\")")
+        else:
+            from taskpy.models import VerificationStatus
+            if task.verification.status != VerificationStatus.PASSED:
+                blockers.append(f"Verification must pass (status: {task.verification.status.value}). Run: taskpy verify {task.id} --update")
     else:
-        from taskpy.models import VerificationStatus
-        if task.verification.status != VerificationStatus.PASSED:
-            blockers.append(f"Verification must pass (status: {task.verification.status.value}). Run: taskpy verify {task.id} --update")
+        # DOCS tasks should have doc references
+        if not task.references.docs:
+            blockers.append("DOCS task needs doc references (use: taskpy link TASK-ID --docs path/to/doc.md)")
 
     return (len(blockers) == 0, blockers)
 
@@ -583,6 +592,8 @@ def cmd_promote(args):
         )
         reason = getattr(args, 'reason', None) or "No reason provided"
         log_override(storage, args.task_id, current_status.value, target_status.value, reason)
+        # Move task with override action
+        _move_task(storage, args.task_id, path, target_status, task, reason=reason, action="override_promote")
     else:
         # Validate promotion gates
         commit_hash = getattr(args, 'commit', None)
@@ -600,8 +611,8 @@ def cmd_promote(args):
         if commit_hash:
             task.commit_hash = commit_hash
 
-    # Move task
-    _move_task(storage, args.task_id, path, target_status, task)
+        # Move task normally
+        _move_task(storage, args.task_id, path, target_status, task, action="promote")
 
 
 def cmd_demote(args):
@@ -681,8 +692,10 @@ def cmd_demote(args):
                     return
                 target_status = workflow[current_idx - 1]
 
-    # Move task
-    _move_task(storage, args.task_id, path, target_status, task)
+    # Move task with reason
+    reason = getattr(args, 'reason', None)
+    action = "override_demote" if override else "demote"
+    _move_task(storage, args.task_id, path, target_status, task, reason=reason, action=action)
 
 
 def cmd_move(args):
@@ -693,6 +706,12 @@ def cmd_move(args):
         print_error("TaskPy not initialized. Run: taskpy init")
         sys.exit(1)
 
+    # Require reason for move command
+    if not hasattr(args, 'reason') or not args.reason:
+        print_error("Move command requires --reason flag")
+        print_info("Use 'taskpy promote' or 'taskpy demote' for workflow transitions")
+        sys.exit(1)
+
     # Parse task IDs - support both space-separated and comma-delimited
     task_ids = parse_task_ids(args.task_ids)
 
@@ -701,6 +720,10 @@ def cmd_move(args):
         sys.exit(1)
 
     target_status = TaskStatus(args.status)
+
+    # Workflow order for detecting promotions/demotions
+    workflow = [TaskStatus.STUB, TaskStatus.BACKLOG, TaskStatus.READY, TaskStatus.ACTIVE,
+                TaskStatus.QA, TaskStatus.DONE]
 
     # Track results
     successes = []
@@ -714,8 +737,18 @@ def cmd_move(args):
             continue
 
         path, current_status = result
+
+        # Warn if this looks like a workflow transition
+        if current_status in workflow and target_status in workflow:
+            current_idx = workflow.index(current_status)
+            target_idx = workflow.index(target_status)
+            if target_idx == current_idx + 1:
+                print_warning(f"⚠️  {task_id}: Use 'taskpy promote' instead of 'move' for forward workflow transitions")
+            elif target_idx == current_idx - 1:
+                print_warning(f"⚠️  {task_id}: Use 'taskpy demote' instead of 'move' for backward workflow transitions")
+
         try:
-            _move_task(storage, task_id, path, target_status)
+            _move_task(storage, task_id, path, target_status, reason=args.reason, action="move")
             successes.append(task_id)
         except Exception as e:
             failures.append((task_id, str(e)))
@@ -1125,6 +1158,55 @@ def cmd_issues(args):
 
     except Exception as e:
         print_error(f"Failed to read issues: {e}")
+        sys.exit(1)
+
+
+def cmd_history(args):
+    """Display task history and audit trail."""
+    storage = get_storage()
+
+    # Find task file
+    result = storage.find_task_file(args.task_id)
+    if not result:
+        print_error(f"Task not found: {args.task_id}")
+        sys.exit(1)
+
+    path, current_status = result
+
+    try:
+        task = storage.read_task_file(path)
+
+        if not task.history:
+            print_info(f"No history entries for {args.task_id}")
+            return
+
+        # Display history in chronological order
+        print_success(f"History for {args.task_id} ({len(task.history)} entries)", "Task History")
+        print()
+
+        for entry in task.history:
+            timestamp = entry.timestamp.strftime("%Y-%m-%d %H:%M:%S UTC")
+            action = entry.action
+
+            # Format based on action type
+            if entry.from_status and entry.to_status:
+                transition = f"{entry.from_status} → {entry.to_status}"
+                action_display = f"{action}: {transition}"
+            else:
+                action_display = action
+
+            print(f"  [{timestamp}] {action_display}")
+            if entry.reason:
+                print(f"    Reason: {entry.reason}")
+            if entry.actor:
+                print(f"    Actor: {entry.actor}")
+            if entry.metadata:
+                for key, value in entry.metadata.items():
+                    print(f"    {key}: {value}")
+            print()
+
+    except Exception as e:
+        print_error(f"Failed to read history: {e}")
         sys.exit(1)
 
 
@@ -1618,7 +1700,7 @@ def cmd_block(args):
     task.blocked_reason = args.reason
 
     # Move to blocked status
-    _move_task(storage, args.task_id, path, TaskStatus.BLOCKED, task)
+    _move_task(storage, args.task_id, path, TaskStatus.BLOCKED, task, reason=args.reason, action="block")
 
     print_info(f"Reason: {args.reason}")
 
@@ -1654,7 +1736,7 @@ def cmd_unblock(args):
     task.blocked_reason = None
 
     # Move back to target status
-    _move_task(storage, args.task_id, path, target_status, task)
+    _move_task(storage, args.task_id, path, target_status, task, action="unblock")
 
     print_info(f"Task {args.task_id} unblocked and moved to {target_status.value}")
 
@@ -1667,8 +1749,8 @@ def _open_in_editor(path: Path):
     subprocess.run([editor, str(path)])
 
 
-def _move_task(storage: TaskStorage, task_id: str, current_path: Path, target_status: TaskStatus, task: Optional[Task] = None):
-    """Move a task to a new status."""
+def _move_task(storage: TaskStorage, task_id: str, current_path: Path, target_status: TaskStatus, task: Optional[Task] = None, reason: Optional[str] = None, action: str = "move"):
+    """Move a task to a new status and log to history."""
     try:
         # Read task if not provided
         if task is None:
@@ -1677,6 +1759,17 @@ def _move_task(storage: TaskStorage, task_id: str, current_path: Path, target_st
         # Update status
         old_status = task.status
         task.status = target_status
+
+        # Add history entry
+        from taskpy.models import HistoryEntry, utc_now
+        history_entry = HistoryEntry(
+            timestamp=utc_now(),
+            action=action,
+            from_status=old_status.value,
+            to_status=target_status.value,
+            reason=reason
+        )
+        task.history.append(history_entry)
 
         # Delete old file
         current_path.unlink()

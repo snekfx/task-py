@@ -57,6 +57,40 @@ class ResolutionType(Enum):
 
 
 @dataclass
+class HistoryEntry:
+    """
+    A single history event for audit trail.
+
+    Tracks status changes, overrides, and other significant events.
+    """
+    timestamp: datetime
+    action: str  # "promote", "demote", "override", "block", "unblock", "resolve", etc.
+    from_status: Optional[str] = None  # Previous status (if applicable)
+    to_status: Optional[str] = None  # New status (if applicable)
+    reason: Optional[str] = None  # Reason for action (required for demotions/overrides)
+    actor: Optional[str] = None  # Who performed the action (session/agent)
+    metadata: Dict[str, Any] = field(default_factory=dict)  # Additional context
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for serialization."""
+        data = {
+            'timestamp': self.timestamp.isoformat(),
+            'action': self.action,
+        }
+        if self.from_status:
+            data['from_status'] = self.from_status
+        if self.to_status:
+            data['to_status'] = self.to_status
+        if self.reason:
+            data['reason'] = self.reason
+        if self.actor:
+            data['actor'] = self.actor
+        if self.metadata:
+            data['metadata'] = self.metadata
+        return data
+
+
+@dataclass
 class TaskReference:
     """References to code, docs, or other resources."""
     code: List[str] = field(default_factory=list)  # src/file.rs:10-20
@@ -140,6 +174,9 @@ class Task:
     resolution_reason: Optional[str] = None  # Explanation for resolution
     duplicate_of: Optional[str] = None  # Task ID if resolution is DUPLICATE
 
+    # Audit trail
+    history: List[HistoryEntry] = field(default_factory=list)  # Chronological history of task changes
+
     @property
     def filename(self) -> str:
         """Generate filename for this task."""
@@ -210,6 +247,7 @@ class Task:
             'nfrs': self.nfrs,
             'references': self.references.to_dict(),
             'verification': self.verification.to_dict(),
+            'history': [entry.to_dict() for entry in self.history],
         }
 
     def to_manifest_row(self) -> List[str]:
