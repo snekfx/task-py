@@ -115,6 +115,10 @@ class Task:
     assigned: Optional[str] = None  # Session ID or agent name
     in_sprint: bool = False  # Whether task is in active sprint
 
+    # Completion tracking
+    commit_hash: Optional[str] = None  # Git commit hash when task completed
+    demotion_reason: Optional[str] = None  # Reason for demotion from done
+
     @property
     def filename(self) -> str:
         """Generate filename for this task."""
@@ -174,6 +178,8 @@ class Task:
             'milestone': self.milestone,
             'blocked_reason': self.blocked_reason,
             'in_sprint': self.in_sprint,
+            'commit_hash': self.commit_hash,
+            'demotion_reason': self.demotion_reason,
             'tags': self.tags,
             'dependencies': self.dependencies,
             'blocks': self.blocks,
@@ -202,6 +208,8 @@ class Task:
             self.milestone or '',
             self.blocked_reason or '',
             str(self.in_sprint).lower(),
+            self.commit_hash or '',
+            self.demotion_reason or '',
         ]
 
 

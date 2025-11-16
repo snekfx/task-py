@@ -326,7 +326,7 @@ show_tags = true
             "id", "epic", "number", "status", "title",
             "story_points", "priority", "created", "updated",
             "tags", "dependencies", "blocks", "verification_status", "assigned",
-            "milestone", "blocked_reason", "in_sprint"
+            "milestone", "blocked_reason", "in_sprint", "commit_hash", "demotion_reason"
         ]
         with open(self.manifest_file, 'w', newline='') as f:
             writer = csv.writer(f, delimiter='\t')
@@ -539,6 +539,8 @@ show_tags = true
             milestone=metadata.get('milestone'),
             blocked_reason=metadata.get('blocked_reason'),
             in_sprint=metadata.get('in_sprint', 'false').lower() == 'true',
+            commit_hash=metadata.get('commit_hash'),
+            demotion_reason=metadata.get('demotion_reason'),
             tags=self._parse_list(metadata.get('tags', '')),
             dependencies=self._parse_list(metadata.get('dependencies', '')),
             blocks=self._parse_list(metadata.get('blocks', '')),
@@ -584,7 +586,8 @@ show_tags = true
 
         # Simple fields
         for key in ['id', 'title', 'epic', 'number', 'status', 'story_points',
-                    'priority', 'created', 'updated', 'assigned', 'milestone', 'blocked_reason', 'in_sprint']:
+                    'priority', 'created', 'updated', 'assigned', 'milestone', 'blocked_reason',
+                    'in_sprint', 'commit_hash', 'demotion_reason']:
             value = fm[key]
             if value is not None:
                 frontmatter_lines.append(f"{key}: {value}")
