@@ -1,0 +1,54 @@
+# Epic definitions for TaskPy
+# Define your epic types here. Each epic gets its own namespace (EPIC-NNN).
+
+[BUGS]
+description = "Bug fixes and corrections"
+active = true
+
+[DOCS]
+description = "Documentation work"
+active = true
+
+[FEAT]
+description = "New features and enhancements"
+active = true
+
+[REF]
+description = "Refactoring and code cleanup"
+active = true
+
+[RX]
+description = "Research and exploration"
+prefix = "RX"
+active = true
+
+[UAT]
+description = "User acceptance testing"
+active = true
+
+[QOL]
+description = "Quality of life improvements"
+active = true
+
+[TEST]
+description = "Test infrastructure and improvements"
+active = true
+
+[DEPS]
+description = "Dependency management and updates"
+active = true
+
+[INFRA]
+description = "Infrastructure and tooling"
+active = true
+
+[M0]
+description = "Milestone 0: Setup/skeleton/foundation"
+active = true
+
+# Add custom epics as needed
+# [MYEPIC]
+# description = "Custom epic description"
+# prefix = "CUSTOM"  # Optional: use different prefix than epic name
+# active = true
+# story_point_budget = 100  # Optional: SP limit for this epic

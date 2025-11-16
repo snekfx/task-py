@@ -1,0 +1,40 @@
+# Milestone definitions for TaskPy
+# Define project milestones/phases here. Milestones organize multi-phase work.
+# IDs use semantic versioning (milestone-1, milestone-1.5, milestone-2).
+# Priority field controls execution order (1=first, 2=second, etc.).
+
+[milestone-1]
+name = "Foundation MVP"
+description = "Core functionality and basic workflow"
+priority = 1
+status = "active"
+goal_sp = 50
+
+[milestone-2]
+name = "Feature Complete"
+description = "All planned features implemented"
+priority = 2
+status = "active"
+goal_sp = 100
+
+[milestone-3]
+name = "Polish and Release"
+description = "UX improvements, documentation, and release prep"
+priority = 3
+status = "planned"
+goal_sp = 40
+
+[milestone-4]
+name = "Workflow Automation & HANDOFF"
+description = "Work profiling, time tracking, go-flow, and automated context handoff generation"
+priority = 4
+status = "planned"
+goal_sp = 30
+
+# Add custom milestones as needed
+# [milestone-1.5]
+# name = "Security Hardening"
+# description = "Address security audit findings"
+# priority = 2  # Injected between milestone-1 and milestone-2
+# status = "planned"
+# goal_sp = 20

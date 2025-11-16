@@ -208,6 +208,8 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 
-# TaskPy kanban data
-data/kanban/
+# TaskPy kanban data (exclude tasks but track config)
+data/kanban/*
+!data/kanban/info/
+data/kanban/info/.gitkeep
 

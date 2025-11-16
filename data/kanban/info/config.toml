@@ -1,0 +1,36 @@
+# TaskPy configuration
+
+[general]
+# Default story point estimate for new tasks
+default_story_points = 0
+
+# Auto-apply default NFRs to all new tasks
+apply_default_nfrs = true
+
+# Default priority for new tasks
+default_priority = "medium"
+
+[workflow]
+# Available task statuses (in workflow order)
+statuses = ["backlog", "ready", "in_progress", "review", "done", "archived"]
+
+# Auto-archive done tasks after N days (0 = never)
+auto_archive_days = 0
+
+[verification]
+# Test runner command (default: auto-detect)
+# test_command = "cargo test --all"
+# test_command = "testpy run"
+
+# Require tests to pass before promoting to 'done'
+require_tests = false
+
+[display]
+# Default output mode: "pretty" or "data"
+default_view = "pretty"
+
+# Show story points in task lists
+show_story_points = true
+
+# Show tags in task lists
+show_tags = true

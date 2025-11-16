@@ -1,0 +1,51 @@
+# Non-Functional Requirements (NFRs)
+# Define NFRs that can be linked to tasks for compliance tracking.
+
+[NFR-SEC-001]
+category = "SEC"
+number = 1
+title = "Code must be free of common security vulnerabilities"
+description = "No SQL injection, XSS, command injection, path traversal, etc."
+verification = "Run security linters and manual code review"
+default = true
+
+[NFR-TEST-001]
+category = "TEST"
+number = 1
+title = "All code must have passing tests"
+description = "Unit tests, integration tests as appropriate. No fake/placeholder tests."
+verification = "pytest tests/ or python -m pytest"
+default = true
+
+[NFR-DOC-001]
+category = "DOC"
+number = 1
+title = "Public APIs must be documented"
+description = "All public functions, types, and modules must have documentation comments."
+verification = "Check docstrings in all public modules and functions"
+default = true
+
+[NFR-PERF-001]
+category = "PERF"
+number = 1
+title = "Operations must complete in reasonable time"
+description = "No operations that hang indefinitely or cause unacceptable latency."
+verification = "Performance testing and profiling"
+default = false
+
+[NFR-SCALE-001]
+category = "SCALE"
+number = 1
+title = "Must handle expected data volumes"
+description = "System must scale to handle expected user/data load."
+verification = "Load testing and benchmarking"
+default = false
+
+# Add custom NFRs as needed
+# [NFR-CUSTOM-001]
+# category = "CUSTOM"
+# number = 1
+# title = "Your NFR title"
+# description = "Detailed description"
+# verification = "How to verify compliance"
+# default = false
