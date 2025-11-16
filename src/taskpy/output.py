@@ -198,10 +198,36 @@ def rolo_table(
         _plain_table(headers, rows, title)
         return False
 
-    # TODO: Implement rolo integration once we understand its API
-    # For now, use plain table
-    _plain_table(headers, rows, title)
-    return False
+    # Build TSV input for rolo
+    tsv_lines = []
+    tsv_lines.append("\t".join(headers))
+    for row in rows:
+        tsv_lines.append("\t".join(str(cell) for cell in row))
+
+    tsv_input = "\n".join(tsv_lines)
+
+    try:
+        result = subprocess.run(
+            ["rolo", "table", "--border=unicode"],
+            input=tsv_input,
+            text=True,
+            capture_output=True,
+            timeout=10,
+        )
+
+        if result.returncode == 0:
+            if title:
+                print(f"\n{title}")
+                print("-" * len(title))
+            print(result.stdout)
+            return True
+        else:
+            _plain_table(headers, rows, title)
+            return False
+
+    except (subprocess.TimeoutExpired, subprocess.SubprocessError, OSError):
+        _plain_table(headers, rows, title)
+        return False
 
 
 def _plain_output(content: str, theme: str, title: Optional[str]):
