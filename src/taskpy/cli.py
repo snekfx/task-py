@@ -774,6 +774,13 @@ def create_parser() -> argparse.ArgumentParser:
 
 def main():
     """Main entry point for taskpy CLI."""
+    # Check if first arg is 'modern' - route to modern namespace
+    if len(sys.argv) > 1 and sys.argv[1] == 'modern':
+        sys.argv.pop(1)  # Remove 'modern' from args
+        from taskpy.modern import cli as modern_cli
+        modern_cli.main()
+        return
+
     parser = create_parser()
     args = parser.parse_args()
 
