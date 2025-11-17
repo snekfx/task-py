@@ -1,0 +1,40 @@
+
+  - ✅ --type flag added to taskpy create command
+  - ✅ --type filter flag added to taskpy list command
+  - ✅ taskpy types command shows full breakdown with:
+    - Code, name, description
+    - Example use cases (3-4 per type)
+    - Color coding
+    - Usage examples
+
+  Example: taskpy types Output
+
+  ==================================================
+  Ticket Types
+  ==================================================
+
+  Code  Name         Description                                      Color
+  ────  ────         ───────────                                      ─────
+  F     Feature      New functionality or enhancement                 green
+                     Examples:
+                     • Add OAuth authentication
+                     • Implement file upload feature
+                     • Create dashboard widget
+
+  S     Standards    Compliance, constraints, alignment, standards    brown
+                     Examples:
+                     • Align with OWASP guidelines
+                     • Implement GDPR compliance
+                     • Follow accessibility standards
+
+  Usage:
+    taskpy create <EPIC> <TITLE> --type <CODE>  Create task with type
+    taskpy list --type <CODE>                    Filter by type
+    taskpy types                                  Show this help
+
+  Key Features:
+
+  - Help documentation built into taskpy types command
+  - Filtering support via taskpy list --type <CODE>
+  - Example use cases for each type (helps users choose correctly)
+  - Reference format for quick lookup

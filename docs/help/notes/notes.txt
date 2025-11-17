@@ -1,0 +1,23 @@
+
+
++ discourage overloading standard epics
+
++ history rollover
+
++ search/find
+
+
++ ticket types
+  - F feature/enhancement
+  - B bug/defect/gap
+  - R regression
+  - Q qol/ux
+  - N fr/nfr
+  - A admin/docs
+  - E example/demo/pilot
+  - T test/testing
+  - S standards/sec/compliance
+  - P performance
+
++ backup system
+  - commit hook to compress the kanban data into a zip folder and store in data/bak/kanban-<timestamp>.zip
