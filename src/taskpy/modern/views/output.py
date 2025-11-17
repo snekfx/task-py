@@ -287,8 +287,9 @@ def show_card(task_data: Dict[str, Any], output_mode: OutputMode = OutputMode.PR
     if task_data.get('assigned'):
         lines.append(f"Assigned: {task_data['assigned']}")
 
-    lines.append("")
-    lines.append(task_data.get('content', '').strip())
+    # Add description if present
+    if task_data.get('content', '').strip():
+        lines.append(task_data.get('content', '').strip())
 
     card = "\n".join(lines)
     status = task_data.get('status', 'backlog')
@@ -309,7 +310,7 @@ def show_card(task_data: Dict[str, Any], output_mode: OutputMode = OutputMode.PR
         _plain_output(card, theme.value, f"Task: {task_data['id']}")
         return
 
-    cmd = ["boxy", "--theme", theme.value, "--title", f"Task: {task_data['id']}", "--width", "max"]
+    cmd = ["boxy", "--theme", theme.value, "--title", f"Task: {task_data['id']}", "--layout", "dt", "--width", "max"]
 
     try:
         result = subprocess.run(
