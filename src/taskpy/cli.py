@@ -107,8 +107,8 @@ def create_parser() -> argparse.ArgumentParser:
         view="pretty",
         data=False,
         no_boxy=False,
-        agent=False,
-        all=False
+        agent=False
+        # Note: 'all' uses SUPPRESS, so no default needed here
     )
 
     # Subcommands
@@ -241,6 +241,7 @@ def create_parser() -> argparse.ArgumentParser:
         "--show-all",
         dest="all",
         action="store_true",
+        default=argparse.SUPPRESS,
         help=argparse.SUPPRESS  # Hidden alias
     )
 

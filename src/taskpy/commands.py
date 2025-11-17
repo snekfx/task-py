@@ -1166,7 +1166,7 @@ def cmd_history(args):
     storage = get_storage()
 
     # Check if showing all tasks or single task
-    if args.all:
+    if getattr(args, 'all', False):
         # Read all tasks from manifest
         rows = _read_manifest(storage)
 
