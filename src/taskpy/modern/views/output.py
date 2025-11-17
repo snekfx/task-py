@@ -5,6 +5,12 @@ This module provides integration with external display tools (boxy for boxes,
 rolo for tables) while gracefully falling back to plain text when unavailable.
 
 All functions support output mode detection for PRETTY/DATA/AGENT modes.
+
+Boxy Layout Options (for future use):
+- --layout dt/dtn: divider after title (CURRENTLY BROKEN - boxy bug)
+- --layout ds/dsn: divider before status (works with --status flag)
+- Suffix 'n' means no padding around divider
+- Example: boxy --title "X" --status "Y" --layout ds
 """
 
 import os
