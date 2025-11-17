@@ -306,22 +306,25 @@ def show_card(task_data: Dict[str, Any], output_mode: OutputMode = OutputMode.PR
     status = task_data.get('status', 'backlog')
 
     # Choose theme based on status
+    # Using boxy's built-in themes (see: boxy engine list)
     theme_map = {
-        'done': Theme.SUCCESS,
-        'active': Theme.INFO,
-        'qa': Theme.INFO,
-        'regression': Theme.WARNING,
-        'blocked': Theme.WARNING,
-        'backlog': Theme.PLAIN,
+        'done': 'success',      # ✅ green, rounded
+        'active': 'info',       # ℹ️ blue, normal
+        'qa': 'info',           # ℹ️ blue, normal
+        'ready': 'dev',         # 🎨 cyan, normal
+        'blocked': 'blocked',   # 🎨 amber, normal (or could use 'warning')
+        'regression': 'warning', # ⚠️ amber, normal
+        'backlog': 'plain',     # No icon, default
+        'stub': 'plain',        # No icon, default
     }
-    theme = theme_map.get(status, Theme.PLAIN)
+    theme = theme_map.get(status, 'plain')
 
     # Use boxy if available
     if not has_boxy():
-        _plain_output(card, theme.value, f"Task: {task_data['id']}")
+        _plain_output(card, theme, f"Task: {task_data['id']}")
         return
 
-    cmd = ["boxy", "--theme", theme.value, "--title", f"Task: {task_data['id']}", "--layout", "dt", "--width", "max"]
+    cmd = ["boxy", "--theme", theme, "--title", f"Task: {task_data['id']}", "--layout", "dt", "--width", "max"]
 
     try:
         result = subprocess.run(
