@@ -447,7 +447,7 @@ def cmd_list(args):
             print()  # Spacing
 
     else:  # table
-        headers = ["ID", "Epic", "#", "Title", "Status", "SP", "Priority", "Sprint"]
+        headers = ["ID", "Title", "Status", "SP", "Priority", "Sprint"]
         rows = [_manifest_row_to_table(task) for task in tasks]
         row_statuses = [task.get('status') for task in tasks]
         rolo_table(headers, rows, f"Tasks ({len(tasks)} found)", row_statuses=row_statuses)
@@ -1471,7 +1471,7 @@ def _cmd_sprint_list(args):
         return
 
     # Display tasks as table (include Sprint column for consistency)
-    headers = ["ID", "Epic", "#", "Title", "Status", "SP", "Priority", "Sprint"]
+    headers = ["ID", "Title", "Status", "SP", "Priority", "Sprint"]
     table_rows = [_manifest_row_to_table(task) for task in sprint_tasks]
     rolo_table(headers, table_rows, f"Sprint Tasks ({len(sprint_tasks)} found)")
 
@@ -2144,8 +2144,6 @@ def _manifest_row_to_table(row: Dict[str, str]) -> List[str]:
 
     return [
         row.get('id', ''),
-        row.get('epic', ''),
-        _format_task_number(row.get('number')),
         _format_title_column(row.get('title')),
         row.get('status', ''),
         row.get('story_points', '0'),
