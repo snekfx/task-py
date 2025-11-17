@@ -9,12 +9,12 @@ from unittest.mock import patch, MagicMock
 from taskpy.modern.views.output import (
     OutputMode,
     Theme,
-    check_boxy_availability,
-    check_rolo_availability,
+    has_boxy,
+    has_rolo,
     dim,
     rolo_table,
-    display_task_card,
-    display_kanban_column,
+    show_card,
+    show_column,
 )
 
 
@@ -53,7 +53,7 @@ class TestBoxyAvailability:
         taskpy.modern.views.output._BOXY_AVAILABLE = None
 
         mock_which.return_value = None
-        assert check_boxy_availability() is False
+        assert has_boxy() is False
 
     @patch.dict('os.environ', {'REPOS_USE_BOXY': '1'})
     def test_boxy_disabled_by_env(self):
@@ -62,7 +62,7 @@ class TestBoxyAvailability:
         import taskpy.modern.views.output
         taskpy.modern.views.output._BOXY_AVAILABLE = None
 
-        assert check_boxy_availability() is False
+        assert has_boxy() is False
 
     @patch('taskpy.modern.views.output.subprocess.run')
     @patch('taskpy.modern.views.output.shutil.which')
@@ -75,7 +75,7 @@ class TestBoxyAvailability:
         mock_which.return_value = "/usr/bin/boxy"
         mock_run.return_value = MagicMock(returncode=0)
 
-        assert check_boxy_availability() is True
+        assert has_boxy() is True
 
     @patch('taskpy.modern.views.output.subprocess.run')
     @patch('taskpy.modern.views.output.shutil.which')
@@ -89,9 +89,9 @@ class TestBoxyAvailability:
         mock_run.return_value = MagicMock(returncode=0)
 
         # First call
-        check_boxy_availability()
+        has_boxy()
         # Second call should use cache
-        check_boxy_availability()
+        has_boxy()
 
         # Should only call subprocess once due to caching
         assert mock_run.call_count == 1
@@ -108,7 +108,7 @@ class TestRoloAvailability:
         taskpy.modern.views.output._ROLO_AVAILABLE = None
 
         mock_which.return_value = None
-        assert check_rolo_availability() is False
+        assert has_rolo() is False
 
     @patch('taskpy.modern.views.output.subprocess.run')
     @patch('taskpy.modern.views.output.shutil.which')
@@ -121,7 +121,7 @@ class TestRoloAvailability:
         mock_which.return_value = "/usr/bin/rolo"
         mock_run.return_value = MagicMock(returncode=0)
 
-        assert check_rolo_availability() is True
+        assert has_rolo() is True
 
 
 class TestDim:
@@ -136,7 +136,7 @@ class TestDim:
 class TestRoloTable:
     """Test rolo table rendering."""
 
-    @patch('taskpy.modern.views.output.check_rolo_availability')
+    @patch('taskpy.modern.views.output.has_rolo')
     def test_rolo_table_data_mode(self, mock_rolo, capsys):
         """Test rolo_table in DATA mode uses plain fallback."""
         headers = ["ID", "Title"]
@@ -148,7 +148,7 @@ class TestRoloTable:
         assert "ID" in captured.out
         assert "TASK-1" in captured.out
 
-    @patch('taskpy.modern.views.output.check_rolo_availability')
+    @patch('taskpy.modern.views.output.has_rolo')
     def test_rolo_table_fallback_when_unavailable(self, mock_rolo, capsys):
         """Test rolo_table falls back to plain when rolo unavailable."""
         mock_rolo.return_value = False
@@ -163,19 +163,19 @@ class TestRoloTable:
         assert "ID" in captured.out
 
 
-class TestDisplayTaskCard:
+class TestShowCard:
     """Test task card display."""
 
-    @patch('taskpy.modern.views.output.check_boxy_availability')
-    def test_display_task_card_data_mode(self, mock_boxy, capsys):
-        """Test display_task_card in DATA mode."""
+    @patch('taskpy.modern.views.output.has_boxy')
+    def test_show_card_data_mode(self, mock_boxy, capsys):
+        """Test show_card in DATA mode."""
         task = {
             'id': 'TASK-1',
             'title': 'Test task',
             'status': 'active',
         }
 
-        display_task_card(task, output_mode=OutputMode.DATA)
+        show_card(task, output_mode=OutputMode.DATA)
 
         captured = capsys.readouterr()
         assert "ID: TASK-1" in captured.out
@@ -183,18 +183,18 @@ class TestDisplayTaskCard:
         assert "Status: active" in captured.out
 
 
-class TestDisplayKanbanColumn:
+class TestShowColumn:
     """Test kanban column display."""
 
-    @patch('taskpy.modern.views.output.check_boxy_availability')
-    def test_display_kanban_column_data_mode(self, mock_boxy, capsys):
-        """Test display_kanban_column in DATA mode."""
+    @patch('taskpy.modern.views.output.has_boxy')
+    def test_show_column_data_mode(self, mock_boxy, capsys):
+        """Test show_column in DATA mode."""
         tasks = [
             {'id': 'TASK-1', 'title': 'First', 'story_points': 3, 'in_sprint': 'true'},
             {'id': 'TASK-2', 'title': 'Second', 'story_points': 5, 'in_sprint': 'false'},
         ]
 
-        display_kanban_column("backlog", tasks, output_mode=OutputMode.DATA)
+        show_column("backlog", tasks, output_mode=OutputMode.DATA)
 
         captured = capsys.readouterr()
         assert "BACKLOG (2 tasks)" in captured.out

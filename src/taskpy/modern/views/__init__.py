@@ -21,20 +21,20 @@ from taskpy.modern.views.base import View
 from taskpy.modern.views.output import (
     OutputMode,
     Theme,
-    check_boxy_availability,
-    check_rolo_availability,
+    has_boxy,
+    has_rolo,
     rolo_table,
-    display_task_card,
-    display_kanban_column,
+    show_card,
+    show_column,
 )
 
 __all__ = [
     'View',
     'OutputMode',
     'Theme',
-    'check_boxy_availability',
-    'check_rolo_availability',
+    'has_boxy',
+    'has_rolo',
     'rolo_table',
-    'display_task_card',
-    'display_kanban_column',
+    'show_card',
+    'show_column',
 ]

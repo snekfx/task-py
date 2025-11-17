@@ -38,7 +38,7 @@ _ROLO_AVAILABLE: Optional[bool] = None
 _TABLE_WIDTH: Optional[int] = None
 
 
-def check_boxy_availability() -> bool:
+def has_boxy() -> bool:
     """
     Check if boxy is available and working.
 
@@ -74,7 +74,7 @@ def check_boxy_availability() -> bool:
         return False
 
 
-def check_rolo_availability() -> bool:
+def has_rolo() -> bool:
     """
     Check if rolo is available and working.
 
@@ -203,7 +203,7 @@ def rolo_table(
         _plain_table(headers, rows, title, row_statuses)
         return False
 
-    if not check_rolo_availability():
+    if not has_rolo():
         _plain_table(headers, rows, title, row_statuses)
         return False
 
@@ -246,7 +246,7 @@ def rolo_table(
         return False
 
 
-def display_task_card(task_data: Dict[str, Any], output_mode: OutputMode = OutputMode.PRETTY):
+def show_card(task_data: Dict[str, Any], output_mode: OutputMode = OutputMode.PRETTY):
     """
     Display a task as a pretty card.
 
@@ -295,7 +295,7 @@ def display_task_card(task_data: Dict[str, Any], output_mode: OutputMode = Outpu
     theme = theme_map.get(status, Theme.PLAIN)
 
     # Use boxy if available
-    if not check_boxy_availability():
+    if not has_boxy():
         _plain_output(card, theme.value, f"Task: {task_data['id']}")
         return
 
@@ -319,7 +319,7 @@ def display_task_card(task_data: Dict[str, Any], output_mode: OutputMode = Outpu
         _plain_output(card, theme.value, f"Task: {task_data['id']}")
 
 
-def display_kanban_column(
+def show_column(
     column_name: str,
     tasks: List[Dict[str, Any]],
     output_mode: OutputMode = OutputMode.PRETTY
@@ -351,7 +351,7 @@ def display_kanban_column(
     content = "\n".join(lines)
 
     # Use boxy if available
-    if not check_boxy_availability():
+    if not has_boxy():
         _plain_output(content, Theme.INFO.value, column_name.replace("_", " ").title())
         return
 
