@@ -9,6 +9,7 @@ import subprocess
 from pathlib import Path
 
 
+
 class TestCLI:
     """Integration tests for CLI commands."""
 
@@ -29,6 +30,13 @@ class TestCLI:
             text=True
         )
         return result
+
+    def link_delivery_requirements(self, cwd, task_id="FEAT-01"):
+        """Attach code/test references and mark verification passed."""
+        self.run_taskpy(["link", task_id, "--code", "src/main.py"], cwd=cwd)
+        self.run_taskpy(["link", task_id, "--test", "tests/test_main.py"], cwd=cwd)
+        self.run_taskpy(["link", task_id, "--verify", VERIFY_CMD], cwd=cwd)
+        self.run_taskpy(["verify", task_id, "--update"], cwd=cwd)
 
     def test_version(self):
         """Test taskpy --version."""
@@ -479,10 +487,8 @@ class TestCLI:
         self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
         self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
 
-        # Link code and test references
-        self.run_taskpy(["link", "FEAT-01", "--code", "src/main.py"], cwd=temp_dir)
-        self.run_taskpy(["link", "FEAT-01", "--test", "tests/test_main.py"], cwd=temp_dir)
-        self.run_taskpy(["link", "FEAT-01", "--verify", "pytest tests/"], cwd=temp_dir)
+        # Link code/test references and pass verification
+        self.link_delivery_requirements(temp_dir)
 
         # Should pass now
         result = self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
@@ -498,9 +504,7 @@ class TestCLI:
         self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
         self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
         self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
-        self.run_taskpy(["link", "FEAT-01", "--code", "src/main.py"], cwd=temp_dir)
-        self.run_taskpy(["link", "FEAT-01", "--test", "tests/test_main.py"], cwd=temp_dir)
-        self.run_taskpy(["link", "FEAT-01", "--verify", "pytest tests/"], cwd=temp_dir)
+        self.link_delivery_requirements(temp_dir)
         self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
 
         # Should be blocked without commit hash
@@ -517,9 +521,7 @@ class TestCLI:
         self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
         self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
         self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
-        self.run_taskpy(["link", "FEAT-01", "--code", "src/main.py"], cwd=temp_dir)
-        self.run_taskpy(["link", "FEAT-01", "--test", "tests/test_main.py"], cwd=temp_dir)
-        self.run_taskpy(["link", "FEAT-01", "--verify", "pytest tests/"], cwd=temp_dir)
+        self.link_delivery_requirements(temp_dir)
         self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
 
         # Should pass with commit hash
@@ -536,8 +538,7 @@ class TestCLI:
         self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
         self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
         self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
-        self.run_taskpy(["link", "FEAT-01", "--code", "src/main.py"], cwd=temp_dir)
-        self.run_taskpy(["link", "FEAT-01", "--test", "tests/test_main.py"], cwd=temp_dir)
+        self.link_delivery_requirements(temp_dir)
         self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
         self.run_taskpy(["promote", "FEAT-01", "--commit", "abc123"], cwd=temp_dir)
 
@@ -555,8 +556,7 @@ class TestCLI:
         self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
         self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
         self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
-        self.run_taskpy(["link", "FEAT-01", "--code", "src/main.py"], cwd=temp_dir)
-        self.run_taskpy(["link", "FEAT-01", "--test", "tests/test_main.py"], cwd=temp_dir)
+        self.link_delivery_requirements(temp_dir)
         self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
         self.run_taskpy(["promote", "FEAT-01", "--commit", "abc123"], cwd=temp_dir)
 
@@ -797,8 +797,7 @@ class TestCLI:
         self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)  # stub → backlog
         self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)  # backlog → ready
         self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)  # ready → active
-        self.run_taskpy(["link", "FEAT-01", "--code", "src/main.py"], cwd=temp_dir)
-        self.run_taskpy(["link", "FEAT-01", "--test", "tests/test_main.py"], cwd=temp_dir)
+        self.link_delivery_requirements(temp_dir)
         self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)  # active → qa
 
         # Demote from QA should go to regression
@@ -819,8 +818,7 @@ class TestCLI:
         self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
         self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
         self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
-        self.run_taskpy(["link", "FEAT-01", "--code", "src/main.py"], cwd=temp_dir)
-        self.run_taskpy(["link", "FEAT-01", "--test", "tests/test_main.py"], cwd=temp_dir)
+        self.link_delivery_requirements(temp_dir)
         self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)  # active → qa
         self.run_taskpy(["demote", "FEAT-01"], cwd=temp_dir)   # qa → regression
 
@@ -838,8 +836,7 @@ class TestCLI:
         self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
         self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
         self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
-        self.run_taskpy(["link", "FEAT-01", "--code", "src/main.py"], cwd=temp_dir)
-        self.run_taskpy(["link", "FEAT-01", "--test", "tests/test_main.py"], cwd=temp_dir)
+        self.link_delivery_requirements(temp_dir)
         self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
         self.run_taskpy(["demote", "FEAT-01"], cwd=temp_dir)
 
@@ -997,3 +994,4 @@ class TestCLI:
             "--reason", "test"
         ], cwd=temp_dir)
         assert result.returncode == 1  # Should fail for non-bug epic
+VERIFY_CMD = 'python3 -c "import sys; sys.exit(0)"'
