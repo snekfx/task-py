@@ -994,4 +994,95 @@ class TestCLI:
             "--reason", "test"
         ], cwd=temp_dir)
         assert result.returncode == 1  # Should fail for non-bug epic
+
+    def test_rename_command(self, temp_dir):
+        """Test taskpy rename command."""
+        self.run_taskpy(["init"], cwd=temp_dir)
+
+        # Add TEST epic for testing
+        self.run_taskpy(["epics", "add", "TEST", "--description", "Test epic"], cwd=temp_dir)
+
+        # Create a test task
+        self.run_taskpy(["create", "TEST", "Test task for rename", "--sp", "2"], cwd=temp_dir)
+
+        # Rename TEST-01 to TEST-99
+        result = self.run_taskpy(["--view=data", "rename", "TEST-01", "TEST-99"], cwd=temp_dir)
+        assert result.returncode == 0
+        assert "Renamed" in result.stdout
+        assert "TEST-01" in result.stdout
+        assert "TEST-99" in result.stdout
+
+        # Verify old ID doesn't exist
+        result = self.run_taskpy(["show", "TEST-01"], cwd=temp_dir)
+        assert result.returncode == 1
+
+        # Verify new ID exists
+        result = self.run_taskpy(["--view=data", "show", "TEST-99"], cwd=temp_dir)
+        assert result.returncode == 0
+        assert "TEST-99" in result.stdout
+        assert "Test task for rename" in result.stdout
+
+    def test_rename_updates_content(self, temp_dir):
+        """Test that rename updates task content."""
+        self.run_taskpy(["init"], cwd=temp_dir)
+
+        # Add TEST epic
+        self.run_taskpy(["epics", "add", "TEST", "--description", "Test epic"], cwd=temp_dir)
+        self.run_taskpy(["epics", "add", "XXX", "--description", "Test epic 2"], cwd=temp_dir)
+
+        # Create task with body containing old ID
+        self.run_taskpy([
+            "create", "TEST", "Task with self-reference",
+            "--body", "This is TEST-01 and references TEST-01 in the description",
+            "--sp", "1"
+        ], cwd=temp_dir)
+
+        # Rename to XXX-50
+        result = self.run_taskpy(["--view=data", "rename", "TEST-01", "XXX-50"], cwd=temp_dir)
+        assert result.returncode == 0
+
+        # Check that content was updated
+        result = self.run_taskpy(["--view=data", "show", "XXX-50"], cwd=temp_dir)
+        assert "XXX-50" in result.stdout
+        assert "Task with self-reference" in result.stdout
+
+    def test_rename_prevents_duplicate(self, temp_dir):
+        """Test that rename prevents overwriting existing task."""
+        self.run_taskpy(["init"], cwd=temp_dir)
+
+        # Add TEST epic
+        self.run_taskpy(["epics", "add", "TEST", "--description", "Test epic"], cwd=temp_dir)
+
+        # Create two tasks
+        self.run_taskpy(["create", "TEST", "First task", "--sp", "1"], cwd=temp_dir)
+        self.run_taskpy(["create", "TEST", "Second task", "--sp", "1"], cwd=temp_dir)
+
+        # Try to rename TEST-02 to TEST-01 (which exists)
+        result = self.run_taskpy(["--view=data", "rename", "TEST-02", "TEST-01"], cwd=temp_dir)
+        assert result.returncode == 1
+        assert "already exists" in result.stdout or "exists" in result.stdout
+
+        # TEST-02 should still exist
+        result = self.run_taskpy(["show", "TEST-02"], cwd=temp_dir)
+        assert result.returncode == 0
+
+    def test_rename_with_force(self, temp_dir):
+        """Test rename --force overwrites existing task."""
+        self.run_taskpy(["init"], cwd=temp_dir)
+
+        # Add TEST epic
+        self.run_taskpy(["epics", "add", "TEST", "--description", "Test epic"], cwd=temp_dir)
+
+        # Create two tasks
+        self.run_taskpy(["create", "TEST", "First task", "--sp", "1"], cwd=temp_dir)
+        self.run_taskpy(["create", "TEST", "Second task to overwrite", "--sp", "2"], cwd=temp_dir)
+
+        # Rename with force
+        result = self.run_taskpy(["--view=data", "rename", "TEST-02", "TEST-01", "--force"], cwd=temp_dir)
+        assert result.returncode == 0
+
+        # TEST-01 should now have the second task content
+        result = self.run_taskpy(["--view=data", "show", "TEST-01"], cwd=temp_dir)
+        assert "Second task to overwrite" in result.stdout
+
 VERIFY_CMD = 'python3 -c "import sys; sys.exit(0)"'

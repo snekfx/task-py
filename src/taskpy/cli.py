@@ -586,6 +586,73 @@ def create_parser() -> argparse.ArgumentParser:
         help="Reference to duplicate task (used with --resolution duplicate)"
     )
 
+    # taskpy delete <TASK-ID> --reason REASON
+    delete_parser = add_subparser(
+        "delete",
+        help="Move task to trash (soft delete, recoverable)"
+    )
+    delete_parser.add_argument(
+        "task_id",
+        help="Task ID (e.g., FEAT-001)"
+    )
+    delete_parser.add_argument(
+        "--reason",
+        required=True,
+        help="Reason for deletion (logged in history)"
+    )
+
+    # taskpy trash [empty]
+    trash_parser = add_subparser(
+        "trash",
+        help="View or empty trash bin"
+    )
+    trash_parser.add_argument(
+        "action",
+        nargs="?",
+        choices=["empty"],
+        help="Optional: 'empty' to permanently delete all trashed tasks"
+    )
+
+    # taskpy recover <AUTO-ID> --reason REASON
+    recover_parser = add_subparser(
+        "recover",
+        help="Recover task from trash by auto_id"
+    )
+    recover_parser.add_argument(
+        "auto_id",
+        type=int,
+        help="Auto ID of trashed task (shown in trash list)"
+    )
+    recover_parser.add_argument(
+        "--reason",
+        required=True,
+        help="Reason for recovery (logged in history)"
+    )
+
+    # taskpy rename <OLD-ID> <NEW-ID> [--skip-manifest] [--force]
+    rename_parser = add_subparser(
+        "rename",
+        help="Rename task ID (change epic and/or number)"
+    )
+    rename_parser.add_argument(
+        "old_id",
+        help="Current task ID (e.g., QOL-12)"
+    )
+    rename_parser.add_argument(
+        "new_id",
+        help="New task ID (e.g., FEAT-12)"
+    )
+    rename_parser.add_argument(
+        "--skip-manifest",
+        action="store_true",
+        help="Skip manifest update (for internal use by recover)"
+    )
+    rename_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Force rename even if new ID exists"
+    )
+
     # taskpy tour
     tour_parser = add_subparser(
         "tour",
