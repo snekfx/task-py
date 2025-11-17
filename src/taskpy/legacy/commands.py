@@ -16,9 +16,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional, List, Dict, Iterable, Tuple
 
-from taskpy.models import Task, TaskStatus, Priority, TaskReference, Verification, VerificationStatus, utc_now
-from taskpy.storage import TaskStorage, StorageError
-from taskpy.output import (
+from taskpy.legacy.models import Task, TaskStatus, Priority, TaskReference, Verification, VerificationStatus, utc_now
+from taskpy.legacy.storage import TaskStorage, StorageError
+from taskpy.legacy.output import (
     print_success, print_error, print_info, print_warning,
     display_task_card, display_kanban_column, rolo_table,
     get_output_mode, OutputMode
@@ -124,7 +124,7 @@ def validate_active_to_qa(task: Task) -> tuple[bool, list[str]]:
         if not task.verification.command:
             blockers.append("Task needs verification command (use: taskpy link TASK-ID --verify \"test command\")")
         else:
-            from taskpy.models import VerificationStatus
+            from taskpy.legacy.models import VerificationStatus
             if task.verification.status != VerificationStatus.PASSED:
                 blockers.append(f"Verification must pass (status: {task.verification.status.value}). Run: taskpy verify {task.id} --update")
     else:
@@ -1293,7 +1293,7 @@ def cmd_resolve(args):
     Only works for bug-like tasks (BUGS*, REG*, DEF*).
     Bypasses normal QA gates for non-fixed resolutions.
     """
-    from taskpy.models import ResolutionType
+    from taskpy.legacy.models import ResolutionType
     import re
 
     storage = get_storage()
@@ -1365,7 +1365,7 @@ def cmd_session(args):
 
 def cmd_tour(args):
     """Display TaskPy quick reference tour."""
-    from taskpy.help import TOUR_TEXT
+    from taskpy.legacy.help import TOUR_TEXT
     print(TOUR_TEXT)
 
 
@@ -2044,7 +2044,7 @@ def _move_task(storage: TaskStorage, task_id: str, current_path: Path, target_st
         task.status = target_status
 
         # Add history entry
-        from taskpy.models import HistoryEntry, utc_now
+        from taskpy.legacy.models import HistoryEntry, utc_now
         history_entry = HistoryEntry(
             timestamp=utc_now(),
             action=action,
@@ -2681,7 +2681,7 @@ def cmd_help(args):
         print()
 
         # Then show command help
-        from taskpy.cli import create_parser
+        from taskpy.legacy.cli import create_parser
         parser = create_parser()
         parser.print_help()
         return

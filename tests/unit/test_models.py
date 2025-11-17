@@ -4,7 +4,7 @@ Unit tests for TaskPy models.
 
 import pytest
 from datetime import datetime
-from taskpy.models import (
+from taskpy.legacy.models import (
     Task, Epic, NFR, TaskStatus, Priority,
     TaskReference, Verification, VerificationStatus, utc_now
 )

@@ -2,8 +2,8 @@
 
 import sys
 from pathlib import Path
-from taskpy.storage import TaskStorage
-from taskpy.output import print_error
+from taskpy.legacy.storage import TaskStorage
+from taskpy.legacy.output import print_error
 
 
 def cmd_nfrs(args):

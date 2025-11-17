@@ -24,7 +24,7 @@ else:
     except ImportError:
         tomllib = None
 
-from taskpy.models import (
+from taskpy.legacy.models import (
     Task, Epic, NFR, Milestone, TaskStatus, Priority,
     TaskReference, Verification, VerificationStatus, utc_now
 )
@@ -731,7 +731,7 @@ show_tags = true
 
         # Parse resolution (if present)
         if 'resolution' in metadata:
-            from taskpy.models import ResolutionType
+            from taskpy.legacy.models import ResolutionType
             task.resolution = ResolutionType(metadata.get('resolution'))
         if 'resolution_reason' in metadata:
             task.resolution_reason = metadata.get('resolution_reason')
@@ -740,7 +740,7 @@ show_tags = true
 
         # Parse history (if present)
         if 'history' in metadata and metadata['history']:
-            from taskpy.models import HistoryEntry
+            from taskpy.legacy.models import HistoryEntry
             for entry_data in metadata['history']:
                 if isinstance(entry_data, dict):
                     history_entry = HistoryEntry(

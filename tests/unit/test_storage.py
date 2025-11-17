@@ -6,8 +6,8 @@ import pytest
 import tempfile
 import shutil
 from pathlib import Path
-from taskpy.models import Task, Epic, NFR, TaskStatus, Priority
-from taskpy.storage import TaskStorage, StorageError, MANIFEST_HEADERS
+from taskpy.legacy.models import Task, Epic, NFR, TaskStatus, Priority
+from taskpy.legacy.storage import TaskStorage, StorageError, MANIFEST_HEADERS
 
 
 class TestTaskStorage:
