@@ -1372,7 +1372,14 @@ def cmd_sprint(args):
         'list': _cmd_sprint_list,
         'clear': _cmd_sprint_clear,
         'stats': _cmd_sprint_stats,
+        'init': _cmd_sprint_init,
+        'recommend': _cmd_sprint_recommend,
     }
+
+    # If no subcommand, show dashboard (default)
+    if not args.sprint_command:
+        _cmd_sprint_dashboard(args)
+        return
 
     handler = subcommand_handlers.get(args.sprint_command)
     if handler:
@@ -1550,6 +1557,311 @@ def _cmd_sprint_stats(args):
             print(f"  {priority:15} {count:3}")
 
     print()
+
+
+def _get_sprint_metadata_path(storage):
+    """Get path to sprint metadata file."""
+    return storage.kanban / "info" / "sprint_current.json"
+
+
+def _load_sprint_metadata(storage):
+    """Load sprint metadata from JSON file."""
+    import json
+    sprint_file = _get_sprint_metadata_path(storage)
+
+    if not sprint_file.exists():
+        return None
+
+    try:
+        with open(sprint_file, 'r') as f:
+            return json.load(f)
+    except (json.JSONDecodeError, IOError):
+        return None
+
+
+def _save_sprint_metadata(storage, metadata):
+    """Save sprint metadata to JSON file."""
+    import json
+    sprint_file = _get_sprint_metadata_path(storage)
+
+    # Ensure directory exists
+    sprint_file.parent.mkdir(parents=True, exist_ok=True)
+
+    with open(sprint_file, 'w') as f:
+        json.dump(metadata, f, indent=2)
+
+
+def _cmd_sprint_init(args):
+    """Initialize a new sprint with metadata."""
+    storage = get_storage()
+
+    if not storage.is_initialized():
+        print_error("TaskPy not initialized. Run: taskpy init")
+        sys.exit(1)
+
+    from datetime import datetime, timedelta
+
+    # Check if sprint already exists
+    existing_sprint = _load_sprint_metadata(storage)
+    if existing_sprint and not args.force:
+        print_error("Sprint already exists. Use --force to overwrite.")
+        print_info(f"Current sprint: {existing_sprint.get('title', 'Untitled')}")
+        sys.exit(1)
+
+    # Get sprint number (increment from existing or start at 1)
+    sprint_number = 1
+    if existing_sprint:
+        sprint_number = existing_sprint.get('number', 0) + 1
+
+    # Create sprint metadata
+    today = datetime.now().date()
+    end_date = today + timedelta(days=args.duration if hasattr(args, 'duration') and args.duration else 14)
+
+    metadata = {
+        "number": sprint_number,
+        "title": args.title if hasattr(args, 'title') and args.title else f"Sprint {sprint_number}",
+        "focus": args.focus if hasattr(args, 'focus') and args.focus else "General development",
+        "start_date": str(today),
+        "end_date": str(end_date),
+        "capacity_sp": args.capacity if hasattr(args, 'capacity') and args.capacity else 20,
+        "goals": []
+    }
+
+    # Save metadata
+    _save_sprint_metadata(storage, metadata)
+
+    print_success(f"Initialized Sprint {sprint_number}: {metadata['title']}")
+    print_info(f"Focus: {metadata['focus']}")
+    print_info(f"Duration: {metadata['start_date']} → {metadata['end_date']}")
+    print_info(f"Capacity: {metadata['capacity_sp']} SP")
+
+
+def _cmd_sprint_dashboard(args):
+    """Show smart sprint dashboard."""
+    storage = get_storage()
+
+    if not storage.is_initialized():
+        print_error("TaskPy not initialized. Run: taskpy init")
+        sys.exit(1)
+
+    from datetime import datetime
+
+    # Load sprint metadata
+    sprint_meta = _load_sprint_metadata(storage)
+
+    if not sprint_meta:
+        print_warning("No active sprint. Initialize one with: taskpy sprint init --title \"Sprint Name\" --focus \"Focus area\"")
+        print_info("\nShowing tasks tagged for sprint without metadata:\n")
+        # Fall back to simple list
+        _cmd_sprint_list(args)
+        return
+
+    # Read manifest and filter sprint tasks
+    rows = _read_manifest(storage)
+    sprint_tasks = [r for r in rows if r.get('in_sprint', 'false') == 'true']
+
+    # Calculate sprint progress
+    total_sp = sum(int(r.get('story_points', 0)) for r in sprint_tasks)
+    done_sp = sum(int(r.get('story_points', 0)) for r in sprint_tasks if r.get('status') == 'done')
+    capacity_sp = sprint_meta.get('capacity_sp', 20)
+
+    # Calculate days remaining
+    today = datetime.now().date()
+    try:
+        end_date = datetime.strptime(sprint_meta['end_date'], '%Y-%m-%d').date()
+        days_remaining = (end_date - today).days
+    except (ValueError, KeyError):
+        days_remaining = None
+
+    # Print header
+    print(f"\n{'='*70}")
+    print(f"🏃 Sprint {sprint_meta.get('number', '?')}: {sprint_meta.get('title', 'Untitled')}")
+    print(f"{'='*70}")
+    print(f"Focus: {sprint_meta.get('focus', 'N/A')}")
+
+    if days_remaining is not None:
+        if days_remaining > 0:
+            print(f"Days Remaining: {days_remaining}")
+        elif days_remaining == 0:
+            print(f"Days Remaining: Last day! 🏁")
+        else:
+            print(f"Days Remaining: Overdue by {abs(days_remaining)} days ⚠️")
+
+    # Progress bar
+    progress_pct = (done_sp / capacity_sp * 100) if capacity_sp > 0 else 0
+    bar_width = 40
+    filled = int(bar_width * progress_pct / 100)
+    bar = '█' * filled + '░' * (bar_width - filled)
+    print(f"\nProgress: [{bar}] {done_sp}/{capacity_sp} SP ({progress_pct:.0f}%)")
+    print(f"{'='*70}\n")
+
+    if not sprint_tasks:
+        print_info("No tasks in sprint. Add tasks with: taskpy sprint add <task-id>")
+        return
+
+    # Group tasks by status
+    status_order = ['active', 'qa', 'regression', 'ready', 'backlog', 'stub', 'blocked', 'done']
+    by_status = {}
+    for task in sprint_tasks:
+        status = task.get('status', 'unknown')
+        if status not in by_status:
+            by_status[status] = []
+        by_status[status].append(task)
+
+    # Display tasks grouped by status
+    for status in status_order:
+        if status not in by_status:
+            continue
+
+        tasks = by_status[status]
+        status_emoji = {
+            'active': '🔥',
+            'qa': '🧪',
+            'regression': '🔙',
+            'ready': '📋',
+            'backlog': '📦',
+            'stub': '📝',
+            'blocked': '🚫',
+            'done': '✅'
+        }
+        emoji = status_emoji.get(status, '•')
+
+        print(f"{emoji} {status.upper()} ({len(tasks)} tasks)")
+        print("-" * 70)
+
+        for task in tasks:
+            task_id = task.get('id', '?')
+            title = task.get('title', 'Untitled')
+            sp = task.get('story_points', '0')
+            priority = task.get('priority', 'medium')[0].upper()  # First letter
+            blocked = " 🚫 BLOCKED" if task.get('blocked_reason') else ""
+
+            # Truncate title if too long
+            if len(title) > 45:
+                title = title[:42] + "..."
+
+            print(f"  [{priority}] {task_id}: {title} ({sp} SP){blocked}")
+
+        print()
+
+    # Show sprint completion status
+    if done_sp >= capacity_sp:
+        print("🎉 Sprint capacity reached! Consider: taskpy sprint complete")
+    elif all(t.get('status') == 'done' for t in sprint_tasks):
+        print("🎉 All sprint tasks complete! Consider: taskpy sprint complete")
+
+
+def _cmd_sprint_recommend(args):
+    """Recommend tasks to add to sprint based on capacity and priority."""
+    storage = get_storage()
+
+    if not storage.is_initialized():
+        print_error("TaskPy not initialized. Run: taskpy init")
+        sys.exit(1)
+
+    # Load sprint metadata
+    sprint_meta = _load_sprint_metadata(storage)
+
+    if not sprint_meta:
+        print_error("No active sprint. Initialize one with: taskpy sprint init")
+        sys.exit(1)
+
+    # Read manifest
+    rows = _read_manifest(storage)
+    sprint_tasks = [r for r in rows if r.get('in_sprint', 'false') == 'true']
+
+    # Calculate remaining capacity
+    total_sp = sum(int(r.get('story_points', 0)) for r in sprint_tasks)
+    capacity_sp = sprint_meta.get('capacity_sp', 20)
+    remaining_sp = capacity_sp - total_sp
+
+    print(f"\n{'='*70}")
+    print(f"Sprint Recommendations")
+    print(f"{'='*70}")
+    print(f"Current Capacity: {total_sp}/{capacity_sp} SP")
+    print(f"Remaining: {remaining_sp} SP\n")
+
+    if remaining_sp <= 0:
+        print_warning("Sprint is at or over capacity!")
+        print_info("Consider completing current sprint before adding more tasks.")
+        return
+
+    # Find candidate tasks (ready/backlog, not blocked, not already in sprint)
+    candidates = []
+    for row in rows:
+        # Skip if already in sprint
+        if row.get('in_sprint', 'false') == 'true':
+            continue
+
+        # Skip if done/archived
+        status = row.get('status', '')
+        if status in ['done', 'archived']:
+            continue
+
+        # Skip if blocked
+        if row.get('blocked_reason'):
+            continue
+
+        # Prefer ready/backlog but consider active too
+        if status not in ['ready', 'backlog', 'active', 'stub']:
+            continue
+
+        # Parse priority (prefer medium and above)
+        priority = row.get('priority', 'low')
+        priority_score = {'critical': 4, 'high': 3, 'medium': 2, 'low': 1}.get(priority, 1)
+
+        sp = int(row.get('story_points', 0))
+
+        # Skip if task is too large for remaining capacity
+        if sp > remaining_sp:
+            continue
+
+        candidates.append({
+            'row': row,
+            'priority_score': priority_score,
+            'sp': sp
+        })
+
+    if not candidates:
+        print_info("No suitable tasks found to recommend.")
+        print_info("Try tasks in ready/backlog status with medium+ priority.")
+        return
+
+    # Sort by priority DESC, then SP ASC (fit more tasks)
+    candidates.sort(key=lambda x: (-x['priority_score'], x['sp']))
+
+    # Recommend tasks that fit in remaining capacity
+    recommendations = []
+    running_sp = 0
+
+    for candidate in candidates:
+        if running_sp + candidate['sp'] <= remaining_sp:
+            recommendations.append(candidate['row'])
+            running_sp += candidate['sp']
+
+    if not recommendations:
+        print_info("No tasks fit in remaining capacity.")
+        return
+
+    print(f"Recommended tasks ({len(recommendations)} tasks, {running_sp} SP):\n")
+
+    headers = ["ID", "Title", "Status", "SP", "Priority"]
+    table_rows = []
+
+    for row in recommendations:
+        task_id = row.get('id', '?')
+        title = row.get('title', 'Untitled')
+        if len(title) > 40:
+            title = title[:37] + "..."
+        status = row.get('status', '?')
+        sp = row.get('story_points', '0')
+        priority = row.get('priority', 'medium')
+
+        table_rows.append([task_id, title, status, sp, priority])
+
+    rolo_table(headers, table_rows, "Sprint Recommendations")
+
+    print(f"\nTo add tasks: taskpy sprint add <task-id>")
 
 
 def cmd_stats(args):

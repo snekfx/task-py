@@ -672,9 +672,16 @@ def create_parser() -> argparse.ArgumentParser:
     # taskpy sprint
     sprint_parser = add_subparser(
         "sprint",
-        help="Manage sprint tasks"
+        help="Manage sprint tasks (default: show dashboard)"
     )
     sprint_subparsers = sprint_parser.add_subparsers(dest="sprint_command")
+
+    sprint_init = sprint_subparsers.add_parser("init", help="Initialize new sprint with metadata")
+    sprint_init.add_argument("--title", help="Sprint title (e.g., 'Core Features Sprint')")
+    sprint_init.add_argument("--focus", help="Sprint focus area (e.g., 'Testing and stability')")
+    sprint_init.add_argument("--capacity", type=int, help="Sprint capacity in story points (default: 20)")
+    sprint_init.add_argument("--duration", type=int, help="Sprint duration in days (default: 14)")
+    sprint_init.add_argument("--force", action="store_true", help="Force overwrite existing sprint")
 
     sprint_add = sprint_subparsers.add_parser("add", help="Add task to sprint")
     sprint_add.add_argument("task_id", help="Task ID (e.g., FEAT-01)")
@@ -687,6 +694,8 @@ def create_parser() -> argparse.ArgumentParser:
     sprint_clear = sprint_subparsers.add_parser("clear", help="Clear all tasks from sprint")
 
     sprint_stats = sprint_subparsers.add_parser("stats", help="Show sprint statistics")
+
+    sprint_recommend = sprint_subparsers.add_parser("recommend", help="Recommend tasks to add based on capacity and priority")
 
     # taskpy stats
     stats_parser = add_subparser(
