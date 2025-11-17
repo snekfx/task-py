@@ -1,11 +1,12 @@
 
 
-+ discourage overloading standard epics
+
 
 + history rollover
 
 + search/find
 
++ discourage overloading standard epics (epic api update)
 
 + ticket types
   - F feature/enhancement
@@ -21,6 +22,8 @@
 
 + backup system
   - commit hook to compress the kanban data into a zip folder and store in data/bak/kanban-<timestamp>.zip
+  
+
 
 + split
   taskpy split <ticket> --epic <new_epic> --count 3 or

@@ -1,6 +1,10 @@
 """
-Command implementations for TaskPy.
+LEGACY CODE - Preserved during REF-04 migration
 
+This code will be gradually replaced by feature-based modules.
+DO NOT make new changes here - add features to new modules.
+
+Command implementations for TaskPy.
 Each command is implemented as cmd_<name>(args) function.
 """
 

@@ -799,8 +799,8 @@ def main():
         parser.print_help()
         sys.exit(0)
 
-    # Import commands module
-    from taskpy import commands
+    # Import commands module (legacy)
+    from taskpy.legacy import commands
 
     # Find and execute command
     command_name = args.command
