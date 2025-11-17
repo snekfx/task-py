@@ -1868,10 +1868,10 @@ def _read_manifest_with_filters(storage: TaskStorage, args):
     rows = _read_manifest(storage)
 
     # Hide done/archived by default unless --all or --status=done/archived explicitly requested
-    if hasattr(args, 'all'):
-        explicit_status_filter = hasattr(args, 'status') and args.status and args.status in ['done', 'archived']
-        if not args.all and not explicit_status_filter:
-            rows = [r for r in rows if r['status'] not in ['done', 'archived']]
+    explicit_status_filter = hasattr(args, 'status') and args.status and args.status in ['done', 'archived']
+    show_all = hasattr(args, 'all') and args.all
+    if not show_all and not explicit_status_filter:
+        rows = [r for r in rows if r['status'] not in ['done', 'archived']]
 
     # Apply filters
     if hasattr(args, 'epic') and args.epic:
