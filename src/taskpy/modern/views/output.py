@@ -6,11 +6,14 @@ rolo for tables) while gracefully falling back to plain text when unavailable.
 
 All functions support output mode detection for PRETTY/DATA/AGENT modes.
 
-Boxy Usage Patterns:
-- Theme-based (semantic): --theme success|error|warning|info
-  - Uses predefined icon, colors, and style for consistency
-- Granular design (custom): --icon "🚀" --color emerald --style rounded
+Boxy API (v0.29.0+):
+- Style (semantic): --style success|error|warning|info|active|qa|ready|stub|etc
+  - Uses predefined icon, colors, and border for consistency
+- Border (visual): --border rounded|double|heavy|normal|ascii
+  - Controls the box drawing style independently
+- Granular design (custom): --icon "🚀" --bc emerald --border rounded
   - More control but requires manual coordination
+  - --bc = border color, --fg = foreground/text color
 
 Layout Options:
 - --layout dt: divider after title WITH padding (✅ FIXED)
@@ -24,8 +27,8 @@ Status Notes:
 - Prepend emoji/icon directly in status text: --status "✅ Success"
 
 Examples:
-  - Theme: echo "content" | boxy --theme success --layout dt
-  - Custom: echo "content" | boxy --title "Title" --icon "🚀" --status "✅ Done" --layout dt,ds --color emerald
+  - Style: echo "content" | boxy --style success --layout dt
+  - Custom: echo "content" | boxy --title "Title" --icon "🚀" --status "✅ Done" --layout dt,ds --bc emerald --border rounded
 """
 
 import os
@@ -305,26 +308,26 @@ def show_card(task_data: Dict[str, Any], output_mode: OutputMode = OutputMode.PR
     card = "\n".join(lines)
     status = task_data.get('status', 'backlog')
 
-    # Choose theme based on status
-    # Using boxy's built-in themes (see: boxy engine list)
-    theme_map = {
+    # Choose style based on status
+    # Using boxy's built-in styles (see: boxy engine list)
+    style_map = {
         'done': 'success',      # ✅ green, rounded
-        'active': 'info',       # ℹ️ blue, normal
-        'qa': 'info',           # ℹ️ blue, normal
-        'ready': 'dev',         # 🎨 cyan, normal
-        'blocked': 'blocked',   # 🎨 amber, normal (or could use 'warning')
-        'regression': 'warning', # ⚠️ amber, normal
-        'backlog': 'plain',     # No icon, default
-        'stub': 'plain',        # No icon, default
+        'active': 'active',     # 🌟 yellow, double
+        'qa': 'qa',             # 🧪 magenta, rounded
+        'ready': 'ready',       # 🎯 cyan, rounded
+        'blocked': 'blocked',   # 🚧 amber, heavy
+        'regression': 'regression',  # 🔙 red, double
+        'backlog': 'backlog',   # 🪣 cyan, normal
+        'stub': 'stub',         # 📌 gray, normal
     }
-    theme = theme_map.get(status, 'plain')
+    style = style_map.get(status, 'info')
 
     # Use boxy if available
     if not has_boxy():
-        _plain_output(card, theme, f"Task: {task_data['id']}")
+        _plain_output(card, style, f"Task: {task_data['id']}")
         return
 
-    cmd = ["boxy", "--theme", theme, "--title", f"Task: {task_data['id']}", "--layout", "dt", "--width", "max"]
+    cmd = ["boxy", "--style", style, "--title", f"Task: {task_data['id']}", "--layout", "dt", "--width", "max"]
 
     try:
         result = subprocess.run(
@@ -380,7 +383,7 @@ def show_column(
         _plain_output(content, Theme.INFO.value, title)
         return
 
-    cmd = ["boxy", "--theme", "info", "--title", title, "--width", "max"]
+    cmd = ["boxy", "--style", "info", "--title", title, "--width", "max"]
 
     try:
         result = subprocess.run(
