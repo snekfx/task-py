@@ -132,10 +132,10 @@ def _get_table_width() -> int:
 def _plain_output(content: str, theme: str, title: Optional[str]):
     """Fallback plain text output."""
     if title:
-        print(f"=== {title} ===")
+        print(f"\n{title}")
+        print("-" * len(title))
     print(content)
-    if title:
-        print("=" * (len(title) + 8))
+    print()
 
 
 def _plain_table(
@@ -337,25 +337,25 @@ def show_column(
         print(f"{column_name.upper()} ({len(tasks)} tasks)")
         for task in tasks:
             sprint_badge = "[SPRINT] " if task.get('in_sprint', 'false') == 'true' else ""
-            print(f"  {sprint_badge}{task['id']}: {task['title']} [{task.get('story_points', 0)} SP]")
+            print(f"{sprint_badge}{task['id']}: {task['title']} [{task.get('story_points', 0)} SP]")
         return
 
-    lines = [f"{column_name.upper()} ({len(tasks)} tasks)"]
-    lines.append("=" * 40)
-
+    # Build task list
+    lines = []
     for task in tasks:
         # Add sprint badge for sprint tasks
         sprint_badge = "🏃 " if task.get('in_sprint', 'false') == 'true' else ""
-        lines.append(f"  • {sprint_badge}{task['id']}: {task['title']} [{task.get('story_points', 0)} SP]")
+        lines.append(f"• {sprint_badge}{task['id']}: {task['title']} [{task.get('story_points', 0)} SP]")
 
     content = "\n".join(lines)
+    title = f"{column_name.replace('_', ' ').title()} ({len(tasks)} tasks)"
 
     # Use boxy if available
     if not has_boxy():
-        _plain_output(content, Theme.INFO.value, column_name.replace("_", " ").title())
+        _plain_output(content, Theme.INFO.value, title)
         return
 
-    cmd = ["boxy", "--theme", "info", "--title", column_name.replace("_", " ").title(), "--width", "max"]
+    cmd = ["boxy", "--theme", "info", "--title", title, "--width", "max"]
 
     try:
         result = subprocess.run(
