@@ -2284,3 +2284,32 @@ def _update_milestone_status(storage: TaskStorage, milestone_id: str, new_status
             updated_content = re.sub(pattern, replacement, content, count=1)
 
     milestones_file.write_text(updated_content)
+
+
+
+def cmd_help(args):
+    """Display contextual help based on topic."""
+    topic = args.topic.lower() if args.topic else "dev"
+    
+    help_map = {
+        "dev": "help_dev",
+        "stub": "help_stub",
+        "active": "help_active",
+        "regression": "help_regression",
+    }
+    
+    if topic not in help_map:
+        print_error(f"Unknown help topic: {topic}")
+        print_info(f"Available topics: {', '.join(help_map.keys())}")
+        sys.exit(1)
+    
+    # Import the appropriate help module
+    module_name = help_map[topic]
+    try:
+        module = __import__(f"taskpy.{module_name}", fromlist=[f"HELP_{topic.upper()}"])
+        help_text = getattr(module, f"HELP_{topic.upper()}")
+        print(help_text)
+    except (ImportError, AttributeError) as e:
+        print_error(f"Help content not available for: {topic}")
+        sys.exit(1)
+
