@@ -573,14 +573,14 @@ def create_parser() -> argparse.ArgumentParser:
     # taskpy help <topic>
     help_parser = add_subparser(
         "help",
-        help="Display contextual help for workflow stages"
+        help="Display help and available commands"
     )
     help_parser.add_argument(
         "topic",
         nargs="?",
-        default="dev",
+        default=None,
         choices=["dev", "stub", "active", "regression"],
-        help="Help topic (default: dev)"
+        help="Workflow help topic (dev, stub, active, regression)"
     )
 
     # taskpy overrides

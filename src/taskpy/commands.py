@@ -2345,21 +2345,29 @@ def _update_milestone_status(storage: TaskStorage, milestone_id: str, new_status
 
 
 def cmd_help(args):
-    """Display contextual help based on topic."""
-    topic = args.topic.lower() if args.topic else "dev"
-    
+    """Display help - if no topic given, show main help like --help."""
+    # If no topic specified, show main help (same as --help)
+    if not args.topic:
+        from taskpy.cli import create_parser
+        parser = create_parser()
+        parser.print_help()
+        return
+
+    # Otherwise show contextual help for specific topic
+    topic = args.topic.lower()
+
     help_map = {
         "dev": "help_dev",
         "stub": "help_stub",
         "active": "help_active",
         "regression": "help_regression",
     }
-    
+
     if topic not in help_map:
         print_error(f"Unknown help topic: {topic}")
         print_info(f"Available topics: {', '.join(help_map.keys())}")
         sys.exit(1)
-    
+
     # Import the appropriate help module
     module_name = help_map[topic]
     try:
