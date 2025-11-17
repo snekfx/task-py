@@ -2348,6 +2348,24 @@ def cmd_help(args):
     """Display help - if no topic given, show main help like --help."""
     # If no topic specified, show main help (same as --help)
     if not args.topic:
+        from taskpy import __version__
+        from pathlib import Path
+
+        # Display logo and version (same as --version)
+        logo_path = Path(__file__).parent / "logo.txt"
+        try:
+            with open(logo_path, "r") as f:
+                logo = f.read().rstrip()
+            print(logo)
+        except FileNotFoundError:
+            # Fallback if logo not found
+            print("TaskPy")
+
+        print(f"Version: {__version__} | License: AGPLv3")
+        print("Copyright © 2025 Qodeninja/SnekFX")
+        print()
+
+        # Then show command help
         from taskpy.cli import create_parser
         parser = create_parser()
         parser.print_help()
