@@ -21,3 +21,67 @@
 
 + backup system
   - commit hook to compress the kanban data into a zip folder and store in data/bak/kanban-<timestamp>.zip
+
++ split
+  taskpy split <ticket> --epic <new_epic> --count 3 or
+  taskpy split <ticket> --epic <new_epic> --child "Child Ticket A" --child "Child Ticket B" <-- explicit count is 2
+  ex > split TASK-01 --epic SPLT --count 3
+  - can only split tasks in stub or backlog (not allowed for active sprint tickets)
+  - creates a history entry of the new epic creation and ticket rename and ticket creations
+  - if the epic doesnt exist auto add it as a a project type with "auto" description
+    - warn the user to update the epic meta info in <path>/epics.toml 
+  - creates SPLT-01, SPLT-01a, SPLT-01b, SPLIT-01c
+  - auto split copies parent title and appends letter per count e.g. "Parent Title (a)"
+  - output of split shows user the results (support --dry-run flag)
+  - subtasks a-c set the Parent to Parent: SPLIT-01
+  - main task SPLT-01 shows a #SUBTASKS section and appends each subtask child ticket
+  - acceptance criteria requires completion of all subtasks
+  - parent task cannot promote out of active until all subtasks are done/deleted
+  - parent verification dependent on status of children
+  - all subtasks get set to stub, and parent task gets set to stub if its not already a stub
+  - parent task cannot promote out of stub to backlog unless at least one child ticket is in backlog (we can optionally require all children tasks to be in backlog)
+  - taskpy show, shows normal entry as the new meta data fields will show their relationships
+
+  - for list view you can suffix the legal section glyph to the id TASK-99a$ for split tasks and leave parent normal, may also show split tasks in a seperate list under the main list. 
+
+  - FEAT-05 is the depedency linking, this could be a general utility function, you should be able to link deps via the standard link command, link --deps or --link parent, anotates dependency relationship, we can build stub this first before the split work
+
+
+1. yes --epic creates an adhoc epic and adds it to the epics.toml, not providing it just seeds the parent ticket id instead;
+
+2. parent gets the update as well as the children if --epic is provided. it must renumber logically (idempotent)
+
+3. story points are manual, if you set parent to 10 sp, somehow that has to be allocated to the children, the parent verification can check the sum of sps before promoting.
+
+4. it can inherit tags yes, milestone, NFRS; everything else should be standard and have to be updated per grooming rules. (does stub->backlog promotion get blocked yet, or is that still TBD?)
+
+5. yes use something liek auto-generated from split on ticket XX, then prompt the user in a warning to update the epic details (or be really forceful and create a new admin task for them to fix the epic meta info lol)
+
+6. C configurable via the config.toml
+
+7/8. Parent cannot move out of active at all until all children are in the next state. So if all children are in QA, parent can go into qa. thats it's gating requirement. If children are in done, parent can promote through qa and done through its own verification gates; chlidren tickets behave normally for gating. 
+
+9. Parent unchanged. user can manually change as needed. (also rename command should also rename the split children task, and update related tasks)
+
+10. ## RELATED (not SUBTASKS), it acts as anchor point where to append dependencies
+    ## RELATED (split)
+      - parent: <ticketX> (child ticket marks its parent)
+      - child: <ticketY>  (parent ticket marks its children)
+
+    ## RELATED (dep)
+      - blocked: <ticketP> (parent ticket lists blocked sub tasks)
+      - dep: <ticketQ> (subtask list blocking upstream tasks)
+
+
+11. yes. also make sure the column width adjust as needed in rolo without forcing a truncation. 
+
+12. yes and yes. show split tasks seperately in their own groups. (does not apply to dependency links only 
+
+13. yes lets get the dependency linking setup, it can support subtasks/blocks, and parent/child,
+    the link should support comma sep list of tasks or one task
+
+14. yes
+
+15. no mixing. mixing is redundant
+
+

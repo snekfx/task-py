@@ -87,3 +87,17 @@ maybe a taskpy sprint command, and the list command can show whats in the sprint
 > also lets add a ticket to create an auto task id for sorting, AUTO_ID or something, then we can use this to sort
 the kanban and list views, in order they were created, by ticker sort, or by status. i think no matter what though
 priority and status should be default sort order for clarity
+
+
+lets add some new api commands to the epics system, basically delete (remove an epic), enable/disable to toggle them off or on; and then
+epic types, standard vs project/custom. standard epics can only be disabled (delete will only disable and show a warning. we should also add a
+ fallback epic UNK (standard), if an epic gets disabled, any ticket wih that epic that is not already active cannot be promoted out of
+backlog. any new epic added, is enabled by default and is marked as a project epic type. (make a feat ticket for this), then create a another
+feature ticket to update our project tickets with the breakdown you created.
+
+lets also add to the epic management, fuzzy keywords/tags, if these keywords appear in a ticket title, we can recommend a better ticket;
+this should be a general functoin to gather the epic keywords/tags in the epics.toml, and find the mapping. this can show as a recommendation
+on the create command, and especially if using a standard epic where a project specific epic would provide clearer scope, and note that they
+can use the type system instead, so if they specificy a BUG-NN ticket, we know that is a bug type, and say hey we foudn this keyword in COOL
+epic and since its a bug type just set it to type B; to support this we can track the last active ticket created, and offer a repair command
+to enact the recommended changes to automatically update the ticket and update the manifest. wdyt?
