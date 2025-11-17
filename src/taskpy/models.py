@@ -28,6 +28,22 @@ class TaskStatus(Enum):
     DONE = "done"
     ARCHIVED = "archived"
     BLOCKED = "blocked"
+    # Legacy aliases for backward compatibility
+    IN_PROGRESS = "active"
+    REVIEW = "qa"
+
+    @classmethod
+    def _missing_(cls, value):
+        """Gracefully handle legacy status strings."""
+        if isinstance(value, str):
+            legacy_map = {
+                "in_progress": cls.ACTIVE,
+                "review": cls.QA,
+            }
+            normalized = value.lower()
+            if normalized in legacy_map:
+                return legacy_map[normalized]
+        raise ValueError(f"Invalid task status: {value}")
 
 
 class Priority(Enum):

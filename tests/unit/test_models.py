@@ -75,7 +75,7 @@ class TestTask:
             title="Fix bug",
             epic="BUGS",
             number=1,
-            status=TaskStatus.IN_PROGRESS,
+            status=TaskStatus.ACTIVE,
             story_points=3,
             priority=Priority.HIGH,
             tags=["critical", "security"]
@@ -84,7 +84,7 @@ class TestTask:
         assert row[0] == "BUGS-001"
         assert row[1] == "BUGS"
         assert row[2] == "1"
-        assert row[3] == "in_progress"
+        assert row[3] == "active"
         assert row[4] == "Fix bug"
         assert row[5] == "3"
         assert row[6] == "high"

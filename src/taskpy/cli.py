@@ -133,15 +133,6 @@ def create_parser() -> argparse.ArgumentParser:
         help="Show this help message and exit"
     )
 
-    # Set defaults for global flags
-    parser.set_defaults(
-        view="pretty",
-        data=False,
-        no_boxy=False,
-        agent=False
-        # Note: 'all' uses SUPPRESS, so no default needed here
-    )
-
     # Subcommands
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
@@ -719,8 +710,19 @@ def main():
     parser = create_parser()
     args = parser.parse_args()
 
-    # Handle output mode
-    if args.data or args.no_boxy or args.agent or args.view == "data":
+    # Handle output mode (allow global flags anywhere)
+    view_mode = getattr(args, "view", "pretty")
+    data_flag = getattr(args, "data", False)
+    no_boxy_flag = getattr(args, "no_boxy", False)
+    agent_flag = getattr(args, "agent", False)
+
+    # Normalize namespace so downstream handlers can rely on attributes
+    args.view = view_mode
+    args.data = data_flag
+    args.no_boxy = no_boxy_flag
+    args.agent = agent_flag
+
+    if data_flag or no_boxy_flag or agent_flag or view_mode == "data":
         set_output_mode(OutputMode.DATA)
     else:
         set_output_mode(OutputMode.PRETTY)

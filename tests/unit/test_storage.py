@@ -121,7 +121,7 @@ class TestTaskStorage:
             title="Fix bug",
             epic="BUGS",
             number=1,
-            status=TaskStatus.IN_PROGRESS
+            status=TaskStatus.ACTIVE
         )
 
         storage.write_task_file(task)
@@ -129,7 +129,7 @@ class TestTaskStorage:
         result = storage.find_task_file("BUGS-001")
         assert result is not None
         path, status = result
-        assert status == TaskStatus.IN_PROGRESS
+        assert status == TaskStatus.ACTIVE
         assert path.exists()
 
     def test_find_task_file_not_found(self, storage):

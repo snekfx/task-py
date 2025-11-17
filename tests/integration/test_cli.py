@@ -466,7 +466,7 @@ class TestCLI:
         # Should be blocked without code/test references
         result = self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
         assert result.returncode == 1
-        assert "Task needs code references" in result.stdout
+        assert "code or doc references" in result.stdout
         assert "Task needs test references" in result.stdout
 
     def test_gate_active_to_qa_passing(self, temp_dir):
@@ -482,6 +482,7 @@ class TestCLI:
         # Link code and test references
         self.run_taskpy(["link", "FEAT-01", "--code", "src/main.py"], cwd=temp_dir)
         self.run_taskpy(["link", "FEAT-01", "--test", "tests/test_main.py"], cwd=temp_dir)
+        self.run_taskpy(["link", "FEAT-01", "--verify", "pytest tests/"], cwd=temp_dir)
 
         # Should pass now
         result = self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
@@ -499,6 +500,7 @@ class TestCLI:
         self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
         self.run_taskpy(["link", "FEAT-01", "--code", "src/main.py"], cwd=temp_dir)
         self.run_taskpy(["link", "FEAT-01", "--test", "tests/test_main.py"], cwd=temp_dir)
+        self.run_taskpy(["link", "FEAT-01", "--verify", "pytest tests/"], cwd=temp_dir)
         self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
 
         # Should be blocked without commit hash
@@ -517,6 +519,7 @@ class TestCLI:
         self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
         self.run_taskpy(["link", "FEAT-01", "--code", "src/main.py"], cwd=temp_dir)
         self.run_taskpy(["link", "FEAT-01", "--test", "tests/test_main.py"], cwd=temp_dir)
+        self.run_taskpy(["link", "FEAT-01", "--verify", "pytest tests/"], cwd=temp_dir)
         self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
 
         # Should pass with commit hash

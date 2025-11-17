@@ -921,15 +921,11 @@ show_tags = true
             Next auto_id value
         """
         if not self.sequence_file.exists():
-            # Initialize sequence counter
-            self.sequence_file.write_text('1\n')
-            return 1
+            last_id = 0
+        else:
+            content = self.sequence_file.read_text().strip()
+            last_id = int(content) if content else 0
 
-        # Read current value
-        current = int(self.sequence_file.read_text().strip())
-        next_id = current + 1
-
-        # Write next value
+        next_id = last_id + 1
         self.sequence_file.write_text(f'{next_id}\n')
-
-        return current
+        return next_id

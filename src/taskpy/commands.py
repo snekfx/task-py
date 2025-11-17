@@ -846,16 +846,17 @@ def cmd_stoplight(args):
         sys.exit(2)  # Blocked
 
     # Determine next status in workflow
-    workflow = [TaskStatus.STUB, TaskStatus.BACKLOG, TaskStatus.READY, TaskStatus.ACTIVE,
-                TaskStatus.QA, TaskStatus.DONE]
+    workflow = [TaskStatus.STUB, TaskStatus.BACKLOG, TaskStatus.READY,
+                TaskStatus.ACTIVE, TaskStatus.QA, TaskStatus.DONE]
 
-    current_idx = workflow.index(current_status)
-    if current_idx >= len(workflow) - 1:
-        # Task is done
-        print_success(f"Task {task.id} is already at final status ({current_status.value})")
-        sys.exit(0)  # Ready (no more promotions)
-
-    next_status = workflow[current_idx + 1]
+    if current_status == TaskStatus.REGRESSION:
+        next_status = TaskStatus.QA
+    else:
+        current_idx = workflow.index(current_status)
+        if current_idx >= len(workflow) - 1:
+            print_success(f"Task {task.id} is already at final status ({current_status.value})")
+            sys.exit(0)
+        next_status = workflow[current_idx + 1]
 
     # Check gate requirements
     is_valid, blockers = validate_promotion(task, next_status, None)
@@ -2707,4 +2708,3 @@ def cmd_help(args):
     except (ImportError, AttributeError) as e:
         print_error(f"Help content not available for: {topic}")
         sys.exit(1)
-
