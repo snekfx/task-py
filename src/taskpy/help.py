@@ -29,6 +29,7 @@ COMMAND_HELP = {
     "issues": "Display tracked issues/problems for a task",
     "history": "Display task state change history and audit trail",
     "resolve": "Resolve a bug task (BUGS*, REG*, DEF*) with special resolution workflow",
+    "help": "Display contextual help for workflow stages (dev, stub, active, regression)",
     "tour": "Display comprehensive quick reference guide",
     "overrides": "View gate override history log",
     "manifest": "Manage the TSV manifest index (rebuild)",
@@ -57,6 +58,12 @@ Common Workflows:
     taskpy list --sprint
     taskpy kanban --epic FEAT
     taskpy stats --milestone milestone-1
+
+Contextual Help by Workflow Stage:
+  taskpy help              # Complete developer workflow
+  taskpy help stub         # Grooming incomplete tasks
+  taskpy help active       # Development workflow details
+  taskpy help regression   # Failed QA workflow
 
 For comprehensive guide, run: taskpy tour
 For more information, see: README.md
