@@ -31,6 +31,28 @@ class VersionAction(argparse.Action):
         parser.exit()
 
 
+class HelpAction(argparse.Action):
+    """Custom help action that displays logo, version, and help."""
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        # Display logo and version
+        logo_path = Path(__file__).parent / "logo.txt"
+        try:
+            with open(logo_path, "r") as f:
+                logo = f.read().rstrip()
+            print(logo)
+        except Exception:
+            pass
+
+        print(f"Version: {__version__} | License: AGPLv3")
+        print("Copyright © 2025 Qodeninja/SnekFX")
+        print()
+
+        # Display help
+        parser.print_help()
+        parser.exit()
+
+
 def _create_global_parser() -> argparse.ArgumentParser:
     """
     Create parser with options shared between root parser and subcommands.
@@ -98,8 +120,17 @@ def create_parser() -> argparse.ArgumentParser:
         description="File-based agile task management for META PROCESS v4",
         epilog=MAIN_EPILOG,
         parents=[global_parser],
-        add_help=True,
+        add_help=False,  # We'll add custom help action
         formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+
+    # Add custom help action
+    parser.add_argument(
+        "-h", "--help",
+        action=HelpAction,
+        nargs=0,
+        default=argparse.SUPPRESS,
+        help="Show this help message and exit"
     )
 
     # Set defaults for global flags
