@@ -1,0 +1,7 @@
+
+Welcome to <project>! 
+
+This project follows META PROCESS v4 for task management.
+for more info run > taskpy help process
+
+
