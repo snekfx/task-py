@@ -235,6 +235,12 @@ def create_parser() -> argparse.ArgumentParser:
         default="table",
         help="Output format"
     )
+    list_parser.add_argument(
+        "--sort",
+        choices=["priority", "created", "id", "status"],
+        default="priority",
+        help="Sort order: priority (default), created (chronological), id (task ID), status (workflow stage)"
+    )
     # Note: --all is now a global flag, defined in global_parser
     # Keep --show-all as alias for backward compatibility
     list_parser.add_argument(
@@ -391,6 +397,12 @@ def create_parser() -> argparse.ArgumentParser:
     kanban_parser.add_argument(
         "--epic",
         help="Filter by epic"
+    )
+    kanban_parser.add_argument(
+        "--sort",
+        choices=["priority", "created", "id", "status"],
+        default="priority",
+        help="Sort order: priority (default), created (chronological), id (task ID), status (workflow stage)"
     )
 
     # taskpy verify <TASK-ID>

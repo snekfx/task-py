@@ -141,6 +141,7 @@ class Task:
     priority: Priority = Priority.MEDIUM
     created: datetime = field(default_factory=utc_now)
     updated: datetime = field(default_factory=utc_now)
+    auto_id: Optional[int] = None  # Global auto-incrementing sequence ID for chronological sorting
 
     # Organization
     tags: List[str] = field(default_factory=list)
@@ -241,6 +242,7 @@ class Task:
             'resolution': self.resolution.value if self.resolution else None,
             'resolution_reason': self.resolution_reason,
             'duplicate_of': self.duplicate_of,
+            'auto_id': self.auto_id,
             'tags': self.tags,
             'dependencies': self.dependencies,
             'blocks': self.blocks,
@@ -272,6 +274,7 @@ class Task:
             str(self.in_sprint).lower(),
             self.commit_hash or '',
             self.demotion_reason or '',
+            str(self.auto_id) if self.auto_id is not None else '',
         ]
 
 

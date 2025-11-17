@@ -34,7 +34,8 @@ MANIFEST_HEADERS = [
     "id", "epic", "number", "status", "title",
     "story_points", "priority", "created", "updated",
     "tags", "dependencies", "blocks", "verification_status", "assigned",
-    "milestone", "blocked_reason", "in_sprint", "commit_hash", "demotion_reason"
+    "milestone", "blocked_reason", "in_sprint", "commit_hash", "demotion_reason",
+    "auto_id"
 ]
 
 
@@ -153,6 +154,7 @@ class TaskStorage:
         self.status_dir = self.kanban / "status"
         self.refs_dir = self.kanban / "references"
         self.manifest_file = self.kanban / "manifest.tsv"
+        self.sequence_file = self.kanban / ".sequence"
 
     def is_initialized(self) -> bool:
         """Check if kanban structure exists."""
@@ -686,6 +688,7 @@ show_tags = true
             in_sprint=get_bool('in_sprint', False),
             commit_hash=metadata.get('commit_hash'),
             demotion_reason=metadata.get('demotion_reason'),
+            auto_id=int(metadata['auto_id']) if metadata.get('auto_id') is not None else None,
             tags=get_list('tags'),
             dependencies=get_list('dependencies'),
             blocks=get_list('blocks'),
@@ -775,7 +778,7 @@ show_tags = true
         for key in ['id', 'title', 'epic', 'number', 'status', 'story_points',
                     'priority', 'created', 'updated', 'assigned', 'milestone', 'blocked_reason',
                     'in_sprint', 'commit_hash', 'demotion_reason', 'resolution', 'resolution_reason',
-                    'duplicate_of']:
+                    'duplicate_of', 'auto_id']:
             value = fm[key]
             if value is not None:
                 frontmatter_lines.append(f"{key}: {value}")
@@ -909,3 +912,24 @@ show_tags = true
         if value.startswith('[') and value.endswith(']'):
             value = value[1:-1]
         return [item.strip() for item in value.split(',') if item.strip()]
+
+    def get_next_auto_id(self) -> int:
+        """
+        Get next global auto-incrementing sequence ID.
+
+        Returns:
+            Next auto_id value
+        """
+        if not self.sequence_file.exists():
+            # Initialize sequence counter
+            self.sequence_file.write_text('1\n')
+            return 1
+
+        # Read current value
+        current = int(self.sequence_file.read_text().strip())
+        next_id = current + 1
+
+        # Write next value
+        self.sequence_file.write_text(f'{next_id}\n')
+
+        return current

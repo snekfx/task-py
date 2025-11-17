@@ -346,7 +346,8 @@ def cmd_create(args):
         priority=Priority(args.priority),
         tags=tags,
         milestone=milestone,
-        content=content
+        content=content,
+        auto_id=storage.get_next_auto_id()  # Assign global sequence ID
     )
 
     # Apply default NFRs
@@ -423,6 +424,10 @@ def cmd_list(args):
     if not tasks:
         print_info("No tasks found matching filters")
         return
+
+    # Apply sorting
+    sort_mode = getattr(args, 'sort', 'priority')
+    tasks = _sort_tasks(tasks, sort_mode)
 
     # Display based on format
     if args.format == "ids":
@@ -894,6 +899,11 @@ def cmd_kanban(args):
         status = TaskStatus(row['status'])
         if status in tasks_by_status:
             tasks_by_status[status].append(row)
+
+    # Apply sorting to each column
+    sort_mode = getattr(args, 'sort', 'priority')
+    for status in tasks_by_status:
+        tasks_by_status[status] = _sort_tasks(tasks_by_status[status], sort_mode)
 
     # Display columns
     for status in [TaskStatus.STUB, TaskStatus.BACKLOG, TaskStatus.READY, TaskStatus.ACTIVE,
@@ -1765,6 +1775,53 @@ def _format_title_column(title: Optional[str]) -> str:
     if not title:
         return ""
     return title.strip()
+
+
+def _sort_tasks(tasks: List[Dict[str, str]], sort_mode: str) -> List[Dict[str, str]]:
+    """
+    Sort tasks by specified mode.
+
+    Args:
+        tasks: List of task dicts from manifest
+        sort_mode: One of 'priority', 'created', 'id', 'status'
+
+    Returns:
+        Sorted list of tasks
+    """
+    # Priority order for sorting
+    priority_order = {'critical': 0, 'high': 1, 'medium': 2, 'low': 3}
+    status_order = {
+        'stub': 0, 'backlog': 1, 'ready': 2, 'active': 3,
+        'qa': 4, 'regression': 5, 'done': 6, 'archived': 7, 'blocked': 8
+    }
+
+    if sort_mode == 'priority':
+        # Sort by priority DESC, then status (workflow order)
+        return sorted(tasks, key=lambda t: (
+            priority_order.get(t.get('priority', 'medium'), 2),
+            status_order.get(t.get('status', 'backlog'), 1)
+        ))
+
+    elif sort_mode == 'created':
+        # Sort by auto_id (chronological)
+        def get_auto_id(task):
+            auto_id = task.get('auto_id', '')
+            return int(auto_id) if auto_id else 9999
+        return sorted(tasks, key=get_auto_id)
+
+    elif sort_mode == 'id':
+        # Sort by task ID (epic-NN)
+        return sorted(tasks, key=lambda t: (t.get('epic', ''), int(t.get('number', 0))))
+
+    elif sort_mode == 'status':
+        # Sort by status (workflow stage)
+        return sorted(tasks, key=lambda t: status_order.get(t.get('status', 'backlog'), 1))
+
+    # Default to priority sort
+    return sorted(tasks, key=lambda t: (
+        priority_order.get(t.get('priority', 'medium'), 2),
+        status_order.get(t.get('status', 'backlog'), 1)
+    ))
 
 
 def _manifest_row_to_table(row: Dict[str, str]) -> List[str]:
