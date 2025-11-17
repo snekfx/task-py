@@ -6,11 +6,15 @@ rolo for tables) while gracefully falling back to plain text when unavailable.
 
 All functions support output mode detection for PRETTY/DATA/AGENT modes.
 
-Boxy Layout Options (for future use):
-- --layout dt/dtn: divider after title (CURRENTLY BROKEN - boxy bug)
-- --layout ds/dsn: divider before status (works with --status flag)
-- Suffix 'n' means no padding around divider
-- Example: boxy --title "X" --status "Y" --layout ds
+Boxy Layout Options:
+- --layout dt: divider after title WITH padding (✅ FIXED)
+- --layout dtn: divider after title NO padding (✅ FIXED)
+- --layout ds: divider before status WITH padding (requires --status flag)
+- --layout dsn: divider before status NO padding (requires --status flag)
+- Can combine: --layout dt,ds
+- Examples:
+  - boxy --title "Header" --layout dt < content
+  - boxy --title "Title" --status "Footer" --layout dt,ds < content
 """
 
 import os
