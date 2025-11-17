@@ -6,15 +6,26 @@ rolo for tables) while gracefully falling back to plain text when unavailable.
 
 All functions support output mode detection for PRETTY/DATA/AGENT modes.
 
-Boxy Layout Options:
+Boxy Usage Patterns:
+- Theme-based (semantic): --theme success|error|warning|info
+  - Uses predefined icon, colors, and style for consistency
+- Granular design (custom): --icon "🚀" --color emerald --style rounded
+  - More control but requires manual coordination
+
+Layout Options:
 - --layout dt: divider after title WITH padding (✅ FIXED)
 - --layout dtn: divider after title NO padding (✅ FIXED)
 - --layout ds: divider before status WITH padding (requires --status flag)
 - --layout dsn: divider before status NO padding (requires --status flag)
 - Can combine: --layout dt,ds
-- Examples:
-  - boxy --title "Header" --layout dt < content
-  - boxy --title "Title" --status "Footer" --layout dt,ds < content
+
+Status Notes:
+- --status doesn't have an --icon flag
+- Prepend emoji/icon directly in status text: --status "✅ Success"
+
+Examples:
+  - Theme: echo "content" | boxy --theme success --layout dt
+  - Custom: echo "content" | boxy --title "Title" --icon "🚀" --status "✅ Done" --layout dt,ds --color emerald
 """
 
 import os
