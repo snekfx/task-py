@@ -67,6 +67,14 @@ TOUR_TEXT = """
 TaskPy Quick Reference Tour
 ==================================================
 
+CONTEXTUAL HELP
+---------------
+For detailed workflow guides, use:
+  taskpy help              # Complete developer workflow
+  taskpy help stub         # Grooming incomplete tasks
+  taskpy help active       # Development workflow
+  taskpy help regression   # Failed QA workflow
+
 GETTING STARTED
 ---------------
   taskpy init                           Initialize TaskPy in current project
