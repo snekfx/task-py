@@ -439,6 +439,71 @@ def _read_task_file(path: Path) -> TaskRecord:
     )
 
 
+def append_issue(task_path: Path, description: str):
+    """Append an issue entry to a task markdown file."""
+    timestamp = utc_now().strftime("%Y-%m-%d %H:%M:%S UTC")
+    issue_line = f"- **{timestamp}** - {description}".strip() + "\n"
+
+    content = task_path.read_text(encoding="utf-8")
+    lines = content.split("\n")
+    issues_idx = None
+    in_code_block = False
+
+    for idx, line in enumerate(lines):
+        if line.strip().startswith("```"):
+            in_code_block = not in_code_block
+        if (
+            line.strip() == "## ISSUES"
+            and not in_code_block
+            and not line.startswith((" ", "\t", "-", "*"))
+        ):
+            issues_idx = idx
+            break
+
+    if issues_idx is not None:
+        next_section = len(lines)
+        for idx in range(issues_idx + 1, len(lines)):
+            if lines[idx].startswith("## ") and lines[idx].strip() != "## ISSUES":
+                next_section = idx
+                break
+        lines.insert(next_section, issue_line)
+        content = "\n".join(lines)
+    else:
+        if not content.endswith("\n"):
+            content += "\n"
+        content += f"\n## ISSUES\n\n{issue_line}"
+
+    task_path.write_text(content, encoding="utf-8")
+
+
+def read_issues(task_path: Path) -> List[str]:
+    """Read the ISSUES section from a task file."""
+    content = task_path.read_text(encoding="utf-8")
+    lines = content.split("\n")
+    issues_idx = None
+    in_code_block = False
+
+    for idx, line in enumerate(lines):
+        if line.strip().startswith("```"):
+            in_code_block = not in_code_block
+        if line.strip() == "## ISSUES" and not in_code_block:
+            issues_idx = idx
+            break
+
+    if issues_idx is None:
+        return []
+
+    issues: List[str] = []
+    for idx in range(issues_idx + 1, len(lines)):
+        line = lines[idx]
+        if line.startswith("## ") and line.strip() != "## ISSUES":
+            break
+        if line.strip().startswith("- "):
+            issues.append(line.strip())
+
+    return issues
+
+
 def _serialize_task(task: TaskRecord) -> str:
     data = task.to_frontmatter_dict()
     lines = ["---"]
