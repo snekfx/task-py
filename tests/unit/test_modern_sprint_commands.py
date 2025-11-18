@@ -34,7 +34,7 @@ class TestSprintMetadataHelpers:
         storage = TaskStorage(tmp_path)
         storage.initialize()
 
-        path = _get_sprint_metadata_path(storage)
+        path = _get_sprint_metadata_path(tmp_path)
         assert path == storage.kanban / "info" / "sprint_current.json"
 
     def test_load_sprint_metadata_nonexistent(self, tmp_path):
@@ -42,7 +42,7 @@ class TestSprintMetadataHelpers:
         storage = TaskStorage(tmp_path)
         storage.initialize()
 
-        metadata = _load_sprint_metadata(storage)
+        metadata = _load_sprint_metadata(tmp_path)
         assert metadata is None
 
     def test_save_and_load_sprint_metadata(self, tmp_path):
@@ -60,8 +60,8 @@ class TestSprintMetadataHelpers:
             "goals": []
         }
 
-        _save_sprint_metadata(storage, test_metadata)
-        loaded = _load_sprint_metadata(storage)
+        _save_sprint_metadata(test_metadata, tmp_path)
+        loaded = _load_sprint_metadata(tmp_path)
 
         assert loaded == test_metadata
 
@@ -363,7 +363,7 @@ class TestSprintInitCommand:
         _cmd_sprint_init(args)
 
         # Verify metadata was saved
-        metadata = _load_sprint_metadata(storage)
+        metadata = _load_sprint_metadata(tmp_path)
         assert metadata is not None
         assert metadata["title"] == "Test Sprint"
         assert metadata["focus"] == "Testing"
@@ -384,7 +384,7 @@ class TestSprintInitCommand:
             "capacity_sp": 20,
             "goals": []
         }
-        _save_sprint_metadata(storage, existing)
+        _save_sprint_metadata(existing, tmp_path)
 
         args = Namespace(
             title="New Sprint",
@@ -416,7 +416,7 @@ class TestSprintInitCommand:
             "capacity_sp": 20,
             "goals": []
         }
-        _save_sprint_metadata(storage, existing)
+        _save_sprint_metadata(existing, tmp_path)
 
         args = Namespace(
             title="New Sprint",
@@ -430,7 +430,7 @@ class TestSprintInitCommand:
         _cmd_sprint_init(args)
 
         # Verify metadata was overwritten
-        metadata = _load_sprint_metadata(storage)
+        metadata = _load_sprint_metadata(tmp_path)
         assert metadata["title"] == "New Sprint"
         assert metadata["number"] == 2  # Should increment
 

@@ -4,28 +4,37 @@ import sys
 import json
 from pathlib import Path
 from datetime import datetime, timedelta
+from typing import Optional
 
-from taskpy.legacy.storage import TaskStorage
-from taskpy.legacy.output import print_error, print_info, print_success, print_warning
-from taskpy.legacy.commands import _read_manifest, _format_title_column
-from taskpy.legacy.models import utc_now
-from taskpy.modern.views import ListView, ColumnConfig
+from taskpy.modern.shared.messages import print_error, print_info, print_success, print_warning
 from taskpy.modern.shared.output import get_output_mode
+from taskpy.modern.shared.tasks import (
+    KanbanNotInitialized,
+    ensure_initialized,
+    load_manifest,
+    load_task,
+    write_task,
+    find_task_file,
+    format_title,
+    utc_now,
+    KANBAN_RELATIVE_PATH,
+)
+from taskpy.modern.views import ListView, ColumnConfig
 
 
-def get_storage() -> TaskStorage:
-    """Get TaskStorage for current directory."""
-    return TaskStorage(Path.cwd())
+def _kanban_root(root: Optional[Path] = None) -> Path:
+    base = Path.cwd() if root is None else root
+    return base / KANBAN_RELATIVE_PATH
 
 
-def _get_sprint_metadata_path(storage):
+def _get_sprint_metadata_path(root: Optional[Path] = None):
     """Get path to sprint metadata file."""
-    return storage.kanban / "info" / "sprint_current.json"
+    return _kanban_root(root) / "info" / "sprint_current.json"
 
 
-def _load_sprint_metadata(storage):
+def _load_sprint_metadata(root: Optional[Path] = None):
     """Load sprint metadata from JSON file."""
-    sprint_file = _get_sprint_metadata_path(storage)
+    sprint_file = _get_sprint_metadata_path(root)
 
     if not sprint_file.exists():
         return None
@@ -37,9 +46,9 @@ def _load_sprint_metadata(storage):
         return None
 
 
-def _save_sprint_metadata(storage, metadata):
+def _save_sprint_metadata(metadata, root: Optional[Path] = None):
     """Save sprint metadata to JSON file."""
-    sprint_file = _get_sprint_metadata_path(storage)
+    sprint_file = _get_sprint_metadata_path(root)
 
     # Ensure directory exists
     sprint_file.parent.mkdir(parents=True, exist_ok=True)
@@ -50,14 +59,13 @@ def _save_sprint_metadata(storage, metadata):
 
 def _cmd_sprint_list(args):
     """List all tasks in sprint using modern ListView."""
-    storage = get_storage()
-
-    if not storage.is_initialized():
+    try:
+        ensure_initialized(Path.cwd())
+    except KanbanNotInitialized:
         print_error("TaskPy not initialized. Run: taskpy init")
         sys.exit(1)
 
-    # Read manifest and filter sprint tasks
-    rows = _read_manifest(storage)
+    rows = load_manifest()
     sprint_tasks = [r for r in rows if r.get('in_sprint', 'false') == 'true']
 
     if not sprint_tasks:
@@ -67,7 +75,7 @@ def _cmd_sprint_list(args):
     # Configure columns
     columns = [
         ColumnConfig(name="ID", field="id"),
-        ColumnConfig(name="Title", field=lambda t: _format_title_column(t.get('title'))),
+        ColumnConfig(name="Title", field=lambda t: format_title(t.get('title', ''))),
         ColumnConfig(name="Status", field="status"),
         ColumnConfig(name="SP", field="story_points"),
         ColumnConfig(name="Priority", field="priority"),
@@ -88,22 +96,19 @@ def _cmd_sprint_list(args):
 
 def _cmd_sprint_add(args):
     """Add task to sprint."""
-    storage = get_storage()
-
-    if not storage.is_initialized():
+    try:
+        ensure_initialized(Path.cwd())
+    except KanbanNotInitialized:
         print_error("TaskPy not initialized. Run: taskpy init")
         sys.exit(1)
 
     task_id = args.task_id.upper()
-
-    # Find task
-    result = storage.find_task_file(task_id)
+    result = find_task_file(task_id)
     if not result:
         print_error(f"Task not found: {task_id}")
         sys.exit(1)
 
-    path, status = result
-    task = storage.read_task_file(path)
+    task = load_task(task_id)
 
     # Check if already in sprint
     if task.in_sprint:
@@ -113,29 +118,26 @@ def _cmd_sprint_add(args):
     # Add to sprint
     task.in_sprint = True
     task.updated = utc_now()
-    storage.write_task_file(task)
+    write_task(task)
 
     print_success(f"Added {task_id} to sprint")
 
 
 def _cmd_sprint_remove(args):
     """Remove task from sprint."""
-    storage = get_storage()
-
-    if not storage.is_initialized():
+    try:
+        ensure_initialized(Path.cwd())
+    except KanbanNotInitialized:
         print_error("TaskPy not initialized. Run: taskpy init")
         sys.exit(1)
 
     task_id = args.task_id.upper()
-
-    # Find task
-    result = storage.find_task_file(task_id)
+    result = find_task_file(task_id)
     if not result:
         print_error(f"Task not found: {task_id}")
         sys.exit(1)
 
-    path, status = result
-    task = storage.read_task_file(path)
+    task = load_task(task_id)
 
     # Check if in sprint
     if not task.in_sprint:
@@ -145,21 +147,20 @@ def _cmd_sprint_remove(args):
     # Remove from sprint
     task.in_sprint = False
     task.updated = utc_now()
-    storage.write_task_file(task)
+    write_task(task)
 
     print_success(f"Removed {task_id} from sprint")
 
 
 def _cmd_sprint_clear(args):
     """Clear all tasks from sprint."""
-    storage = get_storage()
-
-    if not storage.is_initialized():
+    try:
+        ensure_initialized(Path.cwd())
+    except KanbanNotInitialized:
         print_error("TaskPy not initialized. Run: taskpy init")
         sys.exit(1)
 
-    # Read manifest and find all sprint tasks
-    rows = _read_manifest(storage)
+    rows = load_manifest()
     sprint_tasks = [r for r in rows if r.get('in_sprint', 'false') == 'true']
 
     if not sprint_tasks:
@@ -168,27 +169,25 @@ def _cmd_sprint_clear(args):
 
     # Remove all tasks from sprint
     for row in sprint_tasks:
-        result = storage.find_task_file(row['id'])
+        result = find_task_file(row['id'])
         if result:
-            path, status = result
-            task = storage.read_task_file(path)
+            task = load_task(row['id'])
             task.in_sprint = False
             task.updated = utc_now()
-            storage.write_task_file(task)
+            write_task(task)
 
     print_success(f"Cleared {len(sprint_tasks)} tasks from sprint")
 
 
 def _cmd_sprint_stats(args):
     """Show sprint statistics."""
-    storage = get_storage()
-
-    if not storage.is_initialized():
+    try:
+        ensure_initialized(Path.cwd())
+    except KanbanNotInitialized:
         print_error("TaskPy not initialized. Run: taskpy init")
         sys.exit(1)
 
-    # Read manifest and filter sprint tasks
-    rows = _read_manifest(storage)
+    rows = load_manifest()
     sprint_tasks = [r for r in rows if r.get('in_sprint', 'false') == 'true']
 
     if not sprint_tasks:
@@ -236,14 +235,13 @@ def _cmd_sprint_stats(args):
 
 def _cmd_sprint_init(args):
     """Initialize a new sprint with metadata."""
-    storage = get_storage()
-
-    if not storage.is_initialized():
+    try:
+        ensure_initialized(Path.cwd())
+    except KanbanNotInitialized:
         print_error("TaskPy not initialized. Run: taskpy init")
         sys.exit(1)
 
-    # Check if sprint already exists
-    existing_sprint = _load_sprint_metadata(storage)
+    existing_sprint = _load_sprint_metadata()
     if existing_sprint and not getattr(args, 'force', False):
         print_error("Sprint already exists. Use --force to overwrite.")
         print_info(f"Current sprint: {existing_sprint.get('title', 'Untitled')}")
@@ -269,7 +267,7 @@ def _cmd_sprint_init(args):
         "goals": []
     }
 
-    _save_sprint_metadata(storage, metadata)
+    _save_sprint_metadata(metadata)
     print_success(f"Initialized {metadata['title']}")
     print_info(f"Duration: {metadata['start_date']} to {metadata['end_date']}")
     print_info(f"Capacity: {metadata['capacity_sp']} SP")
