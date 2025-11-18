@@ -153,3 +153,30 @@ Only then consider removing legacy code (REF-04, REF-11).
 - **REF-15**: Complete display module
 - **REF-16**: Complete admin module
 - **REF-17**: Complete milestones module
+
+## Audit Update - 2025-11-17
+
+**Comprehensive audit completed** - see [migration-audit-2025-11-17.md](./migration-audit-2025-11-17.md)
+
+### Corrected Status
+
+| Module | Previous Status | Actual Status | Commands Migrated |
+|--------|----------------|---------------|-------------------|
+| Core (REF-13) | "list only" | **4.5/5 SP** | 5/6 (list, show, create, edit, rename) ✅ |
+| Sprint (REF-12) | "list only" | **1/7 commands** | sprint list only |
+| Workflow (REF-14) | "not started" | **0/3 commands** | None |
+| Display (REF-15) | "not started" | **0/5 commands** | None |
+| Admin (REF-16) | "not started" | **0/5 commands** | None |
+| Epics (REF-08) | "complete" | ✅ **Complete** | epics list (only command) |
+| NFRs (REF-07) | "complete" | ✅ **Complete** | nfrs list (only command) |
+| Milestones (REF-17) | "not started" | **0/5 commands, NOT REGISTERED** | None |
+
+### Remaining Work: 15.5 SP
+
+1. REF-13 (Core): 0.5 SP - delete/recover
+2. BUGS-09 (link --doc): 1 SP
+3. REF-12 (Sprint): 3 SP - 6 commands remaining
+4. REF-14 (Workflow): 3 SP - 3 commands
+5. REF-15 (Display): 3 SP - 5 commands
+6. REF-16 (Admin): 3 SP - 5 commands
+7. REF-17 (Milestones): 2 SP - 5 commands
