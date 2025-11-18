@@ -3,31 +3,22 @@
 import sys
 from pathlib import Path
 
-from taskpy.legacy.storage import TaskStorage
-from taskpy.legacy.output import (
-    print_error,
-    print_info,
-    get_output_mode,
-    OutputMode,
-    display_task_card,
-)
-from taskpy.legacy.commands import (
-    _read_manifest,
-    _sort_tasks,
-    _format_title_column,
+from taskpy.modern.shared.messages import print_error, print_info
+from taskpy.modern.shared.output import get_output_mode, OutputMode
+from taskpy.modern.shared.tasks import (
+    KanbanNotInitialized,
+    load_manifest,
+    load_task,
     parse_task_ids,
+    sort_manifest_rows,
+    format_title,
 )
-from taskpy.modern.views import ListView, ColumnConfig
+from taskpy.modern.views import ListView, ColumnConfig, show_card
 
 
-def get_storage() -> TaskStorage:
-    """Get TaskStorage for current directory."""
-    return TaskStorage(Path.cwd())
-
-
-def _read_manifest_with_filters(storage: TaskStorage, args):
+def _read_manifest_with_filters(args):
     """Read manifest and apply filters."""
-    rows = _read_manifest(storage)
+    rows = load_manifest(Path.cwd())
 
     # Hide done/archived by default unless --all or --status=done/archived explicitly requested
     explicit_status_filter = hasattr(args, 'status') and args.status and args.status in ['done', 'archived']
@@ -57,14 +48,11 @@ def _read_manifest_with_filters(storage: TaskStorage, args):
 
 def cmd_list(args):
     """List tasks with optional filters using modern ListView."""
-    storage = get_storage()
-
-    if not storage.is_initialized():
+    try:
+        tasks = _read_manifest_with_filters(args)
+    except KanbanNotInitialized:
         print_error("TaskPy not initialized. Run: taskpy init")
         sys.exit(1)
-
-    # Read manifest and apply filters
-    tasks = _read_manifest_with_filters(storage, args)
 
     if not tasks:
         print_info("No tasks found matching filters")
@@ -72,12 +60,12 @@ def cmd_list(args):
 
     # Apply sorting
     sort_mode = getattr(args, 'sort', 'priority')
-    tasks = _sort_tasks(tasks, sort_mode)
+    tasks = sort_manifest_rows(tasks, sort_mode)
 
     # Configure columns
     columns = [
         ColumnConfig(name="ID", field="id"),
-        ColumnConfig(name="Title", field=lambda t: _format_title_column(t.get('title'))),
+        ColumnConfig(name="Title", field=lambda t: format_title(t.get('title', ''))),
         ColumnConfig(name="Status", field="status"),
         ColumnConfig(name="SP", field="story_points"),
         ColumnConfig(name="Priority", field="priority"),
@@ -93,14 +81,14 @@ def cmd_list(args):
         status_field='status',
         grey_done=True,
     )
-    view.render()
+    view.display()
 
 
 def cmd_show(args):
     """Display one or more tasks."""
-    storage = get_storage()
-
-    if not storage.is_initialized():
+    try:
+        load_manifest(Path.cwd())
+    except KanbanNotInitialized:
         print_error("TaskPy not initialized. Run: taskpy init")
         sys.exit(1)
 
@@ -114,18 +102,13 @@ def cmd_show(args):
     # Collect all tasks
     tasks_to_display = []
     for task_id in task_ids:
-        result = storage.find_task_file(task_id)
-        if not result:
-            print_error(f"Task not found: {task_id}")
-            continue
-
-        path, status = result
         try:
-            task = storage.read_task_file(path)
+            task = load_task(task_id, Path.cwd())
             tasks_to_display.append(task)
-        except Exception as e:
-            print_error(f"Failed to read task {task_id}: {e}")
-            continue
+        except FileNotFoundError:
+            print_error(f"Task not found: {task_id}")
+        except Exception as exc:
+            print_error(f"Failed to read task {task_id}: {exc}")
 
     if not tasks_to_display:
         print_error("No valid tasks to display")
@@ -144,8 +127,8 @@ def cmd_show(args):
         task_dict = {
             'id': task.id,
             'title': task.title,
-            'status': task.status.value,
-            'priority': task.priority.value,
+            'status': task.status,
+            'priority': task.priority,
             'story_points': task.story_points,
             'tags': task.tags,
             'dependencies': task.dependencies,
@@ -154,15 +137,16 @@ def cmd_show(args):
         }
 
         # Add references if present
-        if task.references.code or task.references.docs:
+        references = task.references
+        if references.get('code') or references.get('docs'):
             references_list = []
-            if task.references.code:
-                references_list.append(f"Code: {', '.join(task.references.code)}")
-            if task.references.docs:
-                references_list.append(f"Docs: {', '.join(task.references.docs)}")
+            if references.get('code'):
+                references_list.append(f"Code: {', '.join(references['code'])}")
+            if references.get('docs'):
+                references_list.append(f"Docs: {', '.join(references['docs'])}")
             task_dict['references'] = '\n'.join(references_list)
 
-        display_task_card(task_dict)
+        show_card(task_dict, output_mode=get_output_mode())
 
         # Show metadata if in data mode
         if get_output_mode() == OutputMode.DATA:
@@ -170,15 +154,17 @@ def cmd_show(args):
             print(f"Updated: {task.updated.isoformat()}")
             if task.nfrs:
                 print(f"NFRs: {', '.join(task.nfrs)}")
-            if task.references.code:
-                print(f"Code: {', '.join(task.references.code)}")
-            if task.references.docs:
-                print(f"Docs: {', '.join(task.references.docs)}")
-            if task.verification.command:
-                print(f"Verification: {task.verification.command}")
-                print(f"Status: {task.verification.status.value}")
+            if references.get('code'):
+                print(f"Code: {', '.join(references['code'])}")
+            if references.get('docs'):
+                print(f"Docs: {', '.join(references['docs'])}")
+            verification = task.verification
+            if verification.get('command'):
+                print(f"Verification: {verification['command']}")
+                if verification.get('status'):
+                    print(f"Status: {verification['status']}")
             if task.resolution:
-                print(f"\nResolution: {task.resolution.value}")
+                print(f"\nResolution: {task.resolution}")
                 print(f"Reason: {task.resolution_reason}")
                 if task.duplicate_of:
                     print(f"Duplicate of: {task.duplicate_of}")
