@@ -8,7 +8,7 @@ import argparse
 import sys
 
 # Import all feature modules
-from taskpy.modern import nfrs
+from taskpy.modern import nfrs, epics
 
 
 def build_cli():
@@ -22,6 +22,11 @@ def build_cli():
         description='Modern feature-based architecture (opt-in)'
     )
 
+    # Add global flags to main parser
+    parser.add_argument('--data', action='store_true', help='Plain data output')
+    parser.add_argument('--agent', action='store_true', help='Agent-friendly output')
+    parser.add_argument('--no-boxy', action='store_true', help='Disable boxy output')
+
     # Create subparsers for commands
     subparsers = parser.add_subparsers(
         dest='command',
@@ -29,7 +34,7 @@ def build_cli():
     )
 
     # Register all feature modules
-    features = [nfrs]
+    features = [nfrs, epics]
 
     for feature in features:
         # Get command registrations from feature
