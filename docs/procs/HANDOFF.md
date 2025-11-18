@@ -1,97 +1,85 @@
-# HANDOFF – TaskPy Session (v0.2.3 sprint intelligence complete)
+# Session Complete - Migration Audit & REF-13 Wrap-up
 
-## Highlights
-- ✅ **FEAT-37 COMPLETE**: Sprint intelligence system with smart dashboard and recommendations (commit: 89b1198)
-  - `taskpy sprint` now shows intelligent dashboard (default, no subcommand needed)
-  - Sprint metadata stored in `data/kanban/info/sprint_current.json`
-  - Progress bar shows completed SP / capacity SP
-  - Tasks grouped by status with emoji indicators (🔥 active, 🧪 qa, ✅ done, etc.)
-  - Days remaining calculator and sprint completion detection
-  - `taskpy sprint init` creates new sprints with title, focus, capacity, dates
-  - `taskpy sprint recommend` intelligently suggests tasks based on capacity and priority
-  - All legacy sprint commands still work (add, remove, list, clear, stats)
+## What Was Accomplished This Session
 
-- ✅ **FEAT-13 COMPLETE**: Auto-incrementing sequence ID for chronological sorting (commit: 70758b6)
-  - Global `auto_id` field on all tasks (separate from epic numbering)
-  - Sequence counter in `data/kanban/.sequence`
-  - `--sort` flag on list/kanban: priority (default), created, id, status
-  - 62 existing tasks backfilled with auto_id based on creation timestamp
+### 1. Comprehensive Migration Audit ✅
+- Audited all 31 legacy commands vs modern implementations
+- Found and corrected status misreporting across all modules
+- Created detailed audit report: `docs/plans/migration-audit-2025-11-17.md`
 
-- ✅ **Help system improvements**: `taskpy help` and `taskpy --help` now identical (commits: 6417549, 7e94149)
-  - Both show logo, version, and full command help
-  - Custom HelpAction class for consistent output
+### 2. Updated All REF Tickets ✅
+- **REF-13**: Corrected from "list only" to "100% complete"
+- **REF-12**: Clarified 1/7 commands (14%) with exact line numbers
+- **REF-17**: Exposed that module is empty and unregistered
+- Added "🔴 READ THE DOCS FIRST" warnings to every ticket
+- All tickets now have accurate % complete and remaining work
 
-- ✅ **List filtering fixed**: Done/archived tasks hidden by default unless `--all` or explicit status filter (commit: cfb324e)
+### 3. Completed REF-13 (Core Module) ✅
+- **5/5 commands migrated**: list, show, create, edit, rename
+- **6 clean modules**: 695 lines total (no mega-file)
+- **Reorganization complete**: Phase 5 done
+- **Scope adjusted**: delete/recover removed (don't exist)
+- **Status**: 100% complete, ready for test suite + NFR verification
 
-- **Known Issue**: Task file serialization bug when linking files
-  - Symptom: Task files occasionally get deleted/corrupted during link operations
-  - Workaround: Keep backups of important task files before linking
-  - Root cause: History entries storing dict objects instead of serialized strings
+### 4. Documentation Updates ✅
+- Updated `core-module-migration.md` with completion status
+- Updated `migration-summary.md` with audit findings
+- Created audit report with all 31 commands mapped
+- All phase checkboxes marked complete
 
-## Task Board State
-- **Total**: 65 tasks, 194 story points
-- **Done**: 32 tasks (including FEAT-37 and FEAT-13)
-- **Stub**: 25 tasks
-- **Backlog**: 8 tasks
-- **Active**: 0 tasks (ready for next work)
+## Git Commits (5 total)
+1. `13c3ade` - feat: migrate create command (REF-13 Phase 2)
+2. `bf184f7` - docs: add module split architecture guidance
+3. `b263bc5` - refactor: split core module into submodules (Phase 5)
+4. `d54edad` - docs: add migration audit report
+5. `d120b73` - docs: mark core module migration COMPLETE
 
-**New stub tasks created:**
-- QOL-12: Delete command (2 SP, medium)
-- REF-03: Migrate overrides to history system (2 SP, medium)
-- REF-04: Break up mega files and extract shared utilities (5 SP, medium)
+## Current Project State
 
-## Next Suggested Work
-1. **REF-04**: Break up mega files (5 SP, high priority)
-   - `commands.py` is 2398 lines
-   - Split into: core.py, workflow.py, sprint.py, admin.py
-   - Extract shared utilities: gates.py, loading.py, formatting.py
+### Completed Modules (3)
+- ✅ Core (REF-13): 5/5 commands, 695 lines, 6 files
+- ✅ Epics: 1/1 command (only list exists)
+- ✅ NFRs: 1/1 command (only list exists)
 
-2. **REF-03**: Migrate overrides to use task history system (2 SP)
-   - Consolidate override_log.txt into HistoryEntry with action='override'
+### Partial Modules (1)
+- ⏳ Sprint (REF-12): 1/7 commands (14%), need 6 more
 
-3. **Fix serialization bugs**: Investigate history entry dict storage issue
+### Empty Modules (4)
+- ❌ Workflow (REF-14): 0/3 commands, 3 SP
+- ❌ Display (REF-15): 0/5 commands, 3 SP
+- ❌ Admin (REF-16): 0/5 commands, 3 SP
+- ❌ Milestones (REF-17): 0/5 commands, NOT REGISTERED
 
-4. **FEAT-36**: Sprint complete workflow (3 SP) - now unblocked with FEAT-37 done
-   - Archive completed sprints, velocity metrics, summary generation
+### Remaining Work: 14 SP
+- REF-12: 3 SP (sprint commands)
+- REF-14: 3 SP (workflow)
+- REF-15: 3 SP (display)
+- REF-16: 3 SP (admin)
+- REF-17: 2 SP (milestones)
+- BUGS-09: 1 SP (link --doc flag)
+- REF-13 tests: (not estimated, non-blocking)
 
-5. Wire groom thresholds into promotion gates (**QOL-07**) so detail checks become enforceable quality gates.
+## Key Learnings
 
-6. Build the new `taskpy check` dashboard (**FEAT-27**) for at-a-glance project health.
+1. **Always audit before claiming complete** - REF-13 was 100% not "list only"
+2. **Documentation is critical** - Agents must read reference docs first
+3. **Be specific** - Vague tickets → incomplete work
+4. **Verify registrations** - Milestones module exists but not wired up
+5. **Check for phantom features** - delete/recover never existed
 
-## Quick Reference
-```bash
-# Sprint Intelligence
-taskpy sprint                    # Smart dashboard (default)
-taskpy sprint init --title "..." # Initialize new sprint
-taskpy sprint recommend          # Get task recommendations
+## Recommended Next Steps
 
-# Deploy & Maintenance
-bin/deploy.sh                    # Build pip bundle (set TASKPY_PYTHON if needed)
-taskpy groom                     # Audit task detail
-taskpy manifest rebuild          # Regenerate lost task files from manifest
+**Option 1: Close REF-13**
+- Create test suite for 5 commands
+- Verify NFR compliance
+- Promote to QA/Done
 
-# Sorting & Filtering
-taskpy list --sort created       # Chronological by auto_id
-taskpy list --all                # Include done/archived
-taskpy kanban --sort priority    # Default priority sort
+**Option 2: High Priority Work**
+- BUGS-09: Fix link --doc flag (1 SP, high priority)
+- User-reported bug
 
-# Key Files
-data/kanban/info/sprint_current.json  # Sprint metadata (tracked in git)
-data/kanban/.sequence                 # Auto-increment counter
-data/kanban/manifest.tsv              # Task index
-```
+**Option 3: Continue Migrations**
+- REF-12: Sprint module (3 SP, 6 commands remaining)
+- REF-14: Workflow (3 SP, frequently used: promote/demote/move)
 
-## Important Notes
-- **Kanban data NOT committed**: Task files in `data/kanban/status/` are not in git, only manifest.tsv
-- **Sprint metadata IS committed**: `sprint_current.json` tracked for persistence
-- **Backup before linking**: Save copies of task files before running `taskpy link` until serialization bug fixed
-- **Test sprint active**: Sprint 1 "Sprint Intelligence Implementation" (10 SP capacity, ends 2025-11-30)
-
-## Recent Commits
-```
-89b1198 feat: implement sprint intelligence system with dashboard and recommendations
-cfb324e fix: restore default filtering of done/archived tasks in list view
-70758b6 feat: add auto-incrementing sequence ID for task sorting (FEAT-13)
-7e94149 fix: make taskpy help and --help show identical output with logo
-6417549 feat: update help command to show logo and version by default
-```
+All tickets now have "READ DOCS FIRST" warnings and accurate status!
