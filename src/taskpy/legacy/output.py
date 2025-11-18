@@ -381,6 +381,7 @@ def display_task_card(task_data: Dict[str, Any]):
         'qa': Theme.INFO,
         'regression': Theme.WARNING,
         'blocked': Theme.WARNING,
+        'stub': Theme.TASK,
         'backlog': Theme.PLAIN,
     }
     theme = theme_map.get(status, Theme.PLAIN)

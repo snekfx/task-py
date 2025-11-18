@@ -1,7 +1,7 @@
 """CLI registration for core task management."""
 
 import argparse
-from .commands import cmd_list
+from .commands import cmd_list, cmd_show
 
 
 def register():
@@ -21,12 +21,17 @@ def register():
         'list': {
             'func': cmd_list,
             'help': 'List tasks with optional filters',
-            'parser': setup_parser
+            'parser': setup_list_parser
+        },
+        'show': {
+            'func': cmd_show,
+            'help': 'Display task details',
+            'parser': setup_show_parser
         }
     }
 
 
-def setup_parser(subparsers):
+def setup_list_parser(subparsers):
     """Setup argument parser for list command.
 
     Args:
@@ -53,6 +58,25 @@ def setup_parser(subparsers):
                        choices=['priority', 'status', 'sp', 'created', 'updated'],
                        default='priority',
                        help='Sort order')
+
+    return parser
+
+
+def setup_show_parser(subparsers):
+    """Setup argument parser for show command.
+
+    Args:
+        subparsers: argparse subparsers object
+
+    Returns:
+        ArgumentParser: Configured parser for show command
+    """
+    parser = subparsers.add_parser(
+        'show',
+        help='Display task details'
+    )
+
+    parser.add_argument('task_ids', nargs='+', help='Task ID(s) to display')
 
     return parser
 
