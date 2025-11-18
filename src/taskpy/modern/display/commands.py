@@ -64,14 +64,33 @@ def cmd_info(args):
     print(f"Title: {task.title}")
     print()
 
-    current_idx = workflow.index(current_status)
-    if current_idx >= len(workflow) - 1:
-        print_success("Task is at final status (done)")
+    if current_status == TaskStatus.BLOCKED:
+        reason = task.blocked_reason or "No reason provided."
+        print_warning(f"Task is blocked: {reason}")
+        print("Resolve the blocker and run 'taskpy unblock' before promoting.")
         return
 
-    next_status = workflow[current_idx + 1]
-    print(f"Next Status: {next_status.value}")
-    print()
+    if current_status == TaskStatus.REGRESSION:
+        next_status = TaskStatus.QA
+        print(f"Next Status: {next_status.value} (re-review after regression)")
+        print()
+    elif current_status in (TaskStatus.DONE, TaskStatus.ARCHIVED):
+        print_success(f"Task is at final status ({current_status.value})")
+        if current_status == TaskStatus.ARCHIVED:
+            print("Archived tasks must be reactivated before additional work.")
+        return
+    elif current_status in workflow:
+        current_idx = workflow.index(current_status)
+        if current_idx >= len(workflow) - 1:
+            print_success("Task is at final status (done)")
+            return
+        next_status = workflow[current_idx + 1]
+        print(f"Next Status: {next_status.value}")
+        print()
+    else:
+        print_warning(f"Unknown workflow status: {current_status.value}")
+        print("Cannot determine next status automatically.")
+        return
 
     # Check gate requirements
     is_valid, blockers = validate_promotion(task, next_status, None)

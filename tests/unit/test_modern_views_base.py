@@ -7,6 +7,7 @@ Tests the base View class and output mode handling.
 import pytest
 from taskpy.modern.views.base import View
 from taskpy.modern.views.output import OutputMode
+from taskpy.legacy.output import OutputMode as LegacyOutputMode
 
 
 class ConcreteView(View):
@@ -63,3 +64,9 @@ class TestView:
         with pytest.raises(TypeError):
             # This should fail because View is abstract
             View()  # type: ignore
+
+    def test_view_coerces_legacy_output_mode(self):
+        """Legacy OutputMode enum should be coerced to the modern equivalent."""
+        view = ConcreteView(output_mode=LegacyOutputMode.DATA)
+        assert view.output_mode == OutputMode.DATA
+        assert view.render() == "DATA OUTPUT"

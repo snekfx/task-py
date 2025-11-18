@@ -79,6 +79,57 @@ class TestInfoCommand:
         output = re.sub(r'\x1b\[[0-9;]*m', '', captured.out)
         assert "final status" in output.lower()
 
+    def test_info_handles_blocked_task(self, tmp_path, monkeypatch, capsys):
+        """Blocked tasks should show blocker info instead of crashing."""
+        storage = TaskStorage(tmp_path)
+        storage.initialize()
+
+        task = Task(
+            id="TEST-01",
+            epic="TEST",
+            number=1,
+            title="Blocked task",
+            status=TaskStatus.BLOCKED,
+            priority=Priority.MEDIUM,
+            story_points=3,
+            blocked_reason="Waiting on API"
+        )
+        storage.write_task_file(task)
+
+        args = Namespace(task_id="TEST-01")
+
+        monkeypatch.chdir(tmp_path)
+        cmd_info(args)
+
+        output = re.sub(r'\x1b\[[0-9;]*m', '', capsys.readouterr().out)
+        assert "blocked" in output.lower()
+        assert "waiting on api" in output.lower()
+
+    def test_info_handles_regression_task(self, tmp_path, monkeypatch, capsys):
+        """Regression tasks should point back to QA without raising errors."""
+        storage = TaskStorage(tmp_path)
+        storage.initialize()
+
+        task = Task(
+            id="TEST-01",
+            epic="TEST",
+            number=1,
+            title="Regression task",
+            status=TaskStatus.REGRESSION,
+            priority=Priority.MEDIUM,
+            story_points=3
+        )
+        storage.write_task_file(task)
+
+        args = Namespace(task_id="TEST-01")
+
+        monkeypatch.chdir(tmp_path)
+        cmd_info(args)
+
+        output = re.sub(r'\x1b\[[0-9;]*m', '', capsys.readouterr().out)
+        assert "qa" in output.lower()
+        assert "regression" in output.lower()
+
 
 class TestStoplightCommand:
     """Test cmd_stoplight functionality."""

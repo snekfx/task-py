@@ -198,6 +198,25 @@ class TestShowCard:
         assert payload["id"] == "TASK-1"
         assert payload["priority"] == "high"
 
+    @patch('taskpy.modern.views.output._plain_output')
+    @patch('taskpy.modern.views.output.has_boxy')
+    def test_show_card_fallback_without_boxy(self, mock_boxy, mock_plain):
+        """show_card should fall back to plain output when boxy is unavailable."""
+        mock_boxy.return_value = False
+        task = {
+            'id': 'TASK-1',
+            'title': 'Test task',
+            'status': 'blocked',
+            'story_points': 2,
+        }
+
+        show_card(task, output_mode=OutputMode.PRETTY)
+
+        mock_plain.assert_called_once()
+        args, _ = mock_plain.call_args
+        assert "ID: TASK-1" in args[0]  # Content contains task info
+        assert args[1] == 'blocked'     # Style string reused for fallback
+
 
 class TestShowColumn:
     """Test kanban column display."""
@@ -227,3 +246,20 @@ class TestShowColumn:
         assert payload["column"] == "active"
         assert payload["count"] == 2
         assert payload["tasks"][0]["id"] == "TASK-1"
+
+    @patch('taskpy.modern.views.output._plain_output')
+    @patch('taskpy.modern.views.output.has_boxy')
+    def test_show_column_fallback_without_boxy(self, mock_boxy, mock_plain):
+        """show_column should fallback to plain output when boxy is unavailable."""
+        mock_boxy.return_value = False
+        tasks = [
+            {'id': 'TASK-1', 'title': 'First', 'story_points': 3, 'in_sprint': 'true'},
+            {'id': 'TASK-2', 'title': 'Second', 'story_points': 5, 'in_sprint': 'false'},
+        ]
+
+        show_column("active", tasks, output_mode=OutputMode.PRETTY)
+
+        mock_plain.assert_called_once()
+        args, _ = mock_plain.call_args
+        assert "TASK-1" in args[0]
+        assert args[1] == Theme.INFO.value

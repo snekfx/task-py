@@ -498,7 +498,7 @@ def cmd_list(args):
             status_field='status',
             grey_done=True,
         )
-        view.render()
+        view.display()
 
 
 def cmd_show(args):
@@ -1549,7 +1549,7 @@ def _cmd_sprint_list(args):
         status_field='status',
         grey_done=True,
     )
-    view.render()
+    view.display()
 
 
 def _cmd_sprint_clear(args):

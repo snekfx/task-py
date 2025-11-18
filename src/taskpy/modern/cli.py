@@ -7,7 +7,14 @@ Access via: taskpy modern <command>
 import argparse
 import sys
 
-from taskpy.modern.shared.output import set_output_mode, OutputMode
+from taskpy.modern.shared.output import (
+    set_output_mode as set_modern_output_mode,
+    OutputMode as ModernOutputMode,
+)
+from taskpy.legacy.output import (
+    set_output_mode as set_legacy_output_mode,
+    OutputMode as LegacyOutputMode,
+)
 
 # Import all feature modules
 from taskpy.modern import nfrs, epics, core, sprint, workflow, display, admin, milestones
@@ -73,6 +80,27 @@ def _extract_global_flags(argv):
     return flags, remaining
 
 
+def _configure_output_modes(args):
+    """Configure legacy and modern output modes based on parsed args."""
+    if getattr(args, 'agent', False):
+        modern_mode = ModernOutputMode.AGENT
+    elif getattr(args, 'data', False) or getattr(args, 'no_boxy', False):
+        modern_mode = ModernOutputMode.DATA
+    else:
+        modern_mode = ModernOutputMode.PRETTY
+
+    legacy_mode_map = {
+        ModernOutputMode.PRETTY: LegacyOutputMode.PRETTY,
+        ModernOutputMode.DATA: LegacyOutputMode.DATA,
+        ModernOutputMode.AGENT: LegacyOutputMode.AGENT,
+    }
+
+    set_modern_output_mode(modern_mode)
+    set_legacy_output_mode(legacy_mode_map[modern_mode])
+
+    return modern_mode
+
+
 def main(argv=None):
     """Main entry point for modern CLI."""
     if argv is None:
@@ -90,12 +118,7 @@ def main(argv=None):
         setattr(args, attr, getattr(args, attr, False) or value)
 
     # Configure global output mode for downstream modules
-    if getattr(args, 'agent', False):
-        set_output_mode(OutputMode.AGENT)
-    elif getattr(args, 'data', False) or getattr(args, 'no_boxy', False):
-        set_output_mode(OutputMode.DATA)
-    else:
-        set_output_mode(OutputMode.PRETTY)
+    _configure_output_modes(args)
 
     # If no command provided, show help
     if not hasattr(args, 'func'):

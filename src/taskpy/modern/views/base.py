@@ -9,6 +9,30 @@ from typing import Any
 from taskpy.modern.views.output import OutputMode
 
 
+def _normalize_output_mode(mode: Any) -> OutputMode:
+    """
+    Convert legacy enums/strings into the modern OutputMode definition.
+
+    Args:
+        mode: Provided output mode (modern enum, legacy enum, or string)
+
+    Returns:
+        OutputMode: Normalized modern output mode (defaults to PRETTY)
+    """
+    if isinstance(mode, OutputMode):
+        return mode
+
+    # Handle Enum-like values (legacy OutputMode) or raw strings
+    candidate = getattr(mode, 'value', mode)
+    if isinstance(candidate, str):
+        try:
+            return OutputMode(candidate)
+        except ValueError:
+            pass
+
+    return OutputMode.PRETTY
+
+
 class View(ABC):
     """
     Base class for all view components.
@@ -24,7 +48,7 @@ class View(ABC):
         Args:
             output_mode: Output mode for rendering (PRETTY/DATA/AGENT)
         """
-        self.output_mode = output_mode
+        self.output_mode = _normalize_output_mode(output_mode)
 
     @abstractmethod
     def render_pretty(self) -> str:
