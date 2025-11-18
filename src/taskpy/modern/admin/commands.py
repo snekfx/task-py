@@ -1,3 +1,262 @@
-"""Command implementations for admin features."""
+"""Command implementations for admin/maintenance features.
 
-# Will contain init, cleanup, config, tour commands when migrated
+This module provides administrative and maintenance commands:
+- init: Initialize TaskPy kanban structure
+- verify: Run verification tests for tasks
+- manifest: Manage manifest operations (rebuild)
+- groom: Audit stub tasks for sufficient detail
+- session: Manage work sessions (stub)
+
+Migrated from legacy/commands.py (lines 220-259, 936-995, 1389-1393, 2347-2420)
+"""
+
+import sys
+import subprocess
+import statistics
+from pathlib import Path
+from typing import List, Tuple, Iterable
+from taskpy.legacy.models import Task, TaskStatus, VerificationStatus, utc_now
+from taskpy.legacy.storage import TaskStorage, StorageError
+from taskpy.legacy.output import print_success, print_error, print_info, print_warning
+
+
+def get_storage() -> TaskStorage:
+    """Get TaskStorage for current directory."""
+    return TaskStorage(Path.cwd())
+
+
+# =============================================================================
+# Helper Functions
+# =============================================================================
+
+def _collect_status_tasks(storage: TaskStorage, statuses: Iterable[TaskStatus]) -> List[Tuple[Task, int]]:
+    """Collect Task objects and their content lengths for given statuses."""
+    tasks: List[Tuple[Task, int]] = []
+    for status in statuses:
+        dir_path = storage.status_dir / status.value
+        if not dir_path.exists():
+            continue
+        for path in sorted(dir_path.glob('*.md')):
+            try:
+                content = path.read_text()
+            except OSError as exc:
+                print_warning(f"Unable to read {path}: {exc}")
+                continue
+            length = len(content)
+            try:
+                task = storage.read_task_file(path)
+            except Exception as exc:
+                print_warning(f"Unable to parse {path}: {exc}")
+                continue
+            tasks.append((task, length))
+    return tasks
+
+
+# =============================================================================
+# Admin Commands
+# =============================================================================
+
+def cmd_init(args):
+    """Initialize TaskPy kanban structure."""
+    storage = get_storage()
+
+    try:
+        # Get explicit type from args if provided
+        project_type = getattr(args, 'type', None)
+
+        # Initialize with project type detection
+        detected_type, auto_detected = storage.initialize(
+            force=getattr(args, 'force', False),
+            project_type=project_type
+        )
+
+        # Build project type message
+        if auto_detected:
+            type_msg = f"  • Project type: {detected_type} (auto-detected)\n"
+        else:
+            type_msg = f"  • Project type: {detected_type} (explicitly set)\n"
+
+        print_success(
+            f"TaskPy initialized at: {storage.kanban}\n\n"
+            f"Structure created:\n"
+            f"  • data/kanban/info/     - Configuration (epics, NFRs)\n"
+            f"  • data/kanban/status/   - Task files by status\n"
+            f"  • data/kanban/manifest.tsv - Fast query index\n"
+            f"  • .gitignore            - Updated to exclude kanban data\n"
+            f"{type_msg}\n"
+            f"Next steps:\n"
+            f"  1. Review config: data/kanban/info/config.toml\n"
+            f"  2. Review epics: data/kanban/info/epics.toml\n"
+            f"  3. Review NFRs: data/kanban/info/nfrs.toml\n"
+            f"  4. Create your first task: taskpy create FEAT \"Your feature\"\n",
+            "TaskPy Initialized"
+        )
+    except StorageError as e:
+        print_error(str(e))
+        sys.exit(1)
+
+
+def cmd_verify(args):
+    """Run verification tests for a task."""
+    storage = get_storage()
+
+    if not storage.is_initialized():
+        print_error("TaskPy not initialized. Run: taskpy init")
+        sys.exit(1)
+
+    # Find task
+    result = storage.find_task_file(args.task_id)
+    if not result:
+        print_error(f"Task not found: {args.task_id}")
+        sys.exit(1)
+
+    path, status = result
+
+    try:
+        task = storage.read_task_file(path)
+
+        if not task.verification.command:
+            print_warning(
+                f"No verification command set for {args.task_id}\n"
+                f"Use: taskpy link {args.task_id} --verify 'cargo test feature::test'"
+            )
+            sys.exit(1)
+
+        print_info(f"Running verification: {task.verification.command}")
+
+        # Run command
+        result = subprocess.run(
+            task.verification.command,
+            shell=True,
+            capture_output=True,
+            text=True,
+            timeout=300
+        )
+
+        update = getattr(args, 'update', False)
+        if result.returncode == 0:
+            print_success("Verification passed")
+            if update:
+                task.verification.status = VerificationStatus.PASSED
+                task.verification.last_run = utc_now()
+                storage.write_task_file(task)
+        else:
+            print_error(f"Verification failed\n\nOutput:\n{result.stdout}\n{result.stderr}")
+            if update:
+                task.verification.status = VerificationStatus.FAILED
+                task.verification.last_run = utc_now()
+                task.verification.output = result.stderr
+                storage.write_task_file(task)
+            sys.exit(1)
+
+    except subprocess.TimeoutExpired:
+        print_error("Verification command timed out (300s)")
+        sys.exit(1)
+    except Exception as e:
+        print_error(f"Error running verification: {e}")
+        sys.exit(1)
+
+
+def cmd_manifest(args):
+    """Manage manifest operations."""
+    manifest_command = getattr(args, 'manifest_command', None)
+    if not manifest_command:
+        print_error("Please specify a manifest subcommand: rebuild")
+        sys.exit(1)
+
+    handlers = {
+        'rebuild': _cmd_manifest_rebuild,
+    }
+
+    handler = handlers.get(manifest_command)
+    if handler is None:
+        print_error(f"Unknown manifest subcommand: {manifest_command}")
+        sys.exit(1)
+    handler(args)
+
+
+def _cmd_manifest_rebuild(args):
+    """Rebuild manifest.tsv from task files."""
+    storage = get_storage()
+
+    if not storage.is_initialized():
+        print_error("TaskPy not initialized. Run: taskpy init")
+        sys.exit(1)
+
+    count = storage.rebuild_manifest()
+
+    if count == 0:
+        print_warning(
+            "No task files found while rebuilding manifest.\n"
+            "Create tasks with `taskpy create` first.",
+            "Manifest Rebuild"
+        )
+    else:
+        print_success(
+            f"Indexed {count} tasks into manifest.tsv\n"
+            f"Path: {storage.manifest_file}",
+            "Manifest Rebuilt"
+        )
+
+
+def cmd_groom(args):
+    """Audit stub tasks for sufficient detail."""
+    storage = get_storage()
+
+    if not storage.is_initialized():
+        print_error("TaskPy not initialized. Run: taskpy init")
+        sys.exit(1)
+
+    # Get parameters
+    ratio = getattr(args, 'ratio', 0.5)
+    min_chars = getattr(args, 'min_chars', 200)
+
+    done_tasks = _collect_status_tasks(storage, [TaskStatus.DONE, TaskStatus.ARCHIVED])
+    done_lengths = [length for _, length in done_tasks]
+
+    if done_lengths:
+        done_median = statistics.median(done_lengths)
+        threshold = max(int(done_median * ratio), min_chars)
+    else:
+        done_median = None
+        fallback_done = 1000
+        threshold = max(int(fallback_done * ratio), min_chars, 500)
+
+    stub_tasks = _collect_status_tasks(storage, [TaskStatus.STUB])
+    stub_lengths = [length for _, length in stub_tasks]
+
+    print_info(
+        (
+            f"Stub tasks audited: {len(stub_tasks)}\n"
+            f"Done median: {done_median:.0f} chars\n" if done_median else "No done tasks found, using fallback median (1000 chars).\n"
+        ) + f"Detail threshold: {threshold} chars",
+        "Groom Summary"
+    )
+
+    short_tasks = []
+    if not stub_tasks:
+        print_success("No stub tasks found", "Groom Check")
+        return
+
+    for task, length in stub_tasks:
+        if length < threshold:
+            short_tasks.append((task, length))
+
+    if short_tasks:
+        print_warning(
+            f"{len(short_tasks)} stub task(s) need more detail (< {threshold} chars):",
+            "Needs Detail"
+        )
+        for task, length in sorted(short_tasks, key=lambda x: x[1]):
+            print(f"  • {task.id}: {task.title} ({length} chars)")
+    else:
+        print_success(f"All {len(stub_tasks)} stub tasks meet detail threshold", "Groom Check")
+
+
+def cmd_session(args):
+    """Manage work sessions."""
+    # TODO: Implement session management
+    print_info("Session management coming soon in META PROCESS v4")
+
+
+__all__ = ['cmd_init', 'cmd_verify', 'cmd_manifest', 'cmd_groom', 'cmd_session']
