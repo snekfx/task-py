@@ -128,7 +128,7 @@ def boxy_display(
 
     Args:
         content: Content to display
-        theme: Boxy theme to use
+        theme: Boxy style to use (error, success, warning, info, etc.)
         title: Optional title for the box
         width: Box width ("max", "80", "100", etc.)
 
@@ -146,7 +146,7 @@ def boxy_display(
     cmd = ["boxy"]
 
     if theme != Theme.PLAIN:
-        cmd.extend(["--theme", theme.value])
+        cmd.extend(["--style", theme.value])
 
     if title:
         cleaned_title = title.lstrip()
