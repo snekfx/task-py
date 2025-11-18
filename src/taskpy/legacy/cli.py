@@ -796,7 +796,9 @@ def main():
     args.no_boxy = no_boxy_flag
     args.agent = agent_flag
 
-    if data_flag or no_boxy_flag or agent_flag or view_mode == "data":
+    if agent_flag:
+        set_output_mode(OutputMode.AGENT)
+    elif data_flag or no_boxy_flag or view_mode == "data":
         set_output_mode(OutputMode.DATA)
     else:
         set_output_mode(OutputMode.PRETTY)

@@ -4,7 +4,8 @@ import sys
 from pathlib import Path
 
 from taskpy.legacy.storage import TaskStorage
-from taskpy.legacy.output import print_error, get_output_mode
+from taskpy.legacy.output import print_error
+from taskpy.modern.shared.output import get_output_mode
 from taskpy.modern.views import ListView, ColumnConfig
 
 
@@ -51,7 +52,7 @@ def cmd_epics(args):
         status_field=None,  # Epics don't have status
         grey_done=False,
     )
-    view.render()
+    view.display()
 
 
 __all__ = ['cmd_epics']

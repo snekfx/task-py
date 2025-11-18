@@ -6,10 +6,11 @@ from pathlib import Path
 from datetime import datetime, timedelta
 
 from taskpy.legacy.storage import TaskStorage
-from taskpy.legacy.output import print_error, print_info, print_success, print_warning, get_output_mode
+from taskpy.legacy.output import print_error, print_info, print_success, print_warning
 from taskpy.legacy.commands import _read_manifest, _format_title_column
 from taskpy.legacy.models import utc_now
 from taskpy.modern.views import ListView, ColumnConfig
+from taskpy.modern.shared.output import get_output_mode
 
 
 def get_storage() -> TaskStorage:
@@ -82,7 +83,7 @@ def _cmd_sprint_list(args):
         status_field='status',
         grey_done=True,
     )
-    view.render()
+    view.display()
 
 
 def _cmd_sprint_add(args):

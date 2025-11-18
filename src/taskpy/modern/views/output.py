@@ -37,12 +37,7 @@ import subprocess
 from enum import Enum
 from typing import Optional, List, Dict, Any
 
-
-class OutputMode(Enum):
-    """Output mode selection."""
-    PRETTY = "pretty"  # Use boxy/rolo if available
-    DATA = "data"      # Plain text, no formatting (for scripting/AI)
-    AGENT = "agent"    # Machine-readable (JSON or structured)
+from taskpy.modern.shared.output import OutputMode
 
 
 class Theme(Enum):
@@ -341,10 +336,10 @@ def show_card(task_data: Dict[str, Any], output_mode: OutputMode = OutputMode.PR
         if result.returncode == 0:
             print(result.stdout, end="")
         else:
-            _plain_output(card, theme.value, f"Task: {task_data['id']}")
+            _plain_output(card, style, f"Task: {task_data['id']}")
 
     except (subprocess.TimeoutExpired, subprocess.SubprocessError, OSError):
-        _plain_output(card, theme.value, f"Task: {task_data['id']}")
+        _plain_output(card, style, f"Task: {task_data['id']}")
 
 
 def show_column(

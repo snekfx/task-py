@@ -19,6 +19,7 @@ class OutputMode(Enum):
     """Output mode selection."""
     PRETTY = "pretty"  # Use boxy/rolo if available
     DATA = "data"      # Plain text, no formatting (for scripting/AI)
+    AGENT = "agent"    # Structured output (JSON) when supported
 
 
 class Theme(Enum):
@@ -135,7 +136,7 @@ def boxy_display(
     Returns:
         True if displayed via boxy, False if fallback used
     """
-    if _OUTPUT_MODE == OutputMode.DATA:
+    if _OUTPUT_MODE in (OutputMode.DATA, OutputMode.AGENT):
         _plain_output(content, theme.value, title)
         return False
 
@@ -198,7 +199,7 @@ def rolo_table(
     Returns:
         True if displayed via rolo, False if fallback used
     """
-    if _OUTPUT_MODE == OutputMode.DATA:
+    if _OUTPUT_MODE in (OutputMode.DATA, OutputMode.AGENT):
         _plain_table(headers, rows, title, row_statuses)
         return False
 
