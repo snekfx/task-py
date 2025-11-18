@@ -1,7 +1,7 @@
 """CLI registration for core task management."""
 
 import argparse
-from .commands import cmd_list, cmd_show
+from .commands import cmd_list, cmd_show, cmd_create
 
 
 def register():
@@ -27,6 +27,11 @@ def register():
             'func': cmd_show,
             'help': 'Display task details',
             'parser': setup_show_parser
+        },
+        'create': {
+            'func': cmd_create,
+            'help': 'Create a new task',
+            'parser': setup_create_parser
         }
     }
 
@@ -77,6 +82,39 @@ def setup_show_parser(subparsers):
     )
 
     parser.add_argument('task_ids', nargs='+', help='Task ID(s) to display')
+
+    return parser
+
+
+def setup_create_parser(subparsers):
+    """Setup argument parser for create command.
+
+    Args:
+        subparsers: argparse subparsers object
+
+    Returns:
+        ArgumentParser: Configured parser for create command
+    """
+    parser = subparsers.add_parser(
+        'create',
+        help='Create a new task'
+    )
+
+    parser.add_argument('epic', help='Epic name (e.g., BUGS, DOCS, FEAT)')
+    parser.add_argument('title', nargs='+', help='Task title')
+
+    parser.add_argument('--sp', '--story-points', dest='story_points', type=int, default=0,
+                       help='Story points estimate')
+    parser.add_argument('--priority', choices=['critical', 'high', 'medium', 'low'],
+                       default='medium', help='Task priority')
+    parser.add_argument('--status', choices=['stub', 'backlog', 'ready', 'active', 'qa', 'blocked'],
+                       default='stub', help='Initial status (default: stub for incomplete tasks)')
+    parser.add_argument('--tags', help='Comma-separated tags')
+    parser.add_argument('--milestone', help='Assign to milestone (e.g., milestone-1)')
+    parser.add_argument('--edit', action='store_true', help='Open task in editor after creation')
+    parser.add_argument('--body', help='Task description body')
+    parser.add_argument('--stub', action='store_true',
+                       help='Mark as stub (skeletal ticket)')
 
     return parser
 
