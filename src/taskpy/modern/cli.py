@@ -8,7 +8,7 @@ import argparse
 import sys
 
 # Import all feature modules
-from taskpy.modern import nfrs, epics, core
+from taskpy.modern import nfrs, epics, core, sprint
 
 
 def build_cli():
@@ -34,7 +34,7 @@ def build_cli():
     )
 
     # Register all feature modules
-    features = [nfrs, epics, core]
+    features = [nfrs, epics, core, sprint]
 
     for feature in features:
         # Get command registrations from feature
