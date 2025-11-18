@@ -23,6 +23,7 @@ from taskpy.legacy.output import (
     display_task_card, display_kanban_column, rolo_table,
     get_output_mode, OutputMode
 )
+from taskpy.modern.views import ListView, ColumnConfig
 
 
 def get_storage() -> TaskStorage:
@@ -451,10 +452,26 @@ def cmd_list(args):
             print()  # Spacing
 
     else:  # table
-        headers = ["ID", "Title", "Status", "SP", "Priority", "Sprint"]
-        rows = [_manifest_row_to_table(task) for task in tasks]
-        row_statuses = [task.get('status') for task in tasks]
-        rolo_table(headers, rows, f"Tasks ({len(tasks)} found)", row_statuses=row_statuses)
+        # Use ListView with column configuration
+        columns = [
+            ColumnConfig(name="ID", field="id"),
+            ColumnConfig(name="Title", field=lambda t: _format_title_column(t.get('title'))),
+            ColumnConfig(name="Status", field="status"),
+            ColumnConfig(name="SP", field="story_points"),
+            ColumnConfig(name="Priority", field="priority"),
+            ColumnConfig(name="Sprint", field=lambda t: '✓' if t.get('in_sprint', 'false') == 'true' else ''),
+        ]
+
+        # Create and render ListView
+        view = ListView(
+            data=tasks,
+            columns=columns,
+            title=f"Tasks ({len(tasks)} found)",
+            output_mode=get_output_mode(),
+            status_field='status',
+            grey_done=True,
+        )
+        view.render()
 
 
 def cmd_show(args):
@@ -1474,10 +1491,26 @@ def _cmd_sprint_list(args):
         print_info("No tasks in sprint")
         return
 
-    # Display tasks as table (include Sprint column for consistency)
-    headers = ["ID", "Title", "Status", "SP", "Priority", "Sprint"]
-    table_rows = [_manifest_row_to_table(task) for task in sprint_tasks]
-    rolo_table(headers, table_rows, f"Sprint Tasks ({len(sprint_tasks)} found)")
+    # Use ListView with column configuration
+    columns = [
+        ColumnConfig(name="ID", field="id"),
+        ColumnConfig(name="Title", field=lambda t: _format_title_column(t.get('title'))),
+        ColumnConfig(name="Status", field="status"),
+        ColumnConfig(name="SP", field="story_points"),
+        ColumnConfig(name="Priority", field="priority"),
+        ColumnConfig(name="Sprint", field=lambda t: '✓' if t.get('in_sprint', 'false') == 'true' else ''),
+    ]
+
+    # Create and render ListView
+    view = ListView(
+        data=sprint_tasks,
+        columns=columns,
+        title=f"Sprint Tasks ({len(sprint_tasks)} found)",
+        output_mode=get_output_mode(),
+        status_field='status',
+        grey_done=True,
+    )
+    view.render()
 
 
 def _cmd_sprint_clear(args):
