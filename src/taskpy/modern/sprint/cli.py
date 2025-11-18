@@ -52,7 +52,42 @@ def setup_parser(subparsers):
         help='List all tasks in sprint'
     )
 
-    # Future subcommands: add, remove, clear, stats, init, recommend
+    # add subcommand
+    add_parser = sprint_subparsers.add_parser(
+        'add',
+        help='Add task to sprint'
+    )
+    add_parser.add_argument('task_id', help='Task ID to add to sprint')
+
+    # remove subcommand
+    remove_parser = sprint_subparsers.add_parser(
+        'remove',
+        help='Remove task from sprint'
+    )
+    remove_parser.add_argument('task_id', help='Task ID to remove from sprint')
+
+    # clear subcommand
+    sprint_subparsers.add_parser(
+        'clear',
+        help='Clear all tasks from sprint'
+    )
+
+    # stats subcommand
+    sprint_subparsers.add_parser(
+        'stats',
+        help='Show sprint statistics'
+    )
+
+    # init subcommand
+    init_parser = sprint_subparsers.add_parser(
+        'init',
+        help='Initialize a new sprint with metadata'
+    )
+    init_parser.add_argument('--title', help='Sprint title')
+    init_parser.add_argument('--focus', help='Sprint focus area')
+    init_parser.add_argument('--duration', type=int, default=14, help='Sprint duration in days (default: 14)')
+    init_parser.add_argument('--capacity', type=int, default=20, help='Sprint capacity in story points (default: 20)')
+    init_parser.add_argument('--force', action='store_true', help='Overwrite existing sprint')
 
     return parser
 
