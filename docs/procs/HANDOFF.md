@@ -1,53 +1,53 @@
-# HANDOFF – TaskPy Session (REF-13 + REF-12 Complete!)
+# HANDOFF – TaskPy Session (REF-14 Complete!)
 
-## Latest Session (2025-11-17 PM): Major Migration Milestone - REF-13 + REF-12 Complete! ✅
+## Latest Session (2025-11-17 Evening): Workflow Module Complete - REF-14 Done! ✅
 
 ### Highlights
-- ✅ **REF-13 DONE**: Core module migration complete with tests (5 SP)
-  - All 5 commands: list, show, create, edit, rename
-  - 6 clean modules (694 lines) - no mega-file anti-pattern
-  - **Test suite**: 13 tests, 388 lines, 100% passing
-  - **NFR compliance**: SEC-001, TEST-001, DOC-001
-  - Commit: 045cb40
+- ✅ **REF-14 DONE**: Workflow module migration complete with tests (3 SP)
+  - All 3 commands: promote, demote, move
+  - 478 lines in commands.py, 102 lines in cli.py
+  - **Test suite**: 28 tests, 557 lines, 100% passing
+  - All gate validation functions migrated
+  - Helper functions: parse_task_ids, log_override, _move_task
+  - Commit: 28f5d16
 
-- ✅ **REF-12 DONE**: Sprint module migration complete with tests (3 SP)
-  - All 6 commands: list, add, remove, clear, stats, init
-  - 304 lines in commands.py, 96 lines in cli.py
-  - **Test suite**: 17 tests, 442 lines, 100% passing
-  - All commands tested and verified
-  - Commits: ba3acd3 (implementation), 4fa66eb (tests)
+### Command Features
+- **promote**: Forward workflow transitions with gate validation
+  - Validates stub→backlog, active→qa, qa→done requirements
+  - Special handling for REGRESSION→QA transitions
+  - Override flag support with logging
+  - Commit hash tracking for qa→done
 
-- ✅ **BUGS-09 DONE**: --doc flag working (1 SP)
-  - Verified argparse abbreviations work correctly
+- **demote**: Backward workflow transitions with reason requirements
+  - QA→REGRESSION for failed tests
+  - REGRESSION→ACTIVE for rework
+  - Requires reason when demoting from DONE
+  - Override flag support
 
-- ✅ **REF-09/REF-10 DONE**: Tracking tasks closed
-
-- ✅ **Documentation**: START.txt created for Meta Process v4 onboarding
-- ✅ **Comprehensive Migration Audit**: All 31 legacy commands audited
-  - Created `docs/plans/migration-audit-2025-11-17.md`
-  - Corrected status misreporting across all modules
-  - Found REF-13 was actually 100% complete, not "list only"
-- ✅ **All REF Tickets Updated**: Accurate status + "READ DOCS FIRST" warnings
-  - REF-12 (Sprint): 1/7 commands (14%), exact line numbers added
-  - REF-13 (Core): 5/5 commands (100%), ready for QA
-  - REF-17 (Milestones): 0/5 commands, NOT REGISTERED in modern CLI
-- ✅ **Documentation Complete**: All migration docs updated with completion status
+- **move**: Direct status moves with batch support
+  - Comma-delimited task IDs (e.g., "FEAT-01,BUGS-02,TEST-03")
+  - Space-separated task IDs
+  - Required reason flag
+  - Warnings for workflow-like transitions
 
 ### Current Module Status
 | Module | Status | Commands | SP Remaining |
 |--------|--------|----------|--------------|
-| Core (REF-13) | ✅ 100% | 5/5 | 0 (ready for QA) |
-| Sprint (REF-12) | ⏳ 14% | 1/7 | 3 |
-| Epics | ✅ 100% | 1/1 | 0 |
-| NFRs | ✅ 100% | 1/1 | 0 |
-| Workflow (REF-14) | ❌ 0% | 0/3 | 3 |
+| Core (REF-13) | ✅ 100% | 5/5 | 0 (DONE) |
+| Sprint (REF-12) | ✅ 100% | 6/6 | 0 (DONE) |
+| Workflow (REF-14) | ✅ 100% | 3/3 | 0 (DONE) |
+| Epics | ✅ 100% | 1/1 | 0 (DONE) |
+| NFRs | ✅ 100% | 1/1 | 0 (DONE) |
 | Display (REF-15) | ❌ 0% | 0/5 | 3 |
 | Admin (REF-16) | ❌ 0% | 0/5 | 3 |
 | Milestones (REF-17) | ❌ 0% | 0/5 | 2 |
 
-**Total Remaining: 14 SP**
+**Total Remaining: 8 SP**
 
 ### Git Commits (This Session)
+- `28f5d16` - feat: complete workflow module migration (REF-14)
+
+### Git Commits (Previous Session - 2025-11-17 PM)
 - `46bb217` - chore: bump version to 0.3.0
 - `045cb40` - test: add comprehensive test suite for core module (REF-13)
 - `ec73213` - docs: add START.txt and update HANDOFF for Meta Process v4
@@ -61,10 +61,14 @@
 - **Remaining Sprint Stubs**: 8 tasks (REF-03/04/05/11/14/15/16/17)
 
 ### Next Recommended Work
-1. **REF-14**: Workflow module (3 SP, frequently used: promote/demote/move)
-2. **REF-15**: Display module (3 SP, kanban/stats/history/info/stoplight)
-3. **REF-16**: Admin module (3 SP, init/groom/manifest/verify/session)
-4. **REF-17**: Milestones module (2 SP)
+1. **REF-15**: Display module (3 SP, kanban/stats/history/info/stoplight)
+2. **REF-16**: Admin module (3 SP, init/groom/manifest/verify/session)
+3. **REF-17**: Milestones module (2 SP)
+
+### Migration Progress Summary
+**Completed**: Core (5 SP), Sprint (3 SP), Workflow (3 SP), Epics, NFRs = **11 SP + foundation**
+**Remaining**: Display (3 SP), Admin (3 SP), Milestones (2 SP) = **8 SP**
+**Total Progress**: ~58% complete by story points
 
 ---
 
