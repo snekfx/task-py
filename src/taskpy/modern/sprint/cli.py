@@ -1,7 +1,7 @@
 """CLI registration for sprint management."""
 
 import argparse
-from .commands import cmd_sprint_list
+from .commands import cmd_sprint
 
 
 def register():
@@ -19,7 +19,7 @@ def register():
     """
     return {
         'sprint': {
-            'func': cmd_sprint_list,
+            'func': cmd_sprint,
             'help': 'Manage sprint tasks',
             'parser': setup_parser
         }
@@ -40,8 +40,19 @@ def setup_parser(subparsers):
         help='Manage sprint tasks'
     )
 
-    # For now just lists sprint tasks
-    # Future: subcommands for add, remove, stats, etc.
+    # Add subcommands
+    sprint_subparsers = parser.add_subparsers(
+        dest='sprint_subcommand',
+        help='Sprint subcommands'
+    )
+
+    # list subcommand
+    sprint_subparsers.add_parser(
+        'list',
+        help='List all tasks in sprint'
+    )
+
+    # Future subcommands: add, remove, clear, stats, init, recommend
 
     return parser
 

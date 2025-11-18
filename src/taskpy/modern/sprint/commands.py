@@ -14,7 +14,7 @@ def get_storage() -> TaskStorage:
     return TaskStorage(Path.cwd())
 
 
-def cmd_sprint_list(args):
+def _cmd_sprint_list(args):
     """List all tasks in sprint using modern ListView."""
     storage = get_storage()
 
@@ -52,4 +52,26 @@ def cmd_sprint_list(args):
     view.render()
 
 
-__all__ = ['cmd_sprint_list']
+def cmd_sprint(args):
+    """Route sprint subcommands."""
+    subcommand_handlers = {
+        'list': _cmd_sprint_list,
+        # Future: 'add', 'remove', 'clear', 'stats', 'init', 'recommend'
+    }
+
+    # Get subcommand
+    subcommand = getattr(args, 'sprint_subcommand', None)
+
+    if not subcommand:
+        print_error("Sprint subcommand required. Use: taskpy modern sprint list")
+        sys.exit(1)
+
+    handler = subcommand_handlers.get(subcommand)
+    if handler:
+        handler(args)
+    else:
+        print_error(f"Unknown sprint command: {subcommand}")
+        sys.exit(1)
+
+
+__all__ = ['cmd_sprint']
