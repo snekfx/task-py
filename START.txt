@@ -16,12 +16,12 @@ Language: Python 3.8+
 
 Repository Structure:
   src/taskpy/          - Source code
-    legacy/            - Legacy implementation (being migrated)
-    modern/            - Modern modular architecture (migration target)
+    legacy/            - Legacy implementation (being retired)
+    modern/            - Modern modular architecture (active work)
       core/            - Core CRUD commands (✅ COMPLETE - REF-13)
-      sprint/          - Sprint management (⏳ PARTIAL - REF-12)
+      sprint/          - Sprint management (✅ COMPLETE - REF-55)
       epics/           - Epic commands (✅ COMPLETE)
-      views/           - UI rendering layer (✅ COMPLETE)
+      views/           - UI rendering layer (✅ COMPLETE - FEAT-50/51)
   tests/               - Test suite
     unit/              - Unit tests
     integration/       - Integration tests
@@ -57,30 +57,22 @@ Read these files IN ORDER:
   STEP 3: UNDERSTAND CURRENT WORK
 ===============================================================================
 
-Current Sprint Focus: Legacy-to-Modern Migration
+Current Sprint Focus: Retire legacy dependencies and finish remaining regressions.
 
 Migration Status (REF tickets):
   ✅ COMPLETE:
-    - REF-06: Legacy code preservation
-    - REF-07: Foundation & registration system
-    - REF-08: Small features (NFRs, Epics, Milestones)
-    - REF-13: Core module (list, show, create, edit, rename)
+    - REF-06, REF-07: Foundation & registration
+    - REF-13: Core module (list/show/create/edit/rename)
+    - FEAT-50/51/55: Modern views + sprint operations
 
-  ⏳ IN PROGRESS:
-    - REF-09: Medium features tracking (Sprint, Workflow, Blocking)
-    - REF-10: Large features tracking (Core, Admin, Display)
-
-  📋 PLANNED:
-    - REF-12: Sprint module completion (6 commands remaining)
-    - REF-14: Workflow module (promote, demote, move)
-    - REF-15: Display module (kanban, stats, history)
-    - REF-16: Admin module (init, groom, manifest)
-    - REF-17: Milestones module
+  ⏳ REGRESSIONS REMAINING:
+    - FEAT-56 / REF-08: Epics/NFRs/milestones still reference legacy storage
+    - REF-12 (dashboard portions), REF-14/15/16/17: Workflow, display, admin, milestones modules still carry TODOs to fully shed legacy APIs
 
 Recent Completions:
-  - FEAT-50 to FEAT-56: Modern views infrastructure
-  - BUGS-09, BUGS-10, BUGS-11: Bug fixes
-  - REF-13: Core module with full test suite (13 tests, 100% passing)
+  - FEAT-58: Modern issues API
+  - FEAT-59 (queued): Manual ID creation support
+  - QOL-16 (queued): Consolidate output-mode flags
 
 ===============================================================================
   STEP 4: KEY MIGRATION DOCUMENTS
