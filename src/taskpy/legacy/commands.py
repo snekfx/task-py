@@ -530,6 +530,16 @@ def cmd_show(args):
             'assigned': task.assigned,
             'content': task.content,
         }
+
+        # Add references if present
+        if task.references.code or task.references.docs:
+            references_list = []
+            if task.references.code:
+                references_list.append(f"Code: {', '.join(task.references.code)}")
+            if task.references.docs:
+                references_list.append(f"Docs: {', '.join(task.references.docs)}")
+            task_dict['references'] = '\n'.join(references_list)
+
         display_task_card(task_dict)
 
         # Show metadata if in data mode
@@ -540,6 +550,8 @@ def cmd_show(args):
                 print(f"NFRs: {', '.join(task.nfrs)}")
             if task.references.code:
                 print(f"Code: {', '.join(task.references.code)}")
+            if task.references.docs:
+                print(f"Docs: {', '.join(task.references.docs)}")
             if task.verification.command:
                 print(f"Verification: {task.verification.command}")
                 print(f"Status: {task.verification.status.value}")

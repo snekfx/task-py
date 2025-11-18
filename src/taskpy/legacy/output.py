@@ -358,6 +358,11 @@ def format_task_card(task_data: Dict[str, Any]) -> str:
     if task_data.get('assigned'):
         lines.append(f"Assigned: {task_data['assigned']}")
 
+    if task_data.get('references'):
+        lines.append("")
+        lines.append("References:")
+        lines.append(task_data['references'])
+
     lines.append("")
     lines.append(task_data.get('content', '').strip())
 
