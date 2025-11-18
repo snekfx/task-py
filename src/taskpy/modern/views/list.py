@@ -230,6 +230,9 @@ class ListView(View):
             item = {}
             for col in self.columns:
                 item[col.name] = col.get_value(obj)
+            status = self._get_status(obj)
+            if status:
+                item["_status"] = status
             items.append(item)
 
         result = {
@@ -239,5 +242,7 @@ class ListView(View):
 
         if self.title:
             result["title"] = self.title
+        if self.status_field:
+            result["status_field"] = self.status_field
 
         return json.dumps(result, indent=2) + "\n"

@@ -142,8 +142,8 @@ class TestListViewRendering:
     def test_render_data_mode(self):
         """Test rendering in DATA mode (TSV)."""
         data = [
-            {"id": "TASK-1", "title": "First"},
-            {"id": "TASK-2", "title": "Second"},
+            {"id": "TASK-1", "title": "First", "status": "active"},
+            {"id": "TASK-2", "title": "Second", "status": "done"},
         ]
         columns = [
             ColumnConfig(name="ID", field="id"),
@@ -160,15 +160,21 @@ class TestListViewRendering:
     def test_render_agent_mode(self):
         """Test rendering in AGENT mode (JSON)."""
         data = [
-            {"id": "TASK-1", "title": "First"},
-            {"id": "TASK-2", "title": "Second"},
+            {"id": "TASK-1", "title": "First", "status": "active"},
+            {"id": "TASK-2", "title": "Second", "status": "done"},
         ]
         columns = [
             ColumnConfig(name="ID", field="id"),
             ColumnConfig(name="Title", field="title"),
         ]
 
-        view = ListView(data, columns, title="Tasks", output_mode=OutputMode.AGENT)
+        view = ListView(
+            data,
+            columns,
+            title="Tasks",
+            output_mode=OutputMode.AGENT,
+            status_field='status',
+        )
         output = view.render_agent()
 
         parsed = json.loads(output)
@@ -177,6 +183,8 @@ class TestListViewRendering:
         assert len(parsed["items"]) == 2
         assert parsed["items"][0]["ID"] == "TASK-1"
         assert parsed["items"][0]["Title"] == "First"
+        assert parsed["items"][0]["_status"] == "active"
+        assert parsed["status_field"] == "status"
 
     def test_render_empty_data(self):
         """Test rendering with no data."""
