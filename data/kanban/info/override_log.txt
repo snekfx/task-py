@@ -24,3 +24,4 @@
 2025-11-17T15:13:05 | QOL-14 | active→qa | Reason: Manual testing passed - successfully renamed QOL-12 to FEAT-41
 2025-11-17T19:05:58 | FEAT-49 | qa→done | Reason: No reason provided
 2025-11-18T02:56:33 | REF-16 | active→qa | Reason: Admin commands work correctly, no unit tests needed for init/session stubs
+2025-11-18T03:57:46 | REF-17 | active→qa | Reason: Milestones commands work correctly via manual testing, no unit tests needed for simple migrations
