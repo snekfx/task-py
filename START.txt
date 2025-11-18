@@ -1,0 +1,226 @@
+===============================================================================
+  TASKPY - Meta Process v4 - Session Start Guide
+===============================================================================
+
+WELCOME! This file helps you understand the current project state and start
+working effectively using Meta Process v4 via TaskPy.
+
+===============================================================================
+  STEP 1: UNDERSTAND THE PROJECT
+===============================================================================
+
+Project: TaskPy
+Description: File-based agile task management tool for META PROCESS v4 workflows
+Version: 0.3.0
+Language: Python 3.8+
+
+Repository Structure:
+  src/taskpy/          - Source code
+    legacy/            - Legacy implementation (being migrated)
+    modern/            - Modern modular architecture (migration target)
+      core/            - Core CRUD commands (✅ COMPLETE - REF-13)
+      sprint/          - Sprint management (⏳ PARTIAL - REF-12)
+      epics/           - Epic commands (✅ COMPLETE)
+      views/           - UI rendering layer (✅ COMPLETE)
+  tests/               - Test suite
+    unit/              - Unit tests
+    integration/       - Integration tests
+  data/kanban/         - Task data (NOT tracked in git)
+    info/              - Configuration (epics, nfrs, milestones - TRACKED)
+    status/            - Task files by status (NOT tracked)
+  docs/                - Documentation
+    plans/             - Migration plans and design docs
+    procs/             - Process documentation (HANDOFF, etc.)
+  bin/                 - Lifecycle scripts
+    deploy.sh          - Build and deploy to ~/.local/bin/snek/
+    test.sh            - Run test suite (if exists)
+
+===============================================================================
+  STEP 2: CHECK PROJECT STATUS
+===============================================================================
+
+Read these files IN ORDER:
+
+1. docs/procs/HANDOFF.md
+   - Latest session summary
+   - Current sprint status
+   - Next recommended tasks
+   - Recent commits and achievements
+
+2. Quick status check:
+   $ taskpy sprint list              # See current sprint tasks
+   $ taskpy list --status active     # Active work
+   $ taskpy list --status stub       # Ungroomed backlog
+   $ git log --oneline -10           # Recent commits
+
+===============================================================================
+  STEP 3: UNDERSTAND CURRENT WORK
+===============================================================================
+
+Current Sprint Focus: Legacy-to-Modern Migration
+
+Migration Status (REF tickets):
+  ✅ COMPLETE:
+    - REF-06: Legacy code preservation
+    - REF-07: Foundation & registration system
+    - REF-08: Small features (NFRs, Epics, Milestones)
+    - REF-13: Core module (list, show, create, edit, rename)
+
+  ⏳ IN PROGRESS:
+    - REF-09: Medium features tracking (Sprint, Workflow, Blocking)
+    - REF-10: Large features tracking (Core, Admin, Display)
+
+  📋 PLANNED:
+    - REF-12: Sprint module completion (6 commands remaining)
+    - REF-14: Workflow module (promote, demote, move)
+    - REF-15: Display module (kanban, stats, history)
+    - REF-16: Admin module (init, groom, manifest)
+    - REF-17: Milestones module
+
+Recent Completions:
+  - FEAT-50 to FEAT-56: Modern views infrastructure
+  - BUGS-09, BUGS-10, BUGS-11: Bug fixes
+  - REF-13: Core module with full test suite (13 tests, 100% passing)
+
+===============================================================================
+  STEP 4: KEY MIGRATION DOCUMENTS
+===============================================================================
+
+IMPORTANT: Always read migration docs BEFORE starting work on REF tickets!
+
+Each REF ticket links to a migration guide with:
+  - Exact legacy code line numbers
+  - Helper functions to reuse
+  - Implementation patterns
+  - Acceptance criteria
+  - Phase-by-phase breakdown
+
+Example migration docs:
+  docs/plans/core-module-migration.md         - REF-13 (COMPLETE)
+  docs/plans/sprint-module-migration.md       - REF-12
+  docs/plans/migration-summary.md             - Overall strategy
+  docs/plans/migration-audit-2025-11-17.md    - Comprehensive audit
+
+===============================================================================
+  STEP 5: COMMON WORKFLOWS
+===============================================================================
+
+View task details:
+  $ taskpy show <TASK-ID>           # Full task card
+  $ taskpy show <TASK-ID> --view=data  # Plain output
+
+Work on a task:
+  $ taskpy promote <TASK-ID>        # Move forward in workflow
+  $ taskpy edit <TASK-ID>           # Edit in $EDITOR
+  $ taskpy link <TASK-ID> --code src/file.py  # Link code
+  $ taskpy link <TASK-ID> --test tests/test_file.py  # Link tests
+  $ taskpy verify <TASK-ID> --update  # Run verification
+
+Create commits:
+  $ git add <files>
+  $ git commit -m "type: description (TASK-ID)"
+  # Then promote task with --commit flag:
+  $ taskpy promote <TASK-ID> --commit <hash>
+
+Quality checks:
+  $ taskpy groom                    # Check task detail depth
+  $ taskpy stoplight <TASK-ID>      # Gate check (exit codes)
+  $ python -m pytest tests/         # Run test suite
+
+===============================================================================
+  STEP 6: DEPLOYMENT
+===============================================================================
+
+Build and deploy:
+  $ bin/deploy.sh                   # Builds pip bundle to ~/.local/bin/snek/
+  $ export TASKPY_PYTHON=/path/to/python  # Optional: custom Python
+
+After deployment, taskpy is available system-wide.
+
+===============================================================================
+  STEP 7: RECOMMENDED NEXT ACTIONS
+===============================================================================
+
+Based on current state (see HANDOFF.md for latest):
+
+1. IMMEDIATE:
+   - Verify REF-09 and REF-10 tracking tasks are complete
+   - Close them out if work is done
+
+2. HIGH PRIORITY:
+   - REF-12: Complete sprint module (3 SP, 6 commands)
+     * READ docs/plans/sprint-module-migration.md FIRST!
+     * Implement: add, remove, clear, stats, dashboard, recommend
+
+3. MEDIUM PRIORITY:
+   - REF-14: Workflow module (3 SP)
+   - REF-15: Display module (3 SP)
+   - REF-16: Admin module (3 SP)
+
+4. CLEANUP:
+   - REF-03, 04, 05, 11: Refactoring and utilities
+
+===============================================================================
+  STEP 8: HELPFUL COMMANDS
+===============================================================================
+
+Navigation:
+  $ taskpy tour                     # Quick reference guide
+  $ taskpy help                     # Complete developer workflow
+  $ taskpy help stub                # Grooming incomplete tasks
+  $ taskpy help active              # Development workflow
+
+Stats and visualization:
+  $ taskpy stats                    # Project statistics
+  $ taskpy kanban                   # Kanban board view
+  $ taskpy sprint stats             # Sprint statistics
+  $ taskpy milestones               # Milestone progress
+
+Advanced:
+  $ taskpy history <TASK-ID>        # Task audit trail
+  $ taskpy overrides                # Gate override log
+  $ taskpy manifest rebuild         # Resync manifest.tsv
+
+===============================================================================
+  STEP 9: IMPORTANT NOTES
+===============================================================================
+
+Meta Process v4 via TaskPy:
+  - Task data is NOT tracked in git (only config files)
+  - Always commit changes immediately after completing work
+  - Use --view=data or --agent for script-friendly output
+  - Sprint = session-scoped work queue
+  - Milestones = multi-phase project organization
+
+Workflow statuses:
+  stub → backlog → ready → active → qa → done → archived
+
+Quality gates enforced:
+  - stub → backlog: needs description & acceptance criteria
+  - active → qa: needs code refs, test refs, verification (PASSED)
+  - qa → done: needs commit hash
+
+Migration patterns:
+  - Avoid mega-files (split into logical modules)
+  - Use modern/views for UI rendering
+  - Follow registration pattern from REF-07
+  - Write tests for all new commands
+  - Link code/test/doc references to tasks
+
+===============================================================================
+  READY TO START!
+===============================================================================
+
+1. Read docs/procs/HANDOFF.md
+2. Check sprint board: taskpy sprint list
+3. Pick highest priority task
+4. Read migration docs if it's a REF ticket
+5. Start working!
+
+Questions? Check:
+  - taskpy tour            (quick reference)
+  - taskpy help            (detailed workflows)
+  - docs/plans/            (migration guides)
+  - docs/procs/HANDOFF.md  (current state)
+
+===============================================================================

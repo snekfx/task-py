@@ -1,13 +1,19 @@
-# HANDOFF – TaskPy Session (Migration Audit & REF-13 Complete)
+# HANDOFF – TaskPy Session (REF-13 Complete + Test Suite)
 
-## Latest Session (2025-11-17): Migration Audit & REF-13 Completion ✅
+## Latest Session (2025-11-17 PM): REF-13 Complete with Tests + BUGS-09 Resolved ✅
 
 ### Highlights
-- ✅ **REF-13 COMPLETE (100%)**: Core module migration finished
-  - All 5 commands migrated: list, show, create, edit, rename
-  - 6 clean modules (695 lines total) - no mega-file anti-pattern
-  - delete/recover removed from scope (don't exist in legacy)
-  - Ready for: test suite creation, NFR verification
+- ✅ **REF-13 PROMOTED TO DONE**: Core module migration complete with tests
+  - All 5 commands verified working: list, show, create, edit, rename
+  - 6 clean modules (694 lines total) - no mega-file anti-pattern
+  - **Test suite created**: 13 tests, 388 lines, 100% passing
+  - **NFR compliance verified**: SEC-001, TEST-001, DOC-001
+  - Code/test/doc references linked, verification command set
+  - Promoted: stub → backlog → ready → active → qa → **DONE**
+  - Commit: 045cb40
+- ✅ **BUGS-09 RESOLVED**: --doc flag working correctly
+  - Verified both --doc and --docs flags work (argparse abbreviations)
+  - No actual bug - feature working as intended
 - ✅ **Comprehensive Migration Audit**: All 31 legacy commands audited
   - Created `docs/plans/migration-audit-2025-11-17.md`
   - Corrected status misreporting across all modules
@@ -33,17 +39,15 @@
 **Total Remaining: 14 SP**
 
 ### Git Commits (This Session)
-- `13c3ade` - feat: migrate create command (REF-13 Phase 2)
-- `bf184f7` - docs: add module split architecture guidance
-- `b263bc5` - refactor: split core module into submodules (Phase 5)
-- `d54edad` - docs: add migration audit report
-- `d120b73` - docs: mark core module migration COMPLETE
+- `46bb217` - chore: bump version to 0.3.0
+- `045cb40` - test: add comprehensive test suite for core module (REF-13)
 
 ### Next Recommended Work
-1. **Close REF-13**: Create test suite, verify NFR compliance, promote to Done
-2. **BUGS-09**: Fix `taskpy link --doc` flag (1 SP, high priority)
-3. **REF-12**: Complete sprint module (3 SP, 6 commands remaining)
-4. **REF-14**: Workflow module (3 SP, frequently used: promote/demote/move)
+1. **Verify REF-09/REF-10**: Check if tracking tasks complete, close if done
+2. **REF-12**: Complete sprint module (3 SP, 6 commands remaining)
+   - add, remove, clear, stats, dashboard, recommend
+3. **REF-14**: Workflow module (3 SP, frequently used: promote/demote/move)
+4. **REF-15**: Display module (3 SP)
 
 ---
 
