@@ -3,27 +3,32 @@
 import sys
 from pathlib import Path
 
-from taskpy.legacy.storage import TaskStorage
-from taskpy.legacy.output import print_error, print_success, print_warning
-from taskpy.legacy.commands import _open_in_editor, validate_promotion
-from taskpy.legacy.models import Task, TaskStatus, Priority
-
-
-def get_storage() -> TaskStorage:
-    """Get TaskStorage for current directory."""
-    return TaskStorage(Path.cwd())
+from taskpy.modern.shared.messages import print_error, print_success, print_warning
+from taskpy.modern.shared.tasks import (
+    KanbanNotInitialized,
+    TaskRecord,
+    ensure_initialized,
+    load_epics,
+    load_milestones,
+    load_nfrs,
+    make_task_id,
+    next_task_number,
+    next_auto_id,
+    write_task,
+    get_task_path,
+    open_in_editor,
+)
 
 
 def cmd_create(args):
     """Create a new task."""
-    storage = get_storage()
-
-    if not storage.is_initialized():
+    try:
+        ensure_initialized(Path.cwd())
+    except KanbanNotInitialized:
         print_error("TaskPy not initialized. Run: taskpy init")
         sys.exit(1)
 
-    # Load epics to validate
-    epics = storage.load_epics()
+    epics = load_epics()
     epic_name = args.epic.upper()
 
     if epic_name not in epics:
@@ -34,12 +39,12 @@ def cmd_create(args):
         )
         sys.exit(1)
 
-    if not epics[epic_name].active:
+    if not epics[epic_name].get("active", True):
         print_warning(f"Epic {epic_name} is marked inactive")
 
     # Generate task ID
-    number = storage.get_next_task_number(epic_name)
-    task_id = Task.make_task_id(epic_name, number)
+    number = next_task_number(epic_name)
+    task_id = make_task_id(epic_name, number)
 
     # Parse title
     title = " ".join(args.title)
@@ -51,8 +56,8 @@ def cmd_create(args):
 
     # Validate milestone if provided
     milestone = None
-    if hasattr(args, 'milestone') and args.milestone:
-        milestones = storage.load_milestones()
+    if getattr(args, "milestone", None):
+        milestones = load_milestones()
         if args.milestone not in milestones:
             print_warning(
                 f"Milestone '{args.milestone}' not found.\n"
@@ -97,44 +102,42 @@ def cmd_create(args):
             )
             sys.exit(1)
 
-    # Create task
-    task = Task(
+    priority = args.priority.lower()
+    if priority not in {"critical", "high", "medium", "low"}:
+        print_error("Invalid priority. Use one of: critical, high, medium, low.")
+        sys.exit(1)
+
+    status = args.status.lower()
+    if status not in {"stub", "backlog", "ready", "active", "qa", "blocked"}:
+        print_error(
+            "Invalid status. Use one of: stub, backlog, ready, active, qa, blocked."
+        )
+        sys.exit(1)
+
+    task = TaskRecord(
         id=task_id,
         title=title,
         epic=epic_name,
         number=number,
-        status=TaskStatus(args.status),
+        status=status,
         story_points=args.story_points,
-        priority=Priority(args.priority),
+        priority=priority,
         tags=tags,
         milestone=milestone,
         content=content,
-        auto_id=storage.get_next_auto_id()  # Assign global sequence ID
+        auto_id=next_auto_id(),
     )
 
-    # Apply default NFRs
-    nfrs = storage.load_nfrs()
-    default_nfrs = [nfr_id for nfr_id, nfr in nfrs.items() if nfr.default]
+    nfrs = load_nfrs()
+    default_nfrs = [
+        nfr_id for nfr_id, nfr in nfrs.items() if bool(nfr.get("default"))
+    ]
     task.nfrs = default_nfrs
 
-    # Save task
     try:
-        storage.write_task_file(task)
-        task_path = storage.get_task_path(task_id, task.status)
+        write_task(task)
+        task_path = get_task_path(task.id, task.status)
         milestone_info = f"Milestone: {milestone}\n" if milestone else ""
-
-        # Show gate requirements for next promotion
-        workflow = [TaskStatus.STUB, TaskStatus.BACKLOG, TaskStatus.READY, TaskStatus.ACTIVE,
-                    TaskStatus.QA, TaskStatus.DONE]
-        current_idx = workflow.index(task.status)
-        gate_info = ""
-        if current_idx < len(workflow) - 1:
-            next_status = workflow[current_idx + 1]
-            is_valid, blockers = validate_promotion(task, next_status, None)
-            if not is_valid:
-                gate_info = f"\nGate Requirements for {task.status.value} → {next_status.value}:\n"
-                for blocker in blockers:
-                    gate_info += f"  • {blocker}\n"
 
         grooming_msg = (
             "Next steps:\n"
@@ -156,8 +159,7 @@ def cmd_create(args):
             f"{milestone_info}"
             f"Default NFRs: {len(default_nfrs)}\n"
             f"File: {task_path}\n"
-            f"{grooming_msg}"
-            f"{gate_info}\n"
+            f"{grooming_msg}\n"
             f"View: taskpy show {task_id}\n"
             f"Edit: taskpy edit {task_id}",
             f"Task {task_id} Created"
@@ -165,8 +167,7 @@ def cmd_create(args):
 
         # Open in editor if requested
         if args.edit:
-            _open_in_editor(task_path)
-
+            open_in_editor(task_path)
     except Exception as e:
         print_error(f"Failed to create task: {e}")
         sys.exit(1)

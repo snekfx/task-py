@@ -5,15 +5,24 @@ Helpers for reading and manipulating TaskPy kanban data without legacy storage.
 from __future__ import annotations
 
 import csv
+import os
+import re
+import subprocess
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import yaml
 
+try:
+    import tomllib  # Python 3.11+
+except ModuleNotFoundError:  # pragma: no cover - fallback for 3.10
+    import tomli as tomllib
+
 KANBAN_RELATIVE_PATH = Path("data/kanban")
 MANIFEST_FILENAME = "manifest.tsv"
+SEQUENCE_FILENAME = ".sequence"
 STATUS_FOLDERS = [
     "stub",
     "backlog",
@@ -25,10 +34,26 @@ STATUS_FOLDERS = [
     "archived",
     "blocked",
 ]
+VALID_STATUSES = {
+    "stub",
+    "backlog",
+    "ready",
+    "active",
+    "qa",
+    "regression",
+    "done",
+    "archived",
+    "blocked",
+}
+VALID_PRIORITIES = {"critical", "high", "medium", "low"}
 
 
 class KanbanNotInitialized(Exception):
     """Raised when TaskPy data directory is missing."""
+
+
+def utc_now() -> datetime:
+    return datetime.now(timezone.utc)
 
 
 @dataclass
@@ -42,8 +67,8 @@ class TaskRecord:
     status: str
     priority: str
     story_points: int
-    created: datetime
-    updated: datetime
+    created: datetime = field(default_factory=utc_now)
+    updated: datetime = field(default_factory=utc_now)
     tags: List[str] = field(default_factory=list)
     dependencies: List[str] = field(default_factory=list)
     blocks: List[str] = field(default_factory=list)
@@ -58,10 +83,68 @@ class TaskRecord:
     duplicate_of: Optional[str] = None
     auto_id: Optional[int] = None
     nfrs: List[str] = field(default_factory=list)
-    references: Dict[str, List[str]] = field(default_factory=dict)
-    verification: Dict[str, Any] = field(default_factory=dict)
+    references: Dict[str, List[str]] = field(
+        default_factory=lambda: {"code": [], "docs": [], "plans": [], "tests": []}
+    )
+    verification: Dict[str, Any] = field(
+        default_factory=lambda: {"command": None, "status": "pending"}
+    )
     history: List[Dict[str, Any]] = field(default_factory=list)
     content: str = ""
+
+    def to_manifest_row(self) -> List[str]:
+        return [
+            self.id,
+            self.epic,
+            str(self.number),
+            self.status,
+            self.title,
+            str(self.story_points),
+            self.priority,
+            self.created.isoformat(),
+            self.updated.isoformat(),
+            ",".join(self.tags),
+            ",".join(self.dependencies),
+            ",".join(self.blocks),
+            str(self.verification.get("status", "pending")),
+            self.assigned or "",
+            self.milestone or "",
+            self.blocked_reason or "",
+            str(self.in_sprint).lower(),
+            self.commit_hash or "",
+            self.demotion_reason or "",
+            str(self.auto_id) if self.auto_id is not None else "",
+        ]
+
+    def to_frontmatter_dict(self) -> Dict[str, Any]:
+        return {
+            "id": self.id,
+            "title": self.title,
+            "epic": self.epic,
+            "number": self.number,
+            "status": self.status,
+            "story_points": self.story_points,
+            "priority": self.priority,
+            "created": self.created.isoformat(),
+            "updated": self.updated.isoformat(),
+            "assigned": self.assigned,
+            "milestone": self.milestone,
+            "blocked_reason": self.blocked_reason,
+            "in_sprint": self.in_sprint,
+            "commit_hash": self.commit_hash,
+            "demotion_reason": self.demotion_reason,
+            "resolution": self.resolution,
+            "resolution_reason": self.resolution_reason,
+            "duplicate_of": self.duplicate_of,
+            "auto_id": self.auto_id,
+            "tags": self.tags,
+            "dependencies": self.dependencies,
+            "blocks": self.blocks,
+            "nfrs": self.nfrs,
+            "references": self.references,
+            "verification": self.verification,
+            "history": self.history,
+        }
 
 
 def _kanban_paths(root: Optional[Path] = None) -> Tuple[Path, Path]:
@@ -75,12 +158,101 @@ def _kanban_paths(root: Optional[Path] = None) -> Tuple[Path, Path]:
     return kanban, manifest
 
 
+def ensure_initialized(root: Optional[Path] = None):
+    _kanban_paths(root)
+
+
 def load_manifest(root: Optional[Path] = None) -> List[Dict[str, str]]:
     """Read manifest.tsv and return a list of dictionaries."""
     _, manifest = _kanban_paths(root)
     with manifest.open("r", newline="") as handle:
         reader = csv.DictReader(handle, delimiter="\t")
         return [dict(row) for row in reader]
+
+
+def _info_dir(root: Optional[Path] = None) -> Path:
+    kanban, _ = _kanban_paths(root)
+    info = kanban / "info"
+    if not info.exists():
+        raise KanbanNotInitialized(
+            "TaskPy info directory missing. Run `taskpy init` in this project."
+        )
+    return info
+
+
+def _load_toml(name: str, root: Optional[Path] = None) -> Dict[str, Any]:
+    info = _info_dir(root)
+    target = info / name
+    if not target.exists():
+        return {}
+    with target.open("rb") as handle:
+        return tomllib.load(handle)
+
+
+def load_epics(root: Optional[Path] = None) -> Dict[str, Dict[str, Any]]:
+    data = _load_toml("epics.toml", root)
+    epics: Dict[str, Dict[str, Any]] = {}
+    for name, values in data.items():
+        epics[name] = {
+            "description": values.get("description", ""),
+            "active": bool(values.get("active", True)),
+            "story_point_budget": values.get("story_point_budget"),
+        }
+    return epics
+
+
+def load_milestones(root: Optional[Path] = None) -> Dict[str, Dict[str, Any]]:
+    data = _load_toml("milestones.toml", root)
+    return {name: values for name, values in data.items()}
+
+
+def load_nfrs(root: Optional[Path] = None) -> Dict[str, Dict[str, Any]]:
+    data = _load_toml("nfrs.toml", root)
+    return {name: values for name, values in data.items()}
+
+
+def make_task_id(epic: str, number: int) -> str:
+    if number <= 99:
+        return f"{epic}-{number:02d}"
+    if number <= 999:
+        return f"{epic}-{number:03d}"
+    raise ValueError("Task number exceeds 999")
+
+
+def parse_task_id(task_id: str) -> Tuple[str, int]:
+    match = re.match(r"^([A-Z]+)-(\d+)$", task_id)
+    if not match:
+        raise ValueError(f"Invalid task ID format: {task_id}")
+    epic, number = match.groups()
+    return epic, int(number)
+
+
+def next_task_number(epic: str, root: Optional[Path] = None) -> int:
+    rows = load_manifest(root)
+    numbers = [
+        int(row.get("number", 0))
+        for row in rows
+        if row.get("epic", "").upper() == epic.upper()
+    ]
+    return (max(numbers) if numbers else 0) + 1
+
+
+def next_auto_id(root: Optional[Path] = None) -> int:
+    kanban, _ = _kanban_paths(root)
+    sequence_file = kanban / SEQUENCE_FILENAME
+    if not sequence_file.exists():
+        last = 0
+    else:
+        content = sequence_file.read_text().strip()
+        last = int(content) if content else 0
+    next_id = last + 1
+    sequence_file.write_text(f"{next_id}\n")
+    return next_id
+
+
+def get_task_path(task_id: str, status: str, root: Optional[Path] = None) -> Path:
+    kanban, _ = _kanban_paths(root)
+    return kanban / "status" / status / f"{task_id}.md"
 
 
 def format_title(title: str, width: int = 70) -> str:
@@ -265,3 +437,157 @@ def _read_task_file(path: Path) -> TaskRecord:
         history=metadata.get("history", []) or [],
         content=body,
     )
+
+
+def _serialize_task(task: TaskRecord) -> str:
+    data = task.to_frontmatter_dict()
+    lines = ["---"]
+
+    def add_simple(key: str, value: Any):
+        if value is None:
+            return
+        if isinstance(value, bool):
+            lines.append(f"{key}: {'true' if value else 'false'}")
+        else:
+            lines.append(f"{key}: {value}")
+
+    for key in [
+        "id",
+        "title",
+        "epic",
+        "number",
+        "status",
+        "story_points",
+        "priority",
+        "created",
+        "updated",
+        "assigned",
+        "milestone",
+        "blocked_reason",
+        "in_sprint",
+        "commit_hash",
+        "demotion_reason",
+        "resolution",
+        "resolution_reason",
+        "duplicate_of",
+        "auto_id",
+    ]:
+        value = data.get(key)
+        add_simple(key, value)
+
+    for key in ["tags", "dependencies", "blocks", "nfrs"]:
+        values = data.get(key) or []
+        if values:
+            lines.append(f"{key}: [{', '.join(values)}]")
+
+    references = data.get("references") or {}
+    for ref_type in ["code", "docs", "plans", "tests"]:
+        entries = references.get(ref_type) or []
+        if entries:
+            lines.append(f"references.{ref_type}: [{', '.join(entries)}]")
+
+    verification = data.get("verification") or {}
+    if verification.get("command"):
+        lines.append(f"verification.command: {verification['command']}")
+    if verification.get("status"):
+        lines.append(f"verification.status: {verification['status']}")
+
+    history = data.get("history") or []
+    if history:
+        lines.append("history:")
+        for entry in history:
+            entry_yaml = yaml.dump(entry, default_flow_style=False, sort_keys=False)
+            entry_lines = entry_yaml.strip().split("\n")
+            if entry_lines:
+                lines.append(f"  - {entry_lines[0]}")
+                for line in entry_lines[1:]:
+                    if line.strip():
+                        lines.append(f"    {line}")
+
+    lines.append("---")
+    lines.append("")
+    lines.append(task.content.rstrip() + "\n")
+    return "\n".join(lines)
+
+
+def _update_manifest_row(task: TaskRecord, root: Optional[Path] = None):
+    _, manifest = _kanban_paths(root)
+    rows: List[List[str]] = []
+    header = [
+        "id",
+        "epic",
+        "number",
+        "status",
+        "title",
+        "story_points",
+        "priority",
+        "created",
+        "updated",
+        "tags",
+        "dependencies",
+        "blocks",
+        "verification_status",
+        "assigned",
+        "milestone",
+        "blocked_reason",
+        "in_sprint",
+        "commit_hash",
+        "demotion_reason",
+        "auto_id",
+    ]
+    if manifest.exists():
+        with manifest.open("r", newline="") as handle:
+            reader = csv.reader(handle, delimiter="\t")
+            try:
+                header = next(reader)
+            except StopIteration:
+                header = header
+            for row in reader:
+                if row and row[0] != task.id:
+                    rows.append(row)
+    rows.append(task.to_manifest_row())
+    with manifest.open("w", newline="") as handle:
+        writer = csv.writer(handle, delimiter="\t")
+        writer.writerow(header)
+        writer.writerows(rows)
+
+
+def remove_manifest_entry(task_id: str, root: Optional[Path] = None):
+    _, manifest = _kanban_paths(root)
+    if not manifest.exists():
+        return
+    rows = []
+    with manifest.open("r", newline="") as handle:
+        reader = csv.reader(handle, delimiter="\t")
+        try:
+            header = next(reader)
+        except StopIteration:
+            return
+        rows.append(header)
+        for row in reader:
+            if not row or row[0] == task_id:
+                continue
+            rows.append(row)
+    with manifest.open("w", newline="") as handle:
+        writer = csv.writer(handle, delimiter="\t")
+        writer.writerows(rows)
+
+
+def write_task(task: TaskRecord, root: Optional[Path] = None, update_manifest: bool = True) -> Path:
+    task.updated = utc_now()
+    kanban, _ = _kanban_paths(root)
+    status_dir = kanban / "status" / task.status
+    status_dir.mkdir(parents=True, exist_ok=True)
+    path = status_dir / f"{task.id}.md"
+    path.write_text(_serialize_task(task))
+    if update_manifest:
+        _update_manifest_row(task, root)
+    return path
+
+
+def open_in_editor(path: Path):
+    editor = os.environ.get("VISUAL") or os.environ.get("EDITOR") or "vi"
+    try:
+        subprocess.run([editor, str(path)], check=True)
+    except subprocess.CalledProcessError as exc:  # pragma: no cover - user env
+        raise RuntimeError(f"Editor exited with error: {exc}") from exc
