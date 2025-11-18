@@ -1,7 +1,7 @@
 """CLI registration for core task management."""
 
 import argparse
-from .commands import cmd_list, cmd_show, cmd_create
+from .commands import cmd_list, cmd_show, cmd_create, cmd_edit
 
 
 def register():
@@ -32,6 +32,11 @@ def register():
             'func': cmd_create,
             'help': 'Create a new task',
             'parser': setup_create_parser
+        },
+        'edit': {
+            'func': cmd_edit,
+            'help': 'Edit a task in $EDITOR',
+            'parser': setup_edit_parser
         }
     }
 
@@ -115,6 +120,25 @@ def setup_create_parser(subparsers):
     parser.add_argument('--body', help='Task description body')
     parser.add_argument('--stub', action='store_true',
                        help='Mark as stub (skeletal ticket)')
+
+    return parser
+
+
+def setup_edit_parser(subparsers):
+    """Setup argument parser for edit command.
+
+    Args:
+        subparsers: argparse subparsers object
+
+    Returns:
+        ArgumentParser: Configured parser for edit command
+    """
+    parser = subparsers.add_parser(
+        'edit',
+        help='Edit a task in $EDITOR'
+    )
+
+    parser.add_argument('task_id', help='Task ID to edit')
 
     return parser
 

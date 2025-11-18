@@ -3,13 +3,43 @@
 ## Overview
 Complete migration of core task CRUD commands from `legacy/commands.py` to `modern/core/` module.
 
-**Status**: Partial (only `list` completed in FEAT-54)
+**Status**: In Progress - list ✅, show ✅, create ✅, edit ✅, rename 🔧 (need to split modules)
 
 **Tracking Task**: REF-13
 
 **Related Tasks**: REF-10 (Large features migration)
 
 **Priority**: HIGH - Core commands are most frequently used
+
+## ⚠️ IMPORTANT: Module Organization
+
+**DO NOT create another mega commands.py file!**
+
+The legacy `commands.py` is 2832 lines - this is an anti-pattern we're trying to avoid.
+
+### Target Structure:
+```
+modern/core/
+  __init__.py       # Exports all commands for easy imports
+  cli.py            # CLI registration, imports from submodules
+  read.py           # cmd_list, cmd_show (~175 lines)
+  create.py         # cmd_create (~160 lines)
+  edit.py           # cmd_edit (~20 lines)
+  rename.py         # cmd_rename (~90 lines)
+  delete.py         # cmd_delete, cmd_recover (TBD)
+```
+
+### Why Split Modules?
+- **Maintainability**: Each operation is self-contained
+- **Clarity**: Clear separation of concerns
+- **Testability**: Easier to test individual operations
+- **Reviewability**: Smaller files are easier to review
+- **Avoids mega-files**: Prevents the 2832-line anti-pattern
+
+### Current Issue (2025-11-18):
+- Already at 440 lines in `commands.py` with only 5 commands
+- Need to reorganize into split modules before continuing
+- Add Phase 5 (REF-13e): Reorganize into split modules - 0.5 SP
 
 ## Legacy Code Locations
 
