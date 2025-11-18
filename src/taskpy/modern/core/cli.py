@@ -1,7 +1,10 @@
 """CLI registration for core task management."""
 
 import argparse
-from .commands import cmd_list, cmd_show, cmd_create, cmd_edit
+from .read import cmd_list, cmd_show
+from .create import cmd_create
+from .edit import cmd_edit
+from .rename import cmd_rename
 
 
 def register():
@@ -37,6 +40,11 @@ def register():
             'func': cmd_edit,
             'help': 'Edit a task in $EDITOR',
             'parser': setup_edit_parser
+        },
+        'rename': {
+            'func': cmd_rename,
+            'help': 'Rename a task ID',
+            'parser': setup_rename_parser
         }
     }
 
@@ -139,6 +147,28 @@ def setup_edit_parser(subparsers):
     )
 
     parser.add_argument('task_id', help='Task ID to edit')
+
+    return parser
+
+
+def setup_rename_parser(subparsers):
+    """Setup argument parser for rename command.
+
+    Args:
+        subparsers: argparse subparsers object
+
+    Returns:
+        ArgumentParser: Configured parser for rename command
+    """
+    parser = subparsers.add_parser(
+        'rename',
+        help='Rename a task ID'
+    )
+
+    parser.add_argument('old_id', help='Current task ID')
+    parser.add_argument('new_id', help='New task ID')
+    parser.add_argument('--force', action='store_true', help='Overwrite existing task')
+    parser.add_argument('--skip-manifest', action='store_true', help='Skip manifest rebuild')
 
     return parser
 
