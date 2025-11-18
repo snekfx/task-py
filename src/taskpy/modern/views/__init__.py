@@ -27,6 +27,7 @@ from taskpy.modern.views.output import (
     show_card,
     show_column,
 )
+from taskpy.modern.views.list import ListView, ColumnConfig
 
 __all__ = [
     'View',
@@ -37,4 +38,6 @@ __all__ = [
     'rolo_table',
     'show_card',
     'show_column',
+    'ListView',
+    'ColumnConfig',
 ]
