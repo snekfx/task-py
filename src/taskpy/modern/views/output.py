@@ -31,6 +31,7 @@ Examples:
   - Custom: echo "content" | boxy --title "Title" --icon "🚀" --status "✅ Done" --layout dt,ds --bc emerald --border rounded
 """
 
+import json
 import os
 import shutil
 import subprocess
@@ -279,6 +280,21 @@ def show_card(task_data: Dict[str, Any], output_mode: OutputMode = OutputMode.PR
         print(f"Title: {task_data['title']}")
         print(f"Status: {task_data['status']}")
         return
+    elif output_mode == OutputMode.AGENT:
+        payload = {
+            "id": task_data['id'],
+            "title": task_data['title'],
+            "status": task_data.get('status'),
+            "priority": task_data.get('priority'),
+            "story_points": task_data.get('story_points'),
+            "tags": task_data.get('tags', []),
+            "dependencies": task_data.get('dependencies', []),
+            "assigned": task_data.get('assigned'),
+        }
+        if task_data.get('references'):
+            payload["references"] = task_data['references']
+        print(json.dumps(payload, indent=2))
+        return
 
     # Format card content
     lines = []
@@ -361,6 +377,23 @@ def show_column(
         for task in tasks:
             sprint_badge = "[SPRINT] " if task.get('in_sprint', 'false') == 'true' else ""
             print(f"{sprint_badge}{task['id']}: {task['title']} [{task.get('story_points', 0)} SP]")
+        return
+    elif output_mode == OutputMode.AGENT:
+        payload = {
+            "column": column_name,
+            "count": len(tasks),
+            "tasks": [
+                {
+                    "id": task.get("id"),
+                    "title": task.get("title"),
+                    "status": task.get("status"),
+                    "story_points": task.get("story_points"),
+                    "in_sprint": task.get("in_sprint", "false"),
+                }
+                for task in tasks
+            ],
+        }
+        print(json.dumps(payload, indent=2))
         return
 
     # Build task list

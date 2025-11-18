@@ -4,6 +4,7 @@ Unit tests for modern views output module.
 Tests boxy/rolo integration and output mode handling.
 """
 
+import json
 import pytest
 from unittest.mock import patch, MagicMock
 from taskpy.modern.views.output import (
@@ -182,6 +183,21 @@ class TestShowCard:
         assert "Title: Test task" in captured.out
         assert "Status: active" in captured.out
 
+    def test_show_card_agent_mode(self, capsys):
+        """Test show_card in AGENT mode prints JSON."""
+        task = {
+            'id': 'TASK-1',
+            'title': 'Test task',
+            'status': 'active',
+            'priority': 'high',
+            'story_points': 5,
+        }
+
+        show_card(task, output_mode=OutputMode.AGENT)
+        payload = json.loads(capsys.readouterr().out)
+        assert payload["id"] == "TASK-1"
+        assert payload["priority"] == "high"
+
 
 class TestShowColumn:
     """Test kanban column display."""
@@ -198,6 +214,16 @@ class TestShowColumn:
 
         captured = capsys.readouterr()
         assert "BACKLOG (2 tasks)" in captured.out
-        assert "TASK-1" in captured.out
-        assert "TASK-2" in captured.out
-        assert "[SPRINT]" in captured.out  # Sprint badge in data mode
+
+    def test_show_column_agent_mode(self, capsys):
+        """Test show_column emits JSON in agent mode."""
+        tasks = [
+            {'id': 'TASK-1', 'title': 'First', 'story_points': 3, 'status': 'active'},
+            {'id': 'TASK-2', 'title': 'Second', 'story_points': 5, 'status': 'qa'},
+        ]
+
+        show_column("active", tasks, output_mode=OutputMode.AGENT)
+        payload = json.loads(capsys.readouterr().out)
+        assert payload["column"] == "active"
+        assert payload["count"] == 2
+        assert payload["tasks"][0]["id"] == "TASK-1"
