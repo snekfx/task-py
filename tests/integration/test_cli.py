@@ -605,22 +605,20 @@ class TestCLI:
         assert "backlog" in result.stdout.lower()
 
     def test_override_logs_entry(self, temp_dir):
-        """Test override creates log entry."""
+        """Test override creates history entry (REF-03)."""
         self.run_taskpy(["init"], cwd=temp_dir)
         self.run_taskpy(["create", "FEAT", "Test Feature", "--sp", "0"], cwd=temp_dir)
 
         # Use override
         self.run_taskpy(["promote", "FEAT-01", "--override", "--reason", "Emergency fix"], cwd=temp_dir)
 
-        # Check log file exists and has entry
-        log_file = temp_dir / "data" / "kanban" / "info" / "override_log.txt"
-        assert log_file.exists()
-
-        with open(log_file) as f:
-            content = f.read()
-            assert "FEAT-01" in content
-            assert "stub→backlog" in content
-            assert "Emergency fix" in content
+        # Check task history contains override entry
+        result = self.run_taskpy(["history", "FEAT-01"], cwd=temp_dir)
+        assert result.returncode == 0
+        assert "override" in result.stdout.lower()
+        assert "stub" in result.stdout.lower()
+        assert "backlog" in result.stdout.lower()
+        assert "Emergency fix" in result.stdout
 
     def test_overrides_command(self, temp_dir):
         """Test overrides command displays history."""

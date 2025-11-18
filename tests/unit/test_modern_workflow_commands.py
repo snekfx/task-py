@@ -59,19 +59,32 @@ class TestHelperFunctions:
         assert result == ["FEAT-01", "BUGS-02"]
 
     def test_log_override(self, tmp_path):
-        """Test logging override to file."""
+        """Test logging override to task history (REF-03)."""
         storage = TaskStorage(tmp_path)
         storage.initialize()
 
-        log_override(storage, "TEST-01", "active", "qa", "Testing override")
+        # Create a task first
+        from taskpy.legacy.models import Task, TaskStatus
+        task = Task(
+            id="TEST-01",
+            title="Test Task",
+            epic="TEST",
+            number=1,
+            status=TaskStatus.ACTIVE,
+            story_points=2
+        )
+        storage.write_task_file(task)
 
-        log_file = storage.info_dir / "override_log.txt"
-        assert log_file.exists()
+        # Log override
+        updated_task = log_override(storage, "TEST-01", "active", "qa", "Testing override")
 
-        content = log_file.read_text()
-        assert "TEST-01" in content
-        assert "active→qa" in content
-        assert "Testing override" in content
+        # Verify override was added to task history
+        assert updated_task is not None
+        assert len(updated_task.history) == 1
+        assert updated_task.history[0].action == "override"
+        assert updated_task.history[0].from_status == "active"
+        assert updated_task.history[0].to_status == "qa"
+        assert updated_task.history[0].reason == "Testing override"
 
 
 class TestValidationFunctions:
@@ -400,12 +413,16 @@ class TestPromoteCommand:
         path, status = result
         assert status == TaskStatus.BACKLOG
 
-        # Check override was logged
-        log_file = storage.info_dir / "override_log.txt"
-        assert log_file.exists()
-        content = log_file.read_text()
-        assert "TEST-01" in content
-        assert "Emergency hotfix" in content
+        # Check override was logged to task history (REF-03)
+        task = storage.read_task_file(path)
+        assert len(task.history) >= 1
+
+        # Should have both override and promote entries
+        override_entries = [h for h in task.history if h.action == "override"]
+        assert len(override_entries) == 1
+        assert override_entries[0].reason == "Emergency hotfix"
+        assert override_entries[0].from_status == "stub"
+        assert override_entries[0].to_status == "backlog"
 
 
 class TestDemoteCommand:

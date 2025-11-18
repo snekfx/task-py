@@ -259,4 +259,63 @@ def cmd_session(args):
     print_info("Session management coming soon in META PROCESS v4")
 
 
-__all__ = ['cmd_init', 'cmd_verify', 'cmd_manifest', 'cmd_groom', 'cmd_session']
+def cmd_overrides(args):
+    """View override usage history aggregated from task histories."""
+    storage = get_storage()
+
+    if not storage.is_initialized():
+        print_error("TaskPy not initialized. Run: taskpy init")
+        sys.exit(1)
+
+    # Collect all override entries from all tasks
+    override_entries = []
+
+    # Scan all status directories for tasks
+    for status_dir in storage.status_dir.iterdir():
+        if not status_dir.is_dir():
+            continue
+
+        for task_file in status_dir.glob('*.md'):
+            try:
+                task = storage.read_task_file(task_file)
+
+                # Extract override entries from task history
+                # Note: Accept both 'override' and legacy 'override_*' actions for backward compat
+                if task.history:
+                    for entry in task.history:
+                        if entry.action == 'override' or entry.action.startswith('override_'):
+                            override_entries.append({
+                                'timestamp': entry.timestamp,
+                                'task_id': task.id,
+                                'from_status': entry.from_status or 'unknown',
+                                'to_status': entry.to_status or 'unknown',
+                                'reason': entry.reason or 'No reason provided'
+                            })
+            except Exception as exc:
+                # Skip tasks that can't be read
+                print_warning(f"Could not read {task_file.name}: {exc}")
+                continue
+
+    if not override_entries:
+        print_info("No overrides logged yet")
+        print("Override history is now tracked in task histories.")
+        print("Use: taskpy history TASK-ID  to see individual task overrides")
+        return
+
+    # Sort by timestamp (most recent first)
+    override_entries.sort(key=lambda x: x['timestamp'], reverse=True)
+
+    print(f"\n{'='*80}")
+    print(f"Override History ({len(override_entries)} total)")
+    print(f"{'='*80}\n")
+
+    # Display entries in same format as before
+    for entry in override_entries:
+        timestamp_str = entry['timestamp'].strftime("%Y-%m-%dT%H:%M:%S")
+        transition = f"{entry['from_status']}→{entry['to_status']}"
+        print(f"{timestamp_str} | {entry['task_id']} | {transition} | Reason: {entry['reason']}")
+
+    print()
+
+
+__all__ = ['cmd_init', 'cmd_verify', 'cmd_manifest', 'cmd_groom', 'cmd_session', 'cmd_overrides']

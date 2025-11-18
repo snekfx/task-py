@@ -1,7 +1,7 @@
 """CLI registration for admin features."""
 
 import argparse
-from .commands import cmd_init, cmd_verify, cmd_manifest, cmd_groom, cmd_session
+from .commands import cmd_init, cmd_verify, cmd_manifest, cmd_groom, cmd_session, cmd_overrides
 
 
 def register():
@@ -35,6 +35,11 @@ def register():
             'func': cmd_session,
             'help': 'Manage work sessions',
             'parser': setup_session_parser
+        },
+        'overrides': {
+            'func': cmd_overrides,
+            'help': 'View override usage history',
+            'parser': setup_overrides_parser
         }
     }
 
@@ -91,6 +96,16 @@ def setup_session_parser(subparsers):
     parser = subparsers.add_parser(
         'session',
         help='Manage work sessions (coming soon)'
+    )
+
+    return parser
+
+
+def setup_overrides_parser(subparsers):
+    """Setup argument parser for overrides command."""
+    parser = subparsers.add_parser(
+        'overrides',
+        help='View override usage history'
     )
 
     return parser

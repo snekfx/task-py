@@ -53,16 +53,43 @@ def parse_task_ids(raw_ids: List[str]) -> List[str]:
     return [tid for tid in task_ids if tid not in seen and not seen.add(tid)]
 
 
-def log_override(storage: TaskStorage, task_id: str, from_status: str, to_status: str, reason: Optional[str] = None):
-    """Log override event to override_log.txt."""
-    log_file = storage.info_dir / "override_log.txt"
-    timestamp = utc_now().strftime("%Y-%m-%dT%H:%M:%S")
-    reason_str = f" | Reason: {reason}" if reason else ""
+def log_override(storage: TaskStorage, task_id: str, from_status: str, to_status: str, reason: Optional[str] = None) -> Optional[Task]:
+    """
+    Log override event to task history.
 
-    log_entry = f"{timestamp} | {task_id} | {from_status}→{to_status}{reason_str}\n"
+    Creates a HistoryEntry with action='override' and appends it to the task's history.
+    NOTE: This does NOT save the task - the caller should save it after making other changes.
 
-    with open(log_file, "a") as f:
-        f.write(log_entry)
+    Args:
+        storage: TaskStorage instance
+        task_id: Task ID being overridden
+        from_status: Status being transitioned from
+        to_status: Status being transitioned to
+        reason: Optional reason for the override
+
+    Returns:
+        Updated Task object with override history entry, or None if task not found
+    """
+    # Find and load the task
+    result = storage.find_task_file(task_id)
+    if not result:
+        print_warning(f"Could not log override for {task_id}: task not found")
+        return None
+
+    task_path, _ = result
+    task = storage.read_task_file(task_path)
+
+    # Add override entry to task history
+    history_entry = HistoryEntry(
+        timestamp=utc_now(),
+        action='override',
+        from_status=from_status,
+        to_status=to_status,
+        reason=reason
+    )
+    task.history.append(history_entry)
+
+    return task
 
 
 def _move_task(storage: TaskStorage, task_id: str, current_path: Path, target_status: TaskStatus,
@@ -297,12 +324,17 @@ def cmd_promote(args):
         print_warning(
             "⚠️  Using --override to bypass gate validation\n"
             "This should only be used in urgent situations.\n"
-            "Override will be logged to data/kanban/info/override_log.txt"
+            "Override will be logged to task history"
         )
         reason = getattr(args, 'reason', None) or "No reason provided"
-        log_override(storage, args.task_id, current_status.value, target_status.value, reason)
-        # Move task with override action
-        _move_task(storage, args.task_id, path, target_status, task, reason=reason, action="override_promote")
+
+        # Log override to history and get updated task
+        task = log_override(storage, args.task_id, current_status.value, target_status.value, reason)
+        if not task:
+            return
+
+        # Now move the task (this will add a separate promote entry to history)
+        _move_task(storage, args.task_id, path, target_status, task, reason=reason, action="promote")
     else:
         # Validate promotion gates
         commit_hash = getattr(args, 'commit', None)
@@ -349,7 +381,7 @@ def cmd_demote(args):
         print_warning(
             "⚠️  Using --override to bypass gate validation\n"
             "This should only be used in urgent situations.\n"
-            "Override will be logged to data/kanban/info/override_log.txt"
+            "Override will be logged to task history"
         )
         # Determine target first for logging
         workflow = [TaskStatus.STUB, TaskStatus.BACKLOG, TaskStatus.READY, TaskStatus.ACTIVE,
@@ -364,7 +396,9 @@ def cmd_demote(args):
             target_status = workflow[current_idx - 1]
 
         reason = getattr(args, 'reason', None) or "No reason provided"
-        log_override(storage, args.task_id, current_status.value, target_status.value, reason)
+        task = log_override(storage, args.task_id, current_status.value, target_status.value, reason)
+        if not task:
+            return
     else:
         # Validate demotion from done requires reason
         if current_status == TaskStatus.DONE:
@@ -401,10 +435,9 @@ def cmd_demote(args):
                     return
                 target_status = workflow[current_idx - 1]
 
-    # Move task with reason
+    # Move task with reason (action is always "demote" since override is logged separately)
     reason = getattr(args, 'reason', None)
-    action = "override_demote" if override else "demote"
-    _move_task(storage, args.task_id, path, target_status, task, reason=reason, action=action)
+    _move_task(storage, args.task_id, path, target_status, task, reason=reason, action="demote")
 
 
 def cmd_move(args):

@@ -16,7 +16,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional, List, Dict, Iterable, Tuple
 
-from taskpy.legacy.models import Task, TaskStatus, Priority, TaskReference, Verification, VerificationStatus, utc_now
+from taskpy.legacy.models import Task, TaskStatus, Priority, TaskReference, Verification, VerificationStatus, HistoryEntry, utc_now
 from taskpy.legacy.storage import TaskStorage, StorageError
 from taskpy.legacy.output import (
     print_success, print_error, print_info, print_warning,
@@ -59,16 +59,43 @@ def parse_task_ids(raw_ids: List[str]) -> List[str]:
     return [tid for tid in task_ids if tid not in seen and not seen.add(tid)]
 
 
-def log_override(storage: TaskStorage, task_id: str, from_status: str, to_status: str, reason: Optional[str] = None):
-    """Log override event to override_log.txt."""
-    log_file = storage.info_dir / "override_log.txt"
-    timestamp = utc_now().strftime("%Y-%m-%dT%H:%M:%S")
-    reason_str = f" | Reason: {reason}" if reason else ""
+def log_override(storage: TaskStorage, task_id: str, from_status: str, to_status: str, reason: Optional[str] = None) -> Optional[Task]:
+    """
+    Log override event to task history.
 
-    log_entry = f"{timestamp} | {task_id} | {from_status}→{to_status}{reason_str}\n"
+    Creates a HistoryEntry with action='override' and appends it to the task's history.
+    NOTE: This does NOT save the task - the caller should save it after making other changes.
 
-    with open(log_file, "a") as f:
-        f.write(log_entry)
+    Args:
+        storage: TaskStorage instance
+        task_id: Task ID being overridden
+        from_status: Status being transitioned from
+        to_status: Status being transitioned to
+        reason: Optional reason for the override
+
+    Returns:
+        Updated Task object with override history entry, or None if task not found
+    """
+    # Find and load the task
+    result = storage.find_task_file(task_id)
+    if not result:
+        print_warning(f"Could not log override for {task_id}: task not found")
+        return None
+
+    task_path, _ = result
+    task = storage.read_task_file(task_path)
+
+    # Add override entry to task history
+    history_entry = HistoryEntry(
+        timestamp=utc_now(),
+        action='override',
+        from_status=from_status,
+        to_status=to_status,
+        reason=reason
+    )
+    task.history.append(history_entry)
+
+    return task
 
 
 # Gate Validation Functions
@@ -1968,35 +1995,60 @@ def cmd_stats(args):
 
 
 def cmd_overrides(args):
-    """View override usage history."""
+    """View override usage history aggregated from task histories (REF-03)."""
     storage = get_storage()
 
     if not storage.is_initialized():
         print_error("TaskPy not initialized. Run: taskpy init")
         sys.exit(1)
 
-    log_file = storage.info_dir / "override_log.txt"
+    # Collect all override entries from all tasks
+    override_entries = []
 
-    if not log_file.exists():
+    # Scan all status directories for tasks
+    for status_dir in storage.status_dir.iterdir():
+        if not status_dir.is_dir():
+            continue
+
+        for task_file in status_dir.glob('*.md'):
+            try:
+                task = storage.read_task_file(task_file)
+
+                # Extract override entries from task history
+                # Note: Accept both 'override' and legacy 'override_*' actions for backward compat
+                if task.history:
+                    for entry in task.history:
+                        if entry.action == 'override' or entry.action.startswith('override_'):
+                            override_entries.append({
+                                'timestamp': entry.timestamp,
+                                'task_id': task.id,
+                                'from_status': entry.from_status or 'unknown',
+                                'to_status': entry.to_status or 'unknown',
+                                'reason': entry.reason or 'No reason provided'
+                            })
+            except Exception as exc:
+                # Skip tasks that can't be read
+                print_warning(f"Could not read {task_file.name}: {exc}")
+                continue
+
+    if not override_entries:
         print_info("No overrides logged yet")
-        print(f"Override log: {log_file}")
+        print("Override history is now tracked in task histories.")
+        print("Use: taskpy history TASK-ID  to see individual task overrides")
         return
 
-    # Read and display log
-    with open(log_file, "r") as f:
-        lines = f.readlines()
-
-    if not lines:
-        print_info("No overrides logged yet")
-        return
+    # Sort by timestamp (most recent first)
+    override_entries.sort(key=lambda x: x['timestamp'], reverse=True)
 
     print(f"\n{'='*80}")
-    print(f"Override History ({len(lines)} total)")
+    print(f"Override History ({len(override_entries)} total)")
     print(f"{'='*80}\n")
 
-    # Show most recent entries (default: all, could add --limit later)
-    for line in reversed(lines):
-        print(line.rstrip())
+    # Display entries in same format as before
+    for entry in override_entries:
+        timestamp_str = entry['timestamp'].strftime("%Y-%m-%dT%H:%M:%S")
+        transition = f"{entry['from_status']}→{entry['to_status']}"
+        print(f"{timestamp_str} | {entry['task_id']} | {transition} | Reason: {entry['reason']}")
 
     print()
 
