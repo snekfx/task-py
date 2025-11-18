@@ -1,85 +1,30 @@
-# Session Complete - Migration Audit & REF-13 Wrap-up
+# HANDOFF – TaskPy Session (v0.2.3 sprint UI complete)
 
-## What Was Accomplished This Session
+## Highlights
+- ✅ **FEAT-26 COMPLETE**: Sprint indicators now visible in all UI views
+  - `taskpy list` shows Sprint column with ✓ for sprint tasks
+  - `taskpy kanban` displays 🏃 emoji badge for sprint tasks
+  - `taskpy sprint list/stats/add/remove` all working correctly
+  - Manifest correctly persists and reads `in_sprint` field
+- ✅ **Logo bundling fixed**: `taskpy --version` now displays correct "taskpy" ASCII art (was showing generic "FEAT")
+  - Moved `logo.txt` into `src/taskpy/` package directory
+  - Updated `pyproject.toml` with package_data configuration
+  - Updated CLI to read logo from package location
+- `bin/deploy.sh` builds a pip bundle (`~/.local/bin/snek/taskpy-bundle`) instead of pointing at live sources; respects `TASKPY_PYTHON`.
+- `taskpy groom` runs clean except for intentionally skeletal test stub `FEAT-25` and backlog docs tasks.
+- All sprint commands functional and UI-complete
 
-### 1. Comprehensive Migration Audit ✅
-- Audited all 31 legacy commands vs modern implementations
-- Found and corrected status misreporting across all modules
-- Created detailed audit report: `docs/plans/migration-audit-2025-11-17.md`
+## Next Suggested Work
+1. Wire groom thresholds into promotion gates (**QOL-07**) so detail checks become enforceable quality gates.
+2. Build the new `taskpy check` dashboard (**FEAT-27**) for at-a-glance project health.
+3. Migrate override logging into the upcoming task history API (**FEAT-28**) once history storage lands.
 
-### 2. Updated All REF Tickets ✅
-- **REF-13**: Corrected from "list only" to "100% complete"
-- **REF-12**: Clarified 1/7 commands (14%) with exact line numbers
-- **REF-17**: Exposed that module is empty and unregistered
-- Added "🔴 READ THE DOCS FIRST" warnings to every ticket
-- All tickets now have accurate % complete and remaining work
-
-### 3. Completed REF-13 (Core Module) ✅
-- **5/5 commands migrated**: list, show, create, edit, rename
-- **6 clean modules**: 695 lines total (no mega-file)
-- **Reorganization complete**: Phase 5 done
-- **Scope adjusted**: delete/recover removed (don't exist)
-- **Status**: 100% complete, ready for test suite + NFR verification
-
-### 4. Documentation Updates ✅
-- Updated `core-module-migration.md` with completion status
-- Updated `migration-summary.md` with audit findings
-- Created audit report with all 31 commands mapped
-- All phase checkboxes marked complete
-
-## Git Commits (5 total)
-1. `13c3ade` - feat: migrate create command (REF-13 Phase 2)
-2. `bf184f7` - docs: add module split architecture guidance
-3. `b263bc5` - refactor: split core module into submodules (Phase 5)
-4. `d54edad` - docs: add migration audit report
-5. `d120b73` - docs: mark core module migration COMPLETE
-
-## Current Project State
-
-### Completed Modules (3)
-- ✅ Core (REF-13): 5/5 commands, 695 lines, 6 files
-- ✅ Epics: 1/1 command (only list exists)
-- ✅ NFRs: 1/1 command (only list exists)
-
-### Partial Modules (1)
-- ⏳ Sprint (REF-12): 1/7 commands (14%), need 6 more
-
-### Empty Modules (4)
-- ❌ Workflow (REF-14): 0/3 commands, 3 SP
-- ❌ Display (REF-15): 0/5 commands, 3 SP
-- ❌ Admin (REF-16): 0/5 commands, 3 SP
-- ❌ Milestones (REF-17): 0/5 commands, NOT REGISTERED
-
-### Remaining Work: 14 SP
-- REF-12: 3 SP (sprint commands)
-- REF-14: 3 SP (workflow)
-- REF-15: 3 SP (display)
-- REF-16: 3 SP (admin)
-- REF-17: 2 SP (milestones)
-- BUGS-09: 1 SP (link --doc flag)
-- REF-13 tests: (not estimated, non-blocking)
-
-## Key Learnings
-
-1. **Always audit before claiming complete** - REF-13 was 100% not "list only"
-2. **Documentation is critical** - Agents must read reference docs first
-3. **Be specific** - Vague tickets → incomplete work
-4. **Verify registrations** - Milestones module exists but not wired up
-5. **Check for phantom features** - delete/recover never existed
-
-## Recommended Next Steps
-
-**Option 1: Close REF-13**
-- Create test suite for 5 commands
-- Verify NFR compliance
-- Promote to QA/Done
-
-**Option 2: High Priority Work**
-- BUGS-09: Fix link --doc flag (1 SP, high priority)
-- User-reported bug
-
-**Option 3: Continue Migrations**
-- REF-12: Sprint module (3 SP, 6 commands remaining)
-- REF-14: Workflow (3 SP, frequently used: promote/demote/move)
-
-All tickets now have "READ DOCS FIRST" warnings and accurate status!
+## Quick Reference
+```
+Deploy bundle    : bin/deploy.sh  (set TASKPY_PYTHON=/path/to/python if needed)
+Audit detail     : taskpy groom
+Stoplight        : taskpy --view=data stoplight TASK-ID
+Docs backlog     : DOCS-03 (Session notes migration), DOCS-04 (API updates)
+Feature backlog  : FEAT-26 (sprint), FEAT-27 (dashboard), FEAT-28 (override log)
+Quality backlog  : QOL-07 (groom thresholds)
+```
