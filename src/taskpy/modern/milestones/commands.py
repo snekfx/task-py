@@ -2,11 +2,14 @@
 
 import sys
 import re
+import json
 from pathlib import Path
 
 from taskpy.legacy.storage import TaskStorage
 from taskpy.legacy.output import print_error, print_info, print_success, print_warning
 from taskpy.legacy.commands import _read_manifest
+from taskpy.modern.shared.output import get_output_mode, OutputMode
+from taskpy.modern.views import ListView, ColumnConfig
 
 
 def get_storage() -> TaskStorage:
@@ -51,30 +54,39 @@ def cmd_milestones(args):
         print_info("No milestones defined. Add them to: data/kanban/info/milestones.toml")
         return
 
-    # Sort by priority
+    # Sort by priority and prepare rows for ListView rendering
     sorted_milestones = sorted(milestones.items(), key=lambda x: x[1].priority)
+    rows = [
+        {
+            "id": milestone_id,
+            "name": milestone.name,
+            "status": milestone.status,
+            "priority": str(milestone.priority),
+            "goal": str(milestone.goal_sp) if milestone.goal_sp else "-",
+            "blocked": milestone.blocked_reason or "",
+            "description": (milestone.description or "")[:80],
+        }
+        for milestone_id, milestone in sorted_milestones
+    ]
 
-    # Display
-    print("==================================================")
-    print("Milestones (sorted by priority)")
-    print("==================================================\n")
+    columns = [
+        ColumnConfig(name="ID", field="id"),
+        ColumnConfig(name="Name", field="name"),
+        ColumnConfig(name="Status", field="status"),
+        ColumnConfig(name="Priority", field="priority"),
+        ColumnConfig(name="Goal SP", field="goal"),
+        ColumnConfig(name="Blocked Reason", field="blocked"),
+    ]
 
-    for milestone_id, m in sorted_milestones:
-        status_color = {
-            'active': '🟢',
-            'planned': '⚪',
-            'blocked': '🔴',
-            'completed': '✅'
-        }.get(m.status, '⚪')
-
-        print(f"{status_color} [{milestone_id}] {m.name}")
-        print(f"   Priority: {m.priority} | Status: {m.status}")
-        if m.goal_sp:
-            print(f"   Goal: {m.goal_sp} SP")
-        print(f"   {m.description}")
-        if m.blocked_reason:
-            print(f"   ⚠️  Blocked: {m.blocked_reason}")
-        print()
+    view = ListView(
+        data=rows,
+        columns=columns,
+        title=f"Milestones ({len(rows)})",
+        output_mode=get_output_mode(),
+        status_field=None,
+        grey_done=False,
+    )
+    view.display()
 
 
 def cmd_milestone(args):
@@ -132,7 +144,43 @@ def _cmd_milestone_show(args):
         status = task['status']
         by_status[status] = by_status.get(status, 0) + 1
 
-    # Display
+    mode = get_output_mode()
+    if mode == OutputMode.DATA:
+        print(f"ID: {args.milestone_id}")
+        print(f"Name: {milestone.name}")
+        print(f"Priority: {milestone.priority}")
+        print(f"Status: {milestone.status}")
+        if milestone.goal_sp:
+            print(f"Goal: {milestone.goal_sp} SP")
+        if milestone.blocked_reason:
+            print(f"Blocked: {milestone.blocked_reason}")
+        print(f"Description: {milestone.description}")
+        print(f"Tasks: {total_tasks} ({len(completed_tasks)} completed)")
+        for task in milestone_tasks:
+            print(f"  - {task['id']} [{task['status']}] {task['title']}")
+        return
+    if mode == OutputMode.AGENT:
+        payload = {
+            "id": args.milestone_id,
+            "name": milestone.name,
+            "priority": milestone.priority,
+            "status": milestone.status,
+            "goal_sp": milestone.goal_sp,
+            "blocked_reason": milestone.blocked_reason,
+            "description": milestone.description,
+            "stats": {
+                "total_tasks": total_tasks,
+                "completed_tasks": len(completed_tasks),
+                "story_points_completed": completed_sp,
+                "story_points_total": total_sp,
+                "story_points_remaining": remaining_sp,
+                "by_status": by_status,
+            },
+            "tasks": milestone_tasks,
+        }
+        print(json.dumps(payload, indent=2))
+        return
+
     status_emoji = {
         'active': '🟢',
         'planned': '⚪',
@@ -155,7 +203,8 @@ def _cmd_milestone_show(args):
     print(f"Task Progress:")
     print(f"  Total Tasks: {total_tasks}")
     print(f"  Completed: {len(completed_tasks)} / {total_tasks}")
-    print(f"  Story Points: {completed_sp} / {total_sp} completed ({remaining_sp} remaining)")
+    print(f"  Story Points: {completed_sp} / {total_sp} completed ({remaining_sp} remaining)"
+          if total_sp else "  Story Points: 0")
     if milestone.goal_sp:
         progress_pct = (completed_sp / milestone.goal_sp * 100) if milestone.goal_sp > 0 else 0
         print(f"  Goal Progress: {progress_pct:.1f}%")
