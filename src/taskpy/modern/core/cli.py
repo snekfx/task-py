@@ -128,6 +128,8 @@ def setup_create_parser(subparsers):
     parser.add_argument('--body', help='Task description body')
     parser.add_argument('--stub', action='store_true',
                        help='Mark as stub (skeletal ticket)')
+    parser.add_argument('--auto', action='store_true',
+                       help='When using manual IDs (EPIC-123), automatically bump to the next free ID if needed')
 
     return parser
 

@@ -236,6 +236,102 @@ class TestCoreCreateCommand:
 
         assert exc_info.value.code == 1
 
+    def test_create_manual_id(self, tmp_path, monkeypatch):
+        """Manual ID creation should succeed when ID is free."""
+        storage = TaskStorage(tmp_path)
+        storage.initialize()
+
+        args = Namespace(
+            epic="TEST-05",
+            title=["Manual", "Task"],
+            story_points=1,
+            priority="medium",
+            status="stub",
+            tags=None,
+            milestone=None,
+            edit=False,
+            body=None,
+            stub=True,
+            auto=False,
+        )
+
+        monkeypatch.chdir(tmp_path)
+        cmd_create(args)
+
+        result = storage.find_task_file("TEST-05")
+        assert result is not None
+
+    def test_create_manual_id_collision_requires_auto(self, tmp_path, monkeypatch):
+        """Manual ID should fail without --auto when ID already exists."""
+        storage = TaskStorage(tmp_path)
+        storage.initialize()
+
+        existing = Task(
+            id="TEST-05",
+            epic="TEST",
+            number=5,
+            title="Existing task",
+            status=TaskStatus.STUB,
+            priority=Priority.MEDIUM,
+            story_points=1,
+        )
+        storage.write_task_file(existing)
+
+        args = Namespace(
+            epic="TEST-05",
+            title=["Conflict"],
+            story_points=1,
+            priority="medium",
+            status="stub",
+            tags=None,
+            milestone=None,
+            edit=False,
+            body=None,
+            stub=True,
+            auto=False,
+        )
+
+        monkeypatch.chdir(tmp_path)
+        with pytest.raises(SystemExit) as exc_info:
+            cmd_create(args)
+        assert exc_info.value.code == 1
+
+    def test_create_manual_id_auto_bumps(self, tmp_path, monkeypatch):
+        """Manual ID with --auto should find the next available number."""
+        storage = TaskStorage(tmp_path)
+        storage.initialize()
+
+        for i in [5, 6]:
+            task = Task(
+                id=f"TEST-0{i}",
+                epic="TEST",
+                number=i,
+                title=f"Existing {i}",
+                status=TaskStatus.STUB,
+                priority=Priority.MEDIUM,
+                story_points=1,
+            )
+            storage.write_task_file(task)
+
+        args = Namespace(
+            epic="TEST-05",
+            title=["Auto", "Bump"],
+            story_points=1,
+            priority="medium",
+            status="stub",
+            tags=None,
+            milestone=None,
+            edit=False,
+            body=None,
+            stub=True,
+            auto=True,
+        )
+
+        monkeypatch.chdir(tmp_path)
+        cmd_create(args)
+
+        assert storage.find_task_file("TEST-07") is not None
+
 
 class TestCoreEditCommand:
     """Test cmd_edit functionality."""

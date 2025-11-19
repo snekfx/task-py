@@ -17,6 +17,7 @@ from taskpy.modern.shared.tasks import (
     write_task,
     get_task_path,
     open_in_editor,
+    find_task_file,
 )
 
 
@@ -29,7 +30,21 @@ def cmd_create(args):
         sys.exit(1)
 
     epics = load_epics()
-    epic_name = args.epic.upper()
+
+    raw_epic = args.epic.strip().upper()
+    manual_number = None
+
+    if "-" in raw_epic:
+        epic_name, number_str = raw_epic.split("-", 1)
+        if not number_str.isdigit():
+            print_error("Manual IDs must use format EPIC-123 (digits only).")
+            sys.exit(1)
+        manual_number = int(number_str)
+        if manual_number <= 0 or manual_number > 999:
+            print_error("Manual task numbers must be between 1 and 999.")
+            sys.exit(1)
+    else:
+        epic_name = raw_epic
 
     if epic_name not in epics:
         print_error(
@@ -42,9 +57,38 @@ def cmd_create(args):
     if not epics[epic_name].get("active", True):
         print_warning(f"Epic {epic_name} is marked inactive")
 
-    # Generate task ID
-    number = next_task_number(epic_name)
+    auto_bump = getattr(args, "auto", False)
+
+    if manual_number is not None:
+        number = manual_number
+    else:
+        number = next_task_number(epic_name)
+
     task_id = make_task_id(epic_name, number)
+
+    if manual_number is not None:
+        existing = find_task_file(task_id)
+        if existing:
+            if auto_bump:
+                original_number = number
+                while existing:
+                    number += 1
+                    if number > 999:
+                        print_error("No available IDs remaining in this epic (limit 999).")
+                        sys.exit(1)
+                    task_id = make_task_id(epic_name, number)
+                    existing = find_task_file(task_id)
+                print_warning(
+                    f"{make_task_id(epic_name, original_number)} already exists. "
+                    f"Using next available ID: {task_id}",
+                    "Auto ID Adjustment"
+                )
+            else:
+                print_error(
+                    f"Task ID {task_id} already exists. Use --auto to select the next "
+                    "available number automatically."
+                )
+                sys.exit(1)
 
     # Parse title
     title = " ".join(args.title)
