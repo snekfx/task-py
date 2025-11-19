@@ -20,6 +20,7 @@ from taskpy.modern.shared.tasks import (
     KANBAN_RELATIVE_PATH,
 )
 from taskpy.modern.views import ListView, ColumnConfig
+from taskpy.legacy.storage import TaskStorage
 
 
 def _kanban_root(root: Optional[Path] = None) -> Path:
@@ -167,14 +168,22 @@ def _cmd_sprint_clear(args):
         print_info("No tasks in sprint")
         return
 
-    # Remove all tasks from sprint
+    updated = 0
     for row in sprint_tasks:
         result = find_task_file(row['id'])
         if result:
             task = load_task(row['id'])
             task.in_sprint = False
             task.updated = utc_now()
-            write_task(task)
+            write_task(task, update_manifest=False)
+            updated += 1
+
+    if updated:
+        storage = TaskStorage(Path.cwd())
+        try:
+            storage.rebuild_manifest()
+        except Exception as exc:
+            print_warning(f"Encountered error refreshing manifest: {exc}")
 
     print_success(f"Cleared {len(sprint_tasks)} tasks from sprint")
 

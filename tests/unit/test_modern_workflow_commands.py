@@ -5,6 +5,7 @@ Tests the 3 workflow commands: promote, demote, move.
 """
 
 import pytest
+import re
 from pathlib import Path
 from unittest.mock import Mock, patch
 from argparse import Namespace
@@ -621,3 +622,39 @@ class TestMoveCommand:
             assert result is not None
             path, status = result
             assert status == TaskStatus.READY
+
+    def test_move_continues_after_failure(self, tmp_path, monkeypatch, capsys):
+        """Batch move should continue after an individual failure."""
+        storage = TaskStorage(tmp_path)
+        storage.initialize()
+
+        task = Task(
+            id="TEST-01",
+            epic="TEST",
+            number=1,
+            title="Valid task",
+            status=TaskStatus.STUB,
+            priority=Priority.MEDIUM,
+            story_points=1
+        )
+        storage.write_task_file(task)
+
+        args = Namespace(
+            task_ids=["TEST-01", "MISSING-02"],
+            status="backlog",
+            reason="Batch move"
+        )
+
+        monkeypatch.chdir(tmp_path)
+        with pytest.raises(SystemExit) as exc_info:
+            cmd_move(args)
+
+        assert exc_info.value.code == 1
+        # First task still moved successfully
+        result = storage.find_task_file("TEST-01")
+        assert result is not None
+        _, status = result
+        assert status == TaskStatus.BACKLOG
+
+        output = re.sub(r'\x1b\[[0-9;]*m', '', capsys.readouterr().out)
+        assert "Failed to move 1 tasks" in output

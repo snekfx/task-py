@@ -289,6 +289,36 @@ class TestSprintClearCommand:
             task = storage.read_task_file(path)
             assert task.in_sprint is False
 
+    def test_clear_sprint_batches_manifest(self, tmp_path, monkeypatch):
+        """Ensure manifest is rebuilt once after clearing."""
+        storage = TaskStorage(tmp_path)
+        storage.initialize()
+
+        for i in range(2):
+            task = Task(
+                id=f"TEST-{i:02d}",
+                epic="TEST",
+                number=i,
+                title=f"Task {i}",
+                status=TaskStatus.BACKLOG,
+                story_points=1,
+                in_sprint=True
+            )
+            storage.write_task_file(task)
+
+        storage.rebuild_manifest()
+
+        monkeypatch.chdir(tmp_path)
+        with patch('taskpy.modern.sprint.commands.write_task') as mock_write, \
+             patch('taskpy.modern.sprint.commands.TaskStorage') as mock_storage:
+            mock_instance = mock_storage.return_value
+            _cmd_sprint_clear(Namespace())
+
+        assert mock_write.call_count == 2
+        for _, kwargs in mock_write.call_args_list:
+            assert kwargs.get('update_manifest') is False
+        mock_instance.rebuild_manifest.assert_called_once_with()
+
 
 class TestSprintStatsCommand:
     """Test _cmd_sprint_stats functionality."""

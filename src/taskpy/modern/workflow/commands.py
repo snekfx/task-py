@@ -16,6 +16,10 @@ from taskpy.legacy.storage import TaskStorage
 from taskpy.legacy.output import print_success, print_error, print_info, print_warning
 
 
+class TaskMoveError(Exception):
+    """Raised when a workflow move operation fails."""
+
+
 def get_storage() -> TaskStorage:
     """Get TaskStorage for current directory."""
     return TaskStorage(Path.cwd())
@@ -96,15 +100,12 @@ def _move_task(storage: TaskStorage, task_id: str, current_path: Path, target_st
                task: Optional[Task] = None, reason: Optional[str] = None, action: str = "move"):
     """Move a task to a new status and log to history."""
     try:
-        # Read task if not provided
         if task is None:
             task = storage.read_task_file(current_path)
 
-        # Update status
         old_status = task.status
         task.status = target_status
 
-        # Add history entry
         history_entry = HistoryEntry(
             timestamp=utc_now(),
             action=action,
@@ -114,10 +115,7 @@ def _move_task(storage: TaskStorage, task_id: str, current_path: Path, target_st
         )
         task.history.append(history_entry)
 
-        # Delete old file
         current_path.unlink()
-
-        # Write to new location
         storage.write_task_file(task)
 
         print_success(
@@ -125,9 +123,8 @@ def _move_task(storage: TaskStorage, task_id: str, current_path: Path, target_st
             "Task Moved"
         )
 
-    except Exception as e:
-        print_error(f"Failed to move task: {e}")
-        sys.exit(1)
+    except Exception as exc:
+        raise TaskMoveError(f"{task_id}: {exc}") from exc
 
 
 # =============================================================================
@@ -492,8 +489,10 @@ def cmd_move(args):
         try:
             _move_task(storage, task_id, path, target_status, reason=args.reason, action="move")
             successes.append(task_id)
-        except Exception as e:
-            failures.append((task_id, str(e)))
+        except TaskMoveError as exc:
+            failures.append((task_id, str(exc)))
+        except Exception as exc:  # pragma: no cover - unexpected failures
+            failures.append((task_id, str(exc)))
 
     # Print summary if multiple tasks
     if len(task_ids) > 1:
