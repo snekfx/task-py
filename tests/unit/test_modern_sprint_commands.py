@@ -18,6 +18,8 @@ from taskpy.modern.sprint.commands import (
     _cmd_sprint_clear,
     _cmd_sprint_stats,
     _cmd_sprint_init,
+    _cmd_sprint_dashboard,
+    _cmd_sprint_recommend,
     _get_sprint_metadata_path,
     _load_sprint_metadata,
     _save_sprint_metadata,
@@ -433,6 +435,107 @@ class TestSprintInitCommand:
         metadata = _load_sprint_metadata(tmp_path)
         assert metadata["title"] == "New Sprint"
         assert metadata["number"] == 2  # Should increment
+
+
+class TestSprintDashboardCommand:
+    """Tests for the sprint dashboard."""
+
+    def test_dashboard_without_metadata(self, tmp_path, monkeypatch, capsys):
+        storage = TaskStorage(tmp_path)
+        storage.initialize()
+
+        args = Namespace()
+        monkeypatch.chdir(tmp_path)
+        _cmd_sprint_dashboard(args)
+
+        output = capsys.readouterr().out
+        assert "No active sprint" in output
+
+    def test_dashboard_with_metadata(self, tmp_path, monkeypatch, capsys):
+        storage = TaskStorage(tmp_path)
+        storage.initialize()
+
+        task = Task(
+            id="TEST-01",
+            epic="TEST",
+            number=1,
+            title="Sprint task",
+            status=TaskStatus.ACTIVE,
+            priority=Priority.MEDIUM,
+            story_points=5,
+            in_sprint=True
+        )
+        storage.write_task_file(task)
+        storage.rebuild_manifest()
+
+        metadata = {
+            "number": 1,
+            "title": "Sprint One",
+            "focus": "Testing",
+            "start_date": "2025-01-01",
+            "end_date": "2025-01-14",
+            "capacity_sp": 20,
+        }
+        _save_sprint_metadata(metadata, tmp_path)
+
+        args = Namespace()
+        monkeypatch.chdir(tmp_path)
+        _cmd_sprint_dashboard(args)
+
+        output = capsys.readouterr().out
+        assert "Sprint One" in output
+        assert "Progress" in output
+
+
+class TestSprintRecommendCommand:
+    """Tests for sprint recommendations."""
+
+    def test_recommend_suggestions(self, tmp_path, monkeypatch, capsys):
+        storage = TaskStorage(tmp_path)
+        storage.initialize()
+
+        task = Task(
+            id="READY-01",
+            epic="READY",
+            number=1,
+            title="Ready task",
+            status=TaskStatus.READY,
+            priority=Priority.HIGH,
+            story_points=3,
+            in_sprint=False
+        )
+        storage.write_task_file(task)
+        storage.rebuild_manifest()
+
+        metadata = {
+            "number": 1,
+            "title": "Sprint Ready",
+            "focus": "Recommendations",
+            "start_date": "2025-01-01",
+            "end_date": "2025-01-14",
+            "capacity_sp": 10,
+        }
+        _save_sprint_metadata(metadata, tmp_path)
+
+        args = Namespace()
+        monkeypatch.chdir(tmp_path)
+        _cmd_sprint_recommend(args)
+
+        output = capsys.readouterr().out
+        assert "READY-01" in output
+        assert "Sprint Recommendations" in output
+
+
+def test_cmd_sprint_defaults_to_dashboard(monkeypatch):
+    """cmd_sprint without subcommand should invoke dashboard."""
+    called = {}
+
+    def fake_dashboard(args):
+        called['hit'] = True
+
+    monkeypatch.setattr('taskpy.modern.sprint.commands._cmd_sprint_dashboard', fake_dashboard)
+    cmd_sprint(Namespace(sprint_subcommand=None))
+    assert called.get('hit') is True
 
 
 # Fixtures

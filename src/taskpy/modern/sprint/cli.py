@@ -52,6 +52,12 @@ def setup_parser(subparsers):
         help='List all tasks in sprint'
     )
 
+    # dashboard subcommand
+    sprint_subparsers.add_parser(
+        'dashboard',
+        help='Show sprint dashboard overview'
+    )
+
     # add subcommand
     add_parser = sprint_subparsers.add_parser(
         'add',
@@ -88,6 +94,12 @@ def setup_parser(subparsers):
     init_parser.add_argument('--duration', type=int, default=14, help='Sprint duration in days (default: 14)')
     init_parser.add_argument('--capacity', type=int, default=20, help='Sprint capacity in story points (default: 20)')
     init_parser.add_argument('--force', action='store_true', help='Overwrite existing sprint')
+
+    # recommend subcommand
+    sprint_subparsers.add_parser(
+        'recommend',
+        help='Recommend tasks to add based on capacity and priority'
+    )
 
     return parser
 
