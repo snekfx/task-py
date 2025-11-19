@@ -552,3 +552,13 @@ To add ticket types feature (FEAT-44):
 - FEAT-08: Implement taskpy split
 - FEAT-46: Add epic management commands
 - QOL-15: Add history logging for all task-modifying commands
+
+## Review (2025-11-19)
+
+Modern modules (core, workflow, sprint, admin, display, epics, milestones,
+and nfrs) now exist in `src/taskpy/modern/` and expose `register()` helpers
+consumed by `taskpy.modern.cli`. Shared utilities for storage, output, and
+views live under `src/taskpy/modern/shared/`, satisfying the structure and
+registration pattern proposed above. Legacy `commands.py` is no longer used,
+so future work on REF-04 can focus on incremental improvements rather than a
+complete migration.
