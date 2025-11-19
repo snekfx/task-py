@@ -11,6 +11,7 @@ Migrated from legacy/commands.py (lines 812-946, 1208-1318, 1917-1968)
 """
 
 import sys
+import json
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from taskpy.legacy.models import Task, TaskStatus
@@ -20,9 +21,10 @@ from taskpy.legacy.output import (
     print_error,
     print_info,
     print_warning,
-    display_kanban_column
 )
 from taskpy.legacy.commands import _read_manifest, _sort_tasks
+from taskpy.modern.shared.output import get_output_mode, OutputMode
+from taskpy.modern.views import show_column, rolo_table
 
 
 def get_storage() -> TaskStorage:
@@ -41,6 +43,7 @@ from taskpy.modern.workflow.commands import validate_promotion
 def cmd_info(args):
     """Show task status and gate requirements for next promotion."""
     storage = get_storage()
+    mode = get_output_mode()
 
     if not storage.is_initialized():
         print_error("TaskPy not initialized. Run: taskpy init")
@@ -172,39 +175,59 @@ def cmd_kanban(args):
         print_error("TaskPy not initialized. Run: taskpy init")
         sys.exit(1)
 
-    # Group tasks by status
-    tasks_by_status = {}
-    for status in [TaskStatus.STUB, TaskStatus.BACKLOG, TaskStatus.READY, TaskStatus.ACTIVE,
-                   TaskStatus.QA, TaskStatus.DONE]:
-        tasks_by_status[status] = []
-
-    # Read all tasks from manifest
-    manifest_rows = _read_manifest(storage)
-
-    # Filter by epic if specified
+    rows = _read_manifest(storage)
     epic_filter = getattr(args, 'epic', None)
-    for row in manifest_rows:
+    sort_mode = getattr(args, 'sort', 'priority')
+    statuses = [TaskStatus.STUB, TaskStatus.BACKLOG, TaskStatus.READY,
+                TaskStatus.ACTIVE, TaskStatus.QA, TaskStatus.DONE]
+    grouped: Dict[TaskStatus, List[Dict[str, Any]]] = {status: [] for status in statuses}
+
+    for row in rows:
         if epic_filter and row['epic'] != epic_filter.upper():
             continue
-
         status = TaskStatus(row['status'])
-        if status in tasks_by_status:
-            tasks_by_status[status].append(row)
+        if status in grouped:
+            grouped[status].append(row)
 
-    # Apply sorting to each column
-    sort_mode = getattr(args, 'sort', 'priority')
-    for status in tasks_by_status:
-        tasks_by_status[status] = _sort_tasks(tasks_by_status[status], sort_mode)
+    for status in grouped:
+        grouped[status] = _sort_tasks(grouped[status], sort_mode)
 
-    # Display columns
-    for status in [TaskStatus.STUB, TaskStatus.BACKLOG, TaskStatus.READY, TaskStatus.ACTIVE,
-                   TaskStatus.QA, TaskStatus.DONE]:
-        display_kanban_column(status.value, tasks_by_status[status])
+    if all(len(tasks) == 0 for tasks in grouped.values()):
+        print_info("No tasks match the provided filters.")
+        return
+
+    mode = get_output_mode()
+    if mode == OutputMode.AGENT:
+        payload = {
+            "filters": {
+                "epic": epic_filter,
+                "sort": sort_mode,
+            },
+            "columns": [
+                {
+                    "status": status.value,
+                    "count": len(tasks),
+                    "tasks": tasks,
+                }
+                for status, tasks in grouped.items() if tasks
+            ],
+        }
+        print(json.dumps(payload, indent=2))
+        return
+
+    for status in statuses:
+        tasks = grouped.get(status, [])
+        if not tasks:
+            continue
+        show_column(status.value, tasks, output_mode=mode)
+        if mode == OutputMode.PRETTY:
+            print()
 
 
 def cmd_history(args):
     """Display task history and audit trail."""
     storage = get_storage()
+    mode = get_output_mode()
 
     # Check if showing all tasks or single task
     if getattr(args, 'all', False):
@@ -229,7 +252,29 @@ def cmd_history(args):
             print_info("No tasks with history entries found")
             return
 
-        # Display all history
+        if mode == OutputMode.AGENT:
+            payload = [
+                {
+                    "task_id": task.id,
+                    "title": task.title,
+                    "history": [
+                        {
+                            "timestamp": entry.timestamp.isoformat(),
+                            "action": entry.action,
+                            "from_status": entry.from_status,
+                            "to_status": entry.to_status,
+                            "reason": entry.reason,
+                            "actor": entry.actor,
+                            "metadata": entry.metadata,
+                        }
+                        for entry in task.history
+                    ],
+                }
+                for task in tasks_with_history
+            ]
+            print(json.dumps(payload, indent=2))
+            return
+
         total_entries = sum(len(t.history) for t in tasks_with_history)
         print_success(f"History for {len(tasks_with_history)} tasks ({total_entries} total entries)", "All Task History")
         print()
@@ -237,12 +282,10 @@ def cmd_history(args):
         for task in tasks_with_history:
             print(f"[{task.id}] {task.title}")
             for entry in task.history:
-                # Convert to local timezone
                 local_time = entry.timestamp.astimezone()
                 timestamp = local_time.strftime("%Y-%m-%d %H:%M:%S")
                 action = entry.action
 
-                # Format based on action type
                 if entry.from_status and entry.to_status:
                     transition = f"{entry.from_status} → {entry.to_status}"
                     action_display = f"{action}: {transition}"
@@ -280,17 +323,34 @@ def cmd_history(args):
             print_info(f"No history entries for {args.task_id}")
             return
 
-        # Display history in chronological order
+        if mode == OutputMode.AGENT:
+            payload = {
+                "task_id": task.id,
+                "title": task.title,
+                "history": [
+                    {
+                        "timestamp": entry.timestamp.isoformat(),
+                        "action": entry.action,
+                        "from_status": entry.from_status,
+                        "to_status": entry.to_status,
+                        "reason": entry.reason,
+                        "actor": entry.actor,
+                        "metadata": entry.metadata,
+                    }
+                    for entry in task.history
+                ],
+            }
+            print(json.dumps(payload, indent=2))
+            return
+
         print_success(f"History for {args.task_id} ({len(task.history)} entries)", "Task History")
         print()
 
         for entry in task.history:
-            # Convert to local timezone
             local_time = entry.timestamp.astimezone()
             timestamp = local_time.strftime("%Y-%m-%d %H:%M:%S")
             action = entry.action
 
-            # Format based on action type
             if entry.from_status and entry.to_status:
                 transition = f"{entry.from_status} → {entry.to_status}"
                 action_display = f"{action}: {transition}"
@@ -347,26 +407,49 @@ def cmd_stats(args):
         by_priority[priority] = by_priority.get(priority, 0) + 1
         total_sp += sp
 
-    # Display
+    mode = get_output_mode()
+    summary = {
+        "total_tasks": total,
+        "total_story_points": total_sp,
+        "by_status": by_status,
+        "by_priority": by_priority,
+        "filters": {
+            "epic": epic_filter.upper() if epic_filter else None,
+            "milestone": milestone_filter,
+        },
+    }
+
+    if mode == OutputMode.AGENT:
+        print(json.dumps(summary, indent=2))
+        return
+
     print(f"\n{'='*50}")
-    print(f"Task Statistics")
-    if epic_filter:
-        print(f"Epic: {epic_filter.upper()}")
-    if milestone_filter:
-        print(f"Milestone: {milestone_filter}")
+    print("Task Statistics")
+    if summary["filters"]["epic"]:
+        print(f"Epic: {summary['filters']['epic']}")
+    if summary["filters"]["milestone"]:
+        print(f"Milestone: {summary['filters']['milestone']}")
     print(f"{'='*50}\n")
 
     print(f"Total Tasks: {total}")
     print(f"Total Story Points: {total_sp}\n")
 
-    print("By Status:")
-    for status, count in sorted(by_status.items()):
-        print(f"  {status:15} {count:3}")
+    status_rows = [
+        [status, str(count)]
+        for status, count in sorted(by_status.items())
+        if count > 0
+    ]
+
+    if mode == OutputMode.PRETTY and status_rows:
+        rolo_table(["Status", "Count"], status_rows, title="By Status")
+    else:
+        print("By Status:")
+        for status, count in status_rows:
+            print(f"  {status:15} {count}")
 
     print("\nBy Priority:")
     for priority, count in sorted(by_priority.items()):
-        print(f"  {priority:15} {count:3}")
-
+        print(f"  {priority:15} {count}")
     print()
 
 
