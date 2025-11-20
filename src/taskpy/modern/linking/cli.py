@@ -26,7 +26,11 @@ def _setup_link_parser(subparsers):
         'link',
         help='Attach references or issues to a task',
     )
-    parser.add_argument('task_id', help='Task ID (e.g., FEAT-01)')
+    parser.add_argument(
+        'task_ids',
+        nargs='+',
+        help='Task ID(s) (comma or space separated)',
+    )
     parser.add_argument('--code', action='append', help='Code reference(s)')
     parser.add_argument('--docs', action='append', help='Docs reference(s)')
     parser.add_argument('--plan', action='append', help='Plan reference(s)')

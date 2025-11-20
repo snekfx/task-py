@@ -1,7 +1,7 @@
 """
 Modern CLI with feature registration system.
 
-Access via: taskpy modern <command>
+Access via: taskpy <command> (taskpy modern … is kept as an alias)
 """
 
 import argparse
@@ -17,7 +17,18 @@ from taskpy.legacy.output import (
 )
 
 # Import all feature modules
-from taskpy.modern import nfrs, epics, core, sprint, workflow, display, admin, milestones
+from taskpy.modern import (
+    nfrs,
+    epics,
+    core,
+    sprint,
+    workflow,
+    display,
+    admin,
+    milestones,
+    linking,
+    blocking,
+)
 
 GLOBAL_FLAG_MAP = {
     '--data': 'data',
@@ -33,7 +44,7 @@ def build_cli():
         ArgumentParser: Configured argument parser
     """
     parser = argparse.ArgumentParser(
-        prog='taskpy modern',
+        prog='taskpy',
         description='Modern feature-based architecture (opt-in)'
     )
 
@@ -49,7 +60,7 @@ def build_cli():
     )
 
     # Register all feature modules
-    features = [nfrs, epics, core, sprint, workflow, display, admin, milestones]
+    features = [nfrs, epics, core, sprint, workflow, display, admin, milestones, linking, blocking]
 
     for feature in features:
         # Get command registrations from feature

@@ -8,6 +8,10 @@ from pathlib import Path
 from taskpy.legacy.storage import TaskStorage
 from taskpy.legacy.output import print_error, print_info, print_success, print_warning
 from taskpy.legacy.commands import _read_manifest
+from taskpy.modern.shared.aggregations import (
+    filter_by_milestone,
+    get_milestone_stats,
+)
 from taskpy.modern.shared.output import get_output_mode, OutputMode
 from taskpy.modern.views import ListView, ColumnConfig
 
@@ -129,20 +133,8 @@ def _cmd_milestone_show(args):
 
     # Get tasks for this milestone
     rows = _read_manifest(storage)
-    milestone_tasks = [r for r in rows if r.get('milestone') == args.milestone_id]
-
-    # Calculate stats
-    total_tasks = len(milestone_tasks)
-    total_sp = sum(int(r['story_points']) for r in milestone_tasks)
-    completed_tasks = [r for r in milestone_tasks if r['status'] in ['done', 'archived']]
-    completed_sp = sum(int(r['story_points']) for r in completed_tasks)
-    remaining_sp = total_sp - completed_sp
-
-    # Group by status
-    by_status = {}
-    for task in milestone_tasks:
-        status = task['status']
-        by_status[status] = by_status.get(status, 0) + 1
+    milestone_tasks = filter_by_milestone(rows, args.milestone_id)
+    stats = get_milestone_stats(milestone_tasks)
 
     mode = get_output_mode()
     if mode == OutputMode.DATA:
@@ -155,7 +147,7 @@ def _cmd_milestone_show(args):
         if milestone.blocked_reason:
             print(f"Blocked: {milestone.blocked_reason}")
         print(f"Description: {milestone.description}")
-        print(f"Tasks: {total_tasks} ({len(completed_tasks)} completed)")
+        print(f"Tasks: {stats['total_tasks']} ({stats['completed_tasks']} completed)")
         for task in milestone_tasks:
             print(f"  - {task['id']} [{task['status']}] {task['title']}")
         return
@@ -169,12 +161,12 @@ def _cmd_milestone_show(args):
             "blocked_reason": milestone.blocked_reason,
             "description": milestone.description,
             "stats": {
-                "total_tasks": total_tasks,
-                "completed_tasks": len(completed_tasks),
-                "story_points_completed": completed_sp,
-                "story_points_total": total_sp,
-                "story_points_remaining": remaining_sp,
-                "by_status": by_status,
+                "total_tasks": stats["total_tasks"],
+                "completed_tasks": stats["completed_tasks"],
+                "story_points_completed": stats["story_points_completed"],
+                "story_points_total": stats["story_points_total"],
+                "story_points_remaining": stats["story_points_remaining"],
+                "by_status": stats["by_status"],
             },
             "tasks": milestone_tasks,
         }
@@ -201,17 +193,26 @@ def _cmd_milestone_show(args):
         print(f"⚠️  Blocked: {milestone.blocked_reason}\n")
 
     print(f"Task Progress:")
-    print(f"  Total Tasks: {total_tasks}")
-    print(f"  Completed: {len(completed_tasks)} / {total_tasks}")
-    print(f"  Story Points: {completed_sp} / {total_sp} completed ({remaining_sp} remaining)"
-          if total_sp else "  Story Points: 0")
+    print(f"  Total Tasks: {stats['total_tasks']}")
+    print(f"  Completed: {stats['completed_tasks']} / {stats['total_tasks']}")
+    if stats["story_points_total"]:
+        print(
+            f"  Story Points: {stats['story_points_completed']} / {stats['story_points_total']} "
+            f"completed ({stats['story_points_remaining']} remaining)"
+        )
+    else:
+        print("  Story Points: 0")
     if milestone.goal_sp:
-        progress_pct = (completed_sp / milestone.goal_sp * 100) if milestone.goal_sp > 0 else 0
+        progress_pct = (
+            stats["story_points_completed"] / milestone.goal_sp * 100
+            if milestone.goal_sp > 0
+            else 0
+        )
         print(f"  Goal Progress: {progress_pct:.1f}%")
 
-    if by_status:
+    if stats["by_status"]:
         print(f"\nBy Status:")
-        for status, count in sorted(by_status.items()):
+        for status, count in sorted(stats["by_status"].items()):
             print(f"  {status:15} {count:3}")
 
     print()

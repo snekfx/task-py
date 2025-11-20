@@ -6,6 +6,7 @@ from pathlib import Path
 from datetime import datetime, timedelta
 from typing import Optional
 
+from taskpy.modern.shared.aggregations import filter_by_sprint, get_sprint_stats
 from taskpy.modern.shared.messages import print_error, print_info, print_success, print_warning
 from taskpy.modern.shared.output import get_output_mode, OutputMode
 from taskpy.modern.shared.tasks import (
@@ -20,6 +21,7 @@ from taskpy.modern.shared.tasks import (
     KANBAN_RELATIVE_PATH,
 )
 from taskpy.modern.views import ListView, ColumnConfig
+from taskpy.modern.shared.tasks import parse_task_ids
 from taskpy.legacy.storage import TaskStorage
 
 
@@ -96,61 +98,79 @@ def _cmd_sprint_list(args):
 
 
 def _cmd_sprint_add(args):
-    """Add task to sprint."""
+    """Add task(s) to sprint."""
     try:
         ensure_initialized(Path.cwd())
     except KanbanNotInitialized:
         print_error("TaskPy not initialized. Run: taskpy init")
         sys.exit(1)
 
-    task_id = args.task_id.upper()
-    result = find_task_file(task_id)
-    if not result:
-        print_error(f"Task not found: {task_id}")
+    task_ids = parse_task_ids(args.task_ids)
+    if not task_ids:
+        print_error("No valid task IDs provided")
         sys.exit(1)
 
-    task = load_task(task_id)
+    failures = []
 
-    # Check if already in sprint
-    if task.in_sprint:
-        print_warning(f"{task_id} is already in the sprint")
-        return
+    for task_id in task_ids:
+        result = find_task_file(task_id)
+        if not result:
+            print_error(f"Task not found: {task_id}")
+            failures.append(task_id)
+            continue
 
-    # Add to sprint
-    task.in_sprint = True
-    task.updated = utc_now()
-    write_task(task)
+        task = load_task(task_id)
 
-    print_success(f"Added {task_id} to sprint")
+        if task.in_sprint:
+            print_warning(f"{task_id} is already in the sprint")
+            continue
+
+        task.in_sprint = True
+        task.updated = utc_now()
+        write_task(task)
+
+        print_success(f"Added {task_id} to sprint")
+
+    if failures:
+        sys.exit(1)
 
 
 def _cmd_sprint_remove(args):
-    """Remove task from sprint."""
+    """Remove task(s) from sprint."""
     try:
         ensure_initialized(Path.cwd())
     except KanbanNotInitialized:
         print_error("TaskPy not initialized. Run: taskpy init")
         sys.exit(1)
 
-    task_id = args.task_id.upper()
-    result = find_task_file(task_id)
-    if not result:
-        print_error(f"Task not found: {task_id}")
+    task_ids = parse_task_ids(args.task_ids)
+    if not task_ids:
+        print_error("No valid task IDs provided")
         sys.exit(1)
 
-    task = load_task(task_id)
+    failures = []
 
-    # Check if in sprint
-    if not task.in_sprint:
-        print_warning(f"{task_id} is not in the sprint")
-        return
+    for task_id in task_ids:
+        result = find_task_file(task_id)
+        if not result:
+            print_error(f"Task not found: {task_id}")
+            failures.append(task_id)
+            continue
 
-    # Remove from sprint
-    task.in_sprint = False
-    task.updated = utc_now()
-    write_task(task)
+        task = load_task(task_id)
 
-    print_success(f"Removed {task_id} from sprint")
+        if not task.in_sprint:
+            print_warning(f"{task_id} is not in the sprint")
+            continue
+
+        task.in_sprint = False
+        task.updated = utc_now()
+        write_task(task)
+
+        print_success(f"Removed {task_id} from sprint")
+
+    if failures:
+        sys.exit(1)
 
 
 def _cmd_sprint_clear(args):
@@ -197,45 +217,31 @@ def _cmd_sprint_stats(args):
         sys.exit(1)
 
     rows = load_manifest()
-    sprint_tasks = [r for r in rows if r.get('in_sprint', 'false') == 'true']
+    sprint_tasks = filter_by_sprint(rows, True)
 
     if not sprint_tasks:
         print_info("No tasks in sprint")
         return
 
-    # Calculate statistics
-    total_tasks = len(sprint_tasks)
-    total_sp = sum(int(r.get('story_points', 0)) for r in sprint_tasks)
-
-    # Group by status
-    by_status = {}
-    for row in sprint_tasks:
-        status = row.get('status', 'unknown')
-        by_status[status] = by_status.get(status, 0) + 1
-
-    # Group by priority
-    by_priority = {}
-    for row in sprint_tasks:
-        priority = row.get('priority', 'unknown')
-        by_priority[priority] = by_priority.get(priority, 0) + 1
+    stats = get_sprint_stats(sprint_tasks)
 
     # Display statistics
     print(f"\n{'='*50}")
     print(f"Sprint Statistics")
     print(f"{'='*50}\n")
 
-    print(f"Total Tasks: {total_tasks}")
-    print(f"Total Story Points: {total_sp}\n")
+    print(f"Total Tasks: {stats['total_tasks']}")
+    print(f"Total Story Points: {stats['total_story_points']}\n")
 
     print("By Status:")
     for status in ['stub', 'backlog', 'ready', 'active', 'qa', 'regression', 'done', 'blocked']:
-        count = by_status.get(status, 0)
+        count = stats['by_status'].get(status, 0)
         if count > 0:
             print(f"  {status:15} {count:3}")
 
     print("\nBy Priority:")
     for priority in ['critical', 'high', 'medium', 'low']:
-        count = by_priority.get(priority, 0)
+        count = stats['by_priority'].get(priority, 0)
         if count > 0:
             print(f"  {priority:15} {count:3}")
 

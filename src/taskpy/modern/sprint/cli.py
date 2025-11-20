@@ -63,14 +63,22 @@ def setup_parser(subparsers):
         'add',
         help='Add task to sprint'
     )
-    add_parser.add_argument('task_id', help='Task ID to add to sprint')
+    add_parser.add_argument(
+        'task_ids',
+        nargs='+',
+        help='Task ID(s) to add to sprint (comma/space separated)'
+    )
 
     # remove subcommand
     remove_parser = sprint_subparsers.add_parser(
         'remove',
         help='Remove task from sprint'
     )
-    remove_parser.add_argument('task_id', help='Task ID to remove from sprint')
+    remove_parser.add_argument(
+        'task_ids',
+        nargs='+',
+        help='Task ID(s) to remove from sprint (comma/space separated)'
+    )
 
     # clear subcommand
     sprint_subparsers.add_parser(

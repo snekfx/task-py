@@ -95,8 +95,53 @@ def setup_session_parser(subparsers):
     """Setup argument parser for session command."""
     parser = subparsers.add_parser(
         'session',
-        help='Manage work sessions (coming soon)'
+        help='Manage work sessions'
     )
+    parser.set_defaults(session_command='status')
+
+    session_subparsers = parser.add_subparsers(
+        dest='session_command',
+        help='Session subcommands'
+    )
+
+    start_parser = session_subparsers.add_parser(
+        'start',
+        help='Start a new work session'
+    )
+    start_parser.add_argument('--focus', help='Primary focus or description for this session')
+    start_parser.add_argument('--task', help='Primary task ID for this session')
+    start_parser.add_argument('--notes', help='Optional notes captured when starting the session')
+
+    end_parser = session_subparsers.add_parser(
+        'end',
+        help='End the active session and log it'
+    )
+    end_parser.add_argument('--notes', help='Summary notes appended when ending the session')
+
+    stop_parser = session_subparsers.add_parser(
+        'stop',
+        help='Alias for end'
+    )
+    stop_parser.add_argument('--notes', help='Summary notes appended when ending the session')
+
+    session_subparsers.add_parser(
+        'status',
+        help='Show the current session status (default)'
+    )
+
+    list_parser = session_subparsers.add_parser(
+        'list',
+        help='List recent sessions from the session log'
+    )
+    list_parser.add_argument('--limit', type=int, default=5,
+                             help='Number of entries to show (default: 5)')
+
+    commit_parser = session_subparsers.add_parser(
+        'commit',
+        help='Record a commit hash/message for the active session'
+    )
+    commit_parser.add_argument('commit_hash', help='Commit hash to record')
+    commit_parser.add_argument('message', nargs='+', help='Commit message/notes')
 
     return parser
 

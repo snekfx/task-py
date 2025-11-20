@@ -5,16 +5,18 @@ This module provides administrative and maintenance commands:
 - verify: Run verification tests for tasks
 - manifest: Manage manifest operations (rebuild)
 - groom: Audit stub tasks for sufficient detail
-- session: Manage work sessions (stub)
+- session: Manage work sessions
 
 Migrated from legacy/commands.py (lines 220-259, 936-995, 1389-1393, 2347-2420)
 """
 
+import json
 import sys
 import subprocess
 import statistics
+from datetime import datetime
 from pathlib import Path
-from typing import List, Tuple, Iterable
+from typing import List, Tuple, Iterable, Dict, Any, Optional
 from taskpy.legacy.models import Task, TaskStatus, VerificationStatus, utc_now
 from taskpy.legacy.storage import TaskStorage, StorageError
 from taskpy.legacy.output import print_success, print_error, print_info, print_warning
@@ -23,6 +25,66 @@ from taskpy.legacy.output import print_success, print_error, print_info, print_w
 def get_storage() -> TaskStorage:
     """Get TaskStorage for current directory."""
     return TaskStorage(Path.cwd())
+
+
+SESSION_STATE_FILENAME = "session_current.json"
+SESSION_LOG_FILENAME = "sessions.jsonl"
+SESSION_SEQUENCE_FILENAME = ".session_seq"
+
+
+def _session_paths(storage: TaskStorage) -> tuple[Path, Path, Path]:
+    """Return (state_path, log_path, sequence_path) under kanban/info."""
+    info_dir = storage.kanban / "info"
+    info_dir.mkdir(parents=True, exist_ok=True)
+    state_path = info_dir / SESSION_STATE_FILENAME
+    log_path = info_dir / SESSION_LOG_FILENAME
+    sequence_path = info_dir / SESSION_SEQUENCE_FILENAME
+    return state_path, log_path, sequence_path
+
+
+def _load_json(path: Path) -> Optional[Dict[str, Any]]:
+    if not path.exists():
+        return None
+    try:
+        return json.loads(path.read_text())
+    except json.JSONDecodeError:
+        print_warning(f"Session file {path} is corrupted; ignoring.")
+        return None
+
+
+def _write_json(path: Path, data: Dict[str, Any]):
+    path.write_text(json.dumps(data, indent=2))
+
+
+def _append_session_log(path: Path, session: Dict[str, Any]):
+    line = json.dumps(session)
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(line + "\n")
+
+
+def _next_session_id(sequence_path: Path) -> str:
+    if sequence_path.exists():
+        try:
+            current = int(sequence_path.read_text().strip())
+        except ValueError:
+            current = 0
+    else:
+        current = 0
+    next_value = current + 1
+    sequence_path.write_text(str(next_value))
+    return f"session-{next_value:03d}"
+
+
+def _format_duration(seconds: int) -> str:
+    if seconds <= 0:
+        return "0m"
+    minutes, sec = divmod(seconds, 60)
+    hours, minutes = divmod(minutes, 60)
+    if hours:
+        return f"{hours}h {minutes}m"
+    if minutes:
+        return f"{minutes}m"
+    return f"{sec}s"
 
 
 # =============================================================================
@@ -253,10 +315,181 @@ def cmd_groom(args):
         print_success(f"All {len(stub_tasks)} stub tasks meet detail threshold", "Groom Check")
 
 
+def _session_start(storage: TaskStorage, args):
+    state_path, _, sequence_path = _session_paths(storage)
+    if state_path.exists():
+        active = _load_json(state_path) or {}
+        session_id = active.get("session_id", "unknown")
+        print_error(f"Session {session_id} is already active. End it before starting a new one.")
+        sys.exit(1)
+
+    session_id = _next_session_id(sequence_path)
+    now = utc_now().isoformat()
+    session = {
+        "session_id": session_id,
+        "started": now,
+        "focus": getattr(args, "focus", None),
+        "primary_task": getattr(args, "task", None),
+        "notes": getattr(args, "notes", None),
+        "commits": [],
+    }
+    session = {k: v for k, v in session.items() if v not in (None, "", [])}
+
+    _write_json(state_path, session)
+
+    print_success(f"Started session {session_id}", "Session Started")
+    if session.get("focus"):
+        print_info(f"Focus: {session['focus']}")
+    print_info("Use `taskpy session end` to close the session when finished.")
+
+
+def _session_end(storage: TaskStorage, args):
+    state_path, log_path, _ = _session_paths(storage)
+    active = _load_json(state_path)
+
+    if not active:
+        print_warning("No active session to end.")
+        return
+
+    now = utc_now()
+    active["ended"] = now.isoformat()
+    started = active.get("started")
+    duration_seconds = 0
+    if started:
+        try:
+            start_dt = datetime.fromisoformat(started)
+            duration_seconds = int((now - start_dt).total_seconds())
+        except ValueError:
+            duration_seconds = 0
+    active["duration_seconds"] = max(duration_seconds, 0)
+
+    closing_notes = getattr(args, "notes", None)
+    if closing_notes:
+        if active.get("notes"):
+            active["notes"] = f"{active['notes']}\n{closing_notes}"
+        else:
+            active["notes"] = closing_notes
+
+    _append_session_log(log_path, active)
+    state_path.unlink(missing_ok=True)
+
+    print_success(
+        f"Ended session {active.get('session_id')} "
+        f"({_format_duration(active['duration_seconds'])})",
+        "Session Ended"
+    )
+
+
+def _session_status(storage: TaskStorage):
+    state_path, _, _ = _session_paths(storage)
+    active = _load_json(state_path)
+
+    if not active:
+        print_info("No active session. Start one with: taskpy session start --focus \"<focus>\"")
+        return
+
+    started = active.get("started")
+    elapsed = 0
+    if started:
+        try:
+            start_dt = datetime.fromisoformat(started)
+            elapsed = int((utc_now() - start_dt).total_seconds())
+        except ValueError:
+            elapsed = 0
+
+    print_success(f"Active session: {active.get('session_id')}", "Session Status")
+    if started:
+        print_info(f"Started: {started}")
+    if active.get("focus"):
+        print_info(f"Focus: {active['focus']}")
+    if active.get("primary_task"):
+        print_info(f"Primary task: {active['primary_task']}")
+    if elapsed:
+        print_info(f"Elapsed: {_format_duration(elapsed)}")
+    if active.get("commits"):
+        print_info(f"Commits logged: {len(active['commits'])}")
+
+
+def _session_list(storage: TaskStorage, limit: int):
+    _, log_path, _ = _session_paths(storage)
+    if not log_path.exists():
+        print_info("No sessions recorded yet.")
+        return
+
+    entries: List[Dict[str, Any]] = []
+    with log_path.open("r", encoding="utf-8") as handle:
+        for line in handle:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                entries.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+
+    if not entries:
+        print_info("No sessions recorded yet.")
+        return
+
+    limit = limit if limit and limit > 0 else len(entries)
+    recent = entries[-limit:]
+    print_success(f"Last {len(recent)} session(s)", "Session Log")
+    for session in reversed(recent):
+        session_id = session.get("session_id", "session")
+        start = session.get("started", "unknown")
+        duration = _format_duration(session.get("duration_seconds", 0))
+        focus = session.get("focus") or "N/A"
+        print(f"- {session_id}: {start} ({duration}) | Focus: {focus}")
+
+
+def _session_commit(storage: TaskStorage, args):
+    state_path, _, _ = _session_paths(storage)
+    active = _load_json(state_path)
+    if not active:
+        print_error("No active session. Start one before logging commits.")
+        sys.exit(1)
+
+    commit_hash = getattr(args, "commit_hash", None)
+    message_parts = getattr(args, "message", [])
+    if not commit_hash or not message_parts:
+        print_error("Commit hash and message are required.")
+        sys.exit(1)
+
+    commit_entry = {
+        "hash": commit_hash,
+        "message": " ".join(message_parts),
+        "timestamp": utc_now().isoformat(),
+    }
+    active.setdefault("commits", []).append(commit_entry)
+    _write_json(state_path, active)
+
+    print_success(f"Logged commit {commit_hash} for {active.get('session_id')}")
+
+
 def cmd_session(args):
-    """Manage work sessions."""
-    # TODO: Implement session management
-    print_info("Session management coming soon in META PROCESS v4")
+    """Manage work sessions with start/stop/status/list/commit helpers."""
+    storage = get_storage()
+
+    if not storage.is_initialized():
+        print_error("TaskPy not initialized. Run: taskpy init")
+        sys.exit(1)
+
+    command = getattr(args, "session_command", "status")
+
+    if command == 'start':
+        _session_start(storage, args)
+    elif command in {'end', 'stop'}:
+        _session_end(storage, args)
+    elif command == 'status':
+        _session_status(storage)
+    elif command == 'list':
+        limit = getattr(args, 'limit', 5)
+        _session_list(storage, limit)
+    elif command == 'commit':
+        _session_commit(storage, args)
+    else:
+        print_error(f"Unknown session subcommand: {command}")
+        sys.exit(1)
 
 
 def cmd_overrides(args):

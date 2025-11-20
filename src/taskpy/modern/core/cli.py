@@ -86,14 +86,21 @@ def setup_list_parser(subparsers):
     parser.add_argument('--epic', help='Filter by epic')
     parser.add_argument('--priority', help='Filter by priority')
     parser.add_argument('--milestone', help='Filter by milestone')
+    parser.add_argument('--assigned', help='Filter by assigned user/session')
+    parser.add_argument('--tags', help='Filter by tags (comma-separated)')
     parser.add_argument('--sprint', action='store_true', help='Show only sprint tasks')
     parser.add_argument('--all', action='store_true', help='Show all tasks including done/archived')
+    parser.add_argument('--show-all', dest='all', action='store_true', help=argparse.SUPPRESS)
 
     # Sorting
     parser.add_argument('--sort',
-                       choices=['priority', 'status', 'sp', 'created', 'updated'],
+                       choices=['priority', 'status', 'sp', 'created', 'updated', 'id', 'epic'],
                        default='priority',
                        help='Sort order')
+    parser.add_argument('--format',
+                        choices=['table', 'cards', 'ids', 'tsv'],
+                        default='table',
+                        help='Output format (table default)')
 
     return parser
 

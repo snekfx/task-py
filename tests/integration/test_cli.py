@@ -40,11 +40,13 @@ class TestCLI:
 
     def test_version(self):
         """Test taskpy --version."""
+        from taskpy import __version__
+
         result = self.run_taskpy(["--version"])
         assert result.returncode == 0
         # Version output includes logo which may have styling
         assert "Version:" in result.stdout
-        assert "0.2." in result.stdout  # Check for 0.2.x version
+        assert __version__ in result.stdout
 
     def test_init(self, temp_dir):
         """Test taskpy init."""

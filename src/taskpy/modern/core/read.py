@@ -36,6 +36,24 @@ def _read_manifest_with_filters(args):
     if hasattr(args, 'priority') and args.priority:
         rows = [r for r in rows if r['priority'] == args.priority]
 
+    if hasattr(args, 'assigned') and args.assigned:
+        rows = [r for r in rows if r.get('assigned') == args.assigned]
+
+    if hasattr(args, 'tags') and args.tags:
+        filter_tags = {
+            tag.strip().lower()
+            for tag in args.tags.split(',')
+            if tag.strip()
+        }
+        rows = [
+            r for r in rows
+            if filter_tags.intersection({
+                tag.strip().lower()
+                for tag in r.get('tags', '').split(',')
+                if tag.strip()
+            })
+        ]
+
     if hasattr(args, 'milestone') and args.milestone:
         rows = [r for r in rows if r.get('milestone') == args.milestone]
 
@@ -62,6 +80,39 @@ def cmd_list(args):
     sort_mode = getattr(args, 'sort', 'priority')
     tasks = sort_manifest_rows(tasks, sort_mode)
 
+    mode = get_output_mode()
+    format_mode = getattr(args, 'format', 'table')
+
+    if format_mode == 'ids':
+        for task in tasks:
+            print(task['id'])
+        return
+
+    if format_mode == 'tsv':
+        print("\t".join(["id", "epic", "status", "title", "sp", "priority"]))
+        for task in tasks:
+            print(f"{task['id']}\t{task['epic']}\t{task['status']}\t{task['title']}\t{task['story_points']}\t{task['priority']}")
+        return
+
+    if format_mode == 'cards':
+        for task in tasks:
+            show_card(
+                {
+                    'id': task['id'],
+                    'title': task.get('title', ''),
+                    'status': task.get('status', ''),
+                    'priority': task.get('priority', 'medium'),
+                    'story_points': int(task.get('story_points', 0)),
+                    'tags': [t.strip() for t in task.get('tags', '').split(',') if t.strip()],
+                    'dependencies': [d.strip() for d in task.get('dependencies', '').split(',') if d.strip()],
+                    'assigned': task.get('assigned'),
+                },
+                output_mode=mode,
+            )
+            if mode != OutputMode.DATA:
+                print()
+        return
+
     # Configure columns
     columns = [
         ColumnConfig(name="ID", field="id"),
@@ -77,7 +128,7 @@ def cmd_list(args):
         data=tasks,
         columns=columns,
         title=f"Tasks ({len(tasks)} found)",
-        output_mode=get_output_mode(),
+        output_mode=mode,
         status_field='status',
         grey_done=True,
     )

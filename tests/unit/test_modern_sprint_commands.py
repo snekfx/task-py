@@ -129,7 +129,7 @@ class TestSprintAddCommand:
         )
         storage.write_task_file(task)
 
-        args = Namespace(task_id="TEST-01")
+        args = Namespace(task_ids=["TEST-01"])
 
         monkeypatch.chdir(tmp_path)
         _cmd_sprint_add(args)
@@ -157,7 +157,7 @@ class TestSprintAddCommand:
         )
         storage.write_task_file(task)
 
-        args = Namespace(task_id="TEST-01")
+        args = Namespace(task_ids=["TEST-01"])
 
         monkeypatch.chdir(tmp_path)
         _cmd_sprint_add(args)
@@ -171,7 +171,7 @@ class TestSprintAddCommand:
         storage = TaskStorage(tmp_path)
         storage.initialize()
 
-        args = Namespace(task_id="FAKE-99")
+        args = Namespace(task_ids=["FAKE-99"])
 
         monkeypatch.chdir(tmp_path)
 
@@ -179,6 +179,31 @@ class TestSprintAddCommand:
             _cmd_sprint_add(args)
 
         assert exc_info.value.code == 1
+
+    def test_add_multiple_tasks(self, tmp_path, monkeypatch):
+        """Adding multiple tasks should parse comma-separated IDs."""
+        storage = TaskStorage(tmp_path)
+        storage.initialize()
+
+        for i in range(2):
+            task = Task(
+                id=f"TEST-0{i+1}",
+                epic="TEST",
+                number=i + 1,
+                title="Task",
+                status=TaskStatus.BACKLOG,
+                priority=Priority.MEDIUM,
+                story_points=1,
+            )
+            storage.write_task_file(task)
+
+        args = Namespace(task_ids=["TEST-01,TEST-02"])
+        monkeypatch.chdir(tmp_path)
+        _cmd_sprint_add(args)
+
+        for tid in ["TEST-01", "TEST-02"]:
+            path, _ = storage.find_task_file(tid)
+            assert storage.read_task_file(path).in_sprint
 
 
 class TestSprintRemoveCommand:
@@ -201,7 +226,7 @@ class TestSprintRemoveCommand:
         )
         storage.write_task_file(task)
 
-        args = Namespace(task_id="TEST-01")
+        args = Namespace(task_ids=["TEST-01"])
 
         monkeypatch.chdir(tmp_path)
         _cmd_sprint_remove(args)
@@ -211,6 +236,32 @@ class TestSprintRemoveCommand:
         path, _ = result
         updated_task = storage.read_task_file(path)
         assert updated_task.in_sprint is False
+
+    def test_remove_multiple_tasks(self, tmp_path, monkeypatch):
+        """Removing multiple tasks should update each."""
+        storage = TaskStorage(tmp_path)
+        storage.initialize()
+
+        for i in range(2):
+            task = Task(
+                id=f"TEST-0{i+1}",
+                epic="TEST",
+                number=i + 1,
+                title="Task",
+                status=TaskStatus.BACKLOG,
+                priority=Priority.MEDIUM,
+                story_points=1,
+                in_sprint=True,
+            )
+            storage.write_task_file(task)
+
+        args = Namespace(task_ids=["TEST-01", "TEST-02"])
+        monkeypatch.chdir(tmp_path)
+        _cmd_sprint_remove(args)
+
+        for tid in ["TEST-01", "TEST-02"]:
+            path, _ = storage.find_task_file(tid)
+            assert storage.read_task_file(path).in_sprint is False
 
     def test_remove_task_not_in_sprint(self, tmp_path, monkeypatch, capsys):
         """Test removing task that's not in sprint."""
@@ -229,7 +280,7 @@ class TestSprintRemoveCommand:
         )
         storage.write_task_file(task)
 
-        args = Namespace(task_id="TEST-01")
+        args = Namespace(task_ids=["TEST-01"])
 
         monkeypatch.chdir(tmp_path)
         _cmd_sprint_remove(args)

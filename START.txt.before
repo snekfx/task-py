@@ -11,12 +11,13 @@ working effectively using Meta Process v4 via TaskPy.
 
 Project: TaskPy
 Description: File-based agile task management tool for META PROCESS v4 workflows
-Version: 0.3.1
+Version: 0.3.0
 Language: Python 3.8+
 
 Repository Structure:
   src/taskpy/          - Source code
-    modern/            - Modular architecture (current implementation)
+    legacy/            - Legacy implementation (being retired)
+    modern/            - Modern modular architecture (active work)
       core/            - Core CRUD commands (✅ COMPLETE - REF-13)
       sprint/          - Sprint management (✅ COMPLETE - REF-55)
       epics/           - Epic commands (✅ COMPLETE)
@@ -56,7 +57,7 @@ Read these files IN ORDER:
   STEP 3: UNDERSTAND CURRENT WORK
 ===============================================================================
 
-Current Sprint Focus: Batch command polish and task list enhancements.
+Current Sprint Focus: Retire legacy dependencies and finish remaining regressions.
 
 Migration Status (REF tickets):
   ✅ COMPLETE:

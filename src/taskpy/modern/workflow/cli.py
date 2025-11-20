@@ -1,7 +1,8 @@
 """CLI registration for workflow features."""
 
 import argparse
-from .commands import cmd_promote, cmd_demote, cmd_move
+from taskpy.modern.shared.utils import add_reason_argument
+from .commands import cmd_promote, cmd_demote, cmd_move, cmd_resolve
 
 
 def register():
@@ -32,6 +33,11 @@ def register():
             'func': cmd_move,
             'help': 'Move task(s) to specific status',
             'parser': setup_move_parser
+        },
+        'resolve': {
+            'func': cmd_resolve,
+            'help': 'Resolve bug tasks with special resolution types',
+            'parser': setup_resolve_parser,
         }
     }
 
@@ -53,7 +59,11 @@ def setup_promote_parser(subparsers):
     parser.add_argument('--target-status', help='Target status (optional, defaults to next in workflow)')
     parser.add_argument('--commit', help='Commit hash (for qa→done promotion)')
     parser.add_argument('--override', action='store_true', help='Override gate validation (logged)')
-    parser.add_argument('--reason', help='Reason for override (recommended with --override)')
+    add_reason_argument(
+        parser,
+        required=False,
+        help_text='Reason for override (recommended with --override)',
+    )
 
     return parser
 
@@ -73,7 +83,11 @@ def setup_demote_parser(subparsers):
     )
     parser.add_argument('task_id', help='Task ID to demote')
     parser.add_argument('--to', help='Target status (optional, defaults to previous in workflow)')
-    parser.add_argument('--reason', help='Reason for demotion (required for done→qa)')
+    add_reason_argument(
+        parser,
+        required=False,
+        help_text='Reason for demotion (required for done→qa)',
+    )
     parser.add_argument('--override', action='store_true', help='Override gate validation (logged)')
 
     return parser
@@ -94,8 +108,29 @@ def setup_move_parser(subparsers):
     )
     parser.add_argument('task_ids', nargs='+', help='Task ID(s) to move (space or comma-separated)')
     parser.add_argument('status', help='Target status')
-    parser.add_argument('--reason', required=True, help='Reason for move (required)')
+    add_reason_argument(
+        parser,
+        required=True,
+        help_text='Reason for move (required)',
+    )
 
+    return parser
+
+
+def setup_resolve_parser(subparsers):
+    parser = subparsers.add_parser(
+        'resolve',
+        help='Resolve BUGS/REG/DEF tasks with resolution types'
+    )
+    parser.add_argument('task_id', help='Bug-like task ID (BUGS-*, REG-*, DEF-*)')
+    parser.add_argument(
+        '--resolution',
+        required=True,
+        choices=['fixed', 'duplicate', 'cannot_reproduce', 'wont_fix', 'config_change', 'docs_only'],
+        help='Resolution type'
+    )
+    add_reason_argument(parser, required=True, help_text='Explanation for this resolution')
+    parser.add_argument('--duplicate-of', help='Required when --resolution duplicate')
     return parser
 
 

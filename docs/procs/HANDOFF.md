@@ -26,7 +26,7 @@ Modern feature modules are now complete end-to-end. All outstanding REF regressi
 - **Completed This Session**:  
   - REF-12/14/15/16/17 – Modern sprint, workflow, display, admin, milestones + tests  
   - REF-08 – Small features migration complete (epics/NFRs/milestones)  
-  - FEAT-59 – Manual ID creation (`taskpy modern create FEAT-123 … --auto`)  
+- FEAT-59 – Manual ID creation (`taskpy create FEAT-123 … --auto`)  
   - BUGS-18/19 – Workflow move batching + sprint clear manifest batching  
   - REF-04 – Feature-module architecture reviewed & documented
 - **Remaining Work**:  
@@ -72,8 +72,9 @@ taskpy groom                        # Audit task detail depth
 taskpy stoplight TASK-ID            # Gate check (exit codes for CI)
 
 # Migration work
-taskpy modern list --sprint         # Test modern core module
-taskpy modern show REF-13          # Test show command
+taskpy list --sprint               # Sprint board
+taskpy list --format cards         # Card summary
+
 taskpy show REF-12                 # Check sprint migration status
 
 # Documentation

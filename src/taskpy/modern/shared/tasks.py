@@ -328,6 +328,10 @@ def sort_manifest_rows(rows: List[Dict[str, str]], mode: str) -> List[Dict[str, 
         key_fn = lambda r: r.get("created", "")
     elif mode == "updated":
         key_fn = lambda r: r.get("updated", "")
+    elif mode == "id":
+        key_fn = lambda r: r.get("id", "")
+    elif mode == "epic":
+        key_fn = lambda r: r.get("epic", "")
     else:
         return rows
 
@@ -428,10 +432,18 @@ def _read_task_file(path: Path) -> TaskRecord:
     references = metadata.get("references") or {}
     if not isinstance(references, dict):
         references = {}
+    for key, value in list(metadata.items()):
+        if key.startswith("references."):
+            _, ref_key = key.split(".", 1)
+            references.setdefault(ref_key, value)
 
     verification = metadata.get("verification") or {}
     if not isinstance(verification, dict):
         verification = {}
+    for key, value in list(metadata.items()):
+        if key.startswith("verification."):
+            _, ver_key = key.split(".", 1)
+            verification.setdefault(ver_key, value)
 
     return TaskRecord(
         id=str(metadata.get("id", "")),

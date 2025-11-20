@@ -12,6 +12,7 @@ from taskpy.modern.shared.tasks import (
     write_task,
     append_issue,
     read_issues,
+    parse_task_ids,
 )
 
 
@@ -23,41 +24,53 @@ def cmd_link(args):
         print_error("TaskPy not initialized. Run: taskpy init")
         sys.exit(1)
 
-    result = find_task_file(args.task_id)
-    if not result:
-        print_error(f"Task not found: {args.task_id}")
+    task_ids = parse_task_ids(args.task_ids)
+    if not task_ids:
+        print_error("No valid task IDs provided")
         sys.exit(1)
 
-    path, _ = result
+    failures = []
 
-    try:
-        task = load_task(args.task_id)
+    for task_id in task_ids:
+        result = find_task_file(task_id)
+        if not result:
+            print_error(f"Task not found: {task_id}")
+            failures.append(task_id)
+            continue
 
-        if args.code:
-            task.references["code"].extend(args.code)
-        if args.docs:
-            task.references["docs"].extend(args.docs)
-        if args.plan:
-            task.references["plans"].extend(args.plan)
-        if args.test:
-            task.references["tests"].extend(args.test)
-        if args.nfr:
-            task.nfrs.extend(args.nfr)
-        if args.verify:
-            task.verification["command"] = args.verify[0]
-            task.verification["status"] = "pending"
-        if args.commit:
-            task.commit_hash = args.commit
+        path, _ = result
 
-        write_task(task)
+        try:
+            task = load_task(task_id)
 
-        if args.issue:
-            for desc in args.issue:
-                append_issue(path, desc)
+            if args.code:
+                task.references["code"].extend(args.code)
+            if args.docs:
+                task.references["docs"].extend(args.docs)
+            if args.plan:
+                task.references["plans"].extend(args.plan)
+            if args.test:
+                task.references["tests"].extend(args.test)
+            if args.nfr:
+                task.nfrs.extend(args.nfr)
+            if args.verify:
+                task.verification["command"] = args.verify[0]
+                task.verification["status"] = "pending"
+            if args.commit:
+                task.commit_hash = args.commit
 
-        print_success(f"References linked to {args.task_id}")
-    except Exception as exc:
-        print_error(f"Failed to link references: {exc}")
+            write_task(task)
+
+            if args.issue:
+                for desc in args.issue:
+                    append_issue(path, desc)
+
+            print_success(f"References linked to {task_id}")
+        except Exception as exc:
+            print_error(f"Failed to link references for {task_id}: {exc}")
+            failures.append(task_id)
+
+    if failures:
         sys.exit(1)
 
 

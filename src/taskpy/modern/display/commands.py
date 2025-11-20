@@ -23,7 +23,13 @@ from taskpy.legacy.output import (
     print_warning,
 )
 from taskpy.legacy.commands import _read_manifest, _sort_tasks
+from taskpy.modern.shared.aggregations import (
+    filter_by_epic,
+    filter_by_milestone,
+    get_project_stats,
+)
 from taskpy.modern.shared.output import get_output_mode, OutputMode
+from taskpy.modern.shared.utils import format_history_entry
 from taskpy.modern.views import show_column, rolo_table
 
 
@@ -282,24 +288,8 @@ def cmd_history(args):
         for task in tasks_with_history:
             print(f"[{task.id}] {task.title}")
             for entry in task.history:
-                local_time = entry.timestamp.astimezone()
-                timestamp = local_time.strftime("%Y-%m-%d %H:%M:%S")
-                action = entry.action
-
-                if entry.from_status and entry.to_status:
-                    transition = f"{entry.from_status} → {entry.to_status}"
-                    action_display = f"{action}: {transition}"
-                else:
-                    action_display = action
-
-                print(f"  [{timestamp}] {action_display}")
-                if entry.reason:
-                    print(f"    Reason: {entry.reason}")
-                if entry.actor:
-                    print(f"    Actor: {entry.actor}")
-                if entry.metadata:
-                    for key, value in entry.metadata.items():
-                        print(f"    {key}: {value}")
+                for line in format_history_entry(entry):
+                    print(line)
             print()
         return
 
@@ -347,24 +337,8 @@ def cmd_history(args):
         print()
 
         for entry in task.history:
-            local_time = entry.timestamp.astimezone()
-            timestamp = local_time.strftime("%Y-%m-%d %H:%M:%S")
-            action = entry.action
-
-            if entry.from_status and entry.to_status:
-                transition = f"{entry.from_status} → {entry.to_status}"
-                action_display = f"{action}: {transition}"
-            else:
-                action_display = action
-
-            print(f"  [{timestamp}] {action_display}")
-            if entry.reason:
-                print(f"    Reason: {entry.reason}")
-            if entry.actor:
-                print(f"    Actor: {entry.actor}")
-            if entry.metadata:
-                for key, value in entry.metadata.items():
-                    print(f"    {key}: {value}")
+            for line in format_history_entry(entry):
+                print(line)
 
     except Exception as e:
         print_error(f"Error reading task history: {e}")
@@ -379,40 +353,20 @@ def cmd_stats(args):
         print_error("TaskPy not initialized. Run: taskpy init")
         sys.exit(1)
 
-    # Read manifest
     rows = _read_manifest(storage)
 
-    # Filter by epic if specified
     epic_filter = getattr(args, 'epic', None)
     if epic_filter:
-        rows = [r for r in rows if r['epic'] == epic_filter.upper()]
+        rows = filter_by_epic(rows, epic_filter)
 
-    # Filter by milestone if specified
     milestone_filter = getattr(args, 'milestone', None)
     if milestone_filter:
-        rows = [r for r in rows if r.get('milestone') == milestone_filter]
+        rows = filter_by_milestone(rows, milestone_filter)
 
-    # Calculate stats
-    total = len(rows)
-    by_status = {}
-    by_priority = {}
-    total_sp = 0
-
-    for row in rows:
-        status = row['status']
-        priority = row['priority']
-        sp = int(row['story_points'])
-
-        by_status[status] = by_status.get(status, 0) + 1
-        by_priority[priority] = by_priority.get(priority, 0) + 1
-        total_sp += sp
-
+    stats = get_project_stats(rows)
     mode = get_output_mode()
     summary = {
-        "total_tasks": total,
-        "total_story_points": total_sp,
-        "by_status": by_status,
-        "by_priority": by_priority,
+        **stats,
         "filters": {
             "epic": epic_filter.upper() if epic_filter else None,
             "milestone": milestone_filter,
@@ -431,12 +385,12 @@ def cmd_stats(args):
         print(f"Milestone: {summary['filters']['milestone']}")
     print(f"{'='*50}\n")
 
-    print(f"Total Tasks: {total}")
-    print(f"Total Story Points: {total_sp}\n")
+    print(f"Total Tasks: {summary['total_tasks']}")
+    print(f"Total Story Points: {summary['total_story_points']}\n")
 
     status_rows = [
         [status, str(count)]
-        for status, count in sorted(by_status.items())
+        for status, count in sorted(summary["by_status"].items())
         if count > 0
     ]
 
@@ -448,7 +402,7 @@ def cmd_stats(args):
             print(f"  {status:15} {count}")
 
     print("\nBy Priority:")
-    for priority, count in sorted(by_priority.items()):
+    for priority, count in sorted(summary["by_priority"].items()):
         print(f"  {priority:15} {count}")
     print()
 

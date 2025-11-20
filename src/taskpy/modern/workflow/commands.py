@@ -4,16 +4,19 @@ This module provides task workflow management commands:
 - promote: Move task forward in workflow
 - demote: Move task backward in workflow
 - move: Move task to specific status
+- resolve: Resolve bug tasks with special outcomes
 
-Migrated from legacy/commands.py (lines 583-810, 2080-2115)
+Migrated from legacy/commands.py (lines 583-810, 1345-1418, 2080-2115)
 """
 
+import re
 import sys
 from pathlib import Path
 from typing import List, Optional, Dict, Any
-from taskpy.legacy.models import Task, TaskStatus, HistoryEntry, utc_now, VerificationStatus
+from taskpy.legacy.models import Task, TaskStatus, HistoryEntry, utc_now, VerificationStatus, ResolutionType
 from taskpy.legacy.storage import TaskStorage
 from taskpy.legacy.output import print_success, print_error, print_info, print_warning
+from taskpy.modern.shared.utils import load_task_or_exit, require_initialized
 
 
 class TaskMoveError(Exception):
@@ -278,21 +281,8 @@ def validate_promotion(task: Task, target_status: TaskStatus, commit_hash: Optio
 def cmd_promote(args):
     """Move task forward in workflow."""
     storage = get_storage()
-
-    if not storage.is_initialized():
-        print_error("TaskPy not initialized. Run: taskpy init")
-        sys.exit(1)
-
-    # Find task
-    result = storage.find_task_file(args.task_id)
-    if not result:
-        print_error(f"Task not found: {args.task_id}")
-        sys.exit(1)
-
-    path, current_status = result
-
-    # Read task for validation
-    task = storage.read_task_file(path)
+    require_initialized(storage)
+    task, path, current_status = load_task_or_exit(storage, args.task_id)
 
     # Determine target status
     workflow = [TaskStatus.STUB, TaskStatus.BACKLOG, TaskStatus.READY, TaskStatus.ACTIVE,
@@ -356,19 +346,8 @@ def cmd_promote(args):
 def cmd_demote(args):
     """Move task backwards in workflow with required reason."""
     storage = get_storage()
-
-    if not storage.is_initialized():
-        print_error("TaskPy not initialized. Run: taskpy init")
-        sys.exit(1)
-
-    # Find task
-    result = storage.find_task_file(args.task_id)
-    if not result:
-        print_error(f"Task not found: {args.task_id}")
-        sys.exit(1)
-
-    path, current_status = result
-    task = storage.read_task_file(path)
+    require_initialized(storage)
+    task, path, current_status = load_task_or_exit(storage, args.task_id)
 
     # Check for override flag
     override = getattr(args, 'override', False)
@@ -440,10 +419,7 @@ def cmd_demote(args):
 def cmd_move(args):
     """Move task(s) to specific status."""
     storage = get_storage()
-
-    if not storage.is_initialized():
-        print_error("TaskPy not initialized. Run: taskpy init")
-        sys.exit(1)
+    require_initialized(storage)
 
     # Require reason for move command
     if not hasattr(args, 'reason') or not args.reason:
@@ -470,12 +446,11 @@ def cmd_move(args):
 
     # Process each task
     for task_id in task_ids:
-        result = storage.find_task_file(task_id)
-        if not result:
+        try:
+            task, path, current_status = load_task_or_exit(storage, task_id)
+        except SystemExit:
             failures.append((task_id, f"Task not found: {task_id}"))
             continue
-
-        path, current_status = result
 
         # Warn if this looks like a workflow transition
         if current_status in workflow and target_status in workflow:
@@ -487,7 +462,7 @@ def cmd_move(args):
                 print_warning(f"⚠️  {task_id}: Use 'taskpy demote' instead of 'move' for backward workflow transitions")
 
         try:
-            _move_task(storage, task_id, path, target_status, reason=args.reason, action="move")
+            _move_task(storage, task_id, path, target_status, task, reason=args.reason, action="move")
             successes.append(task_id)
         except TaskMoveError as exc:
             failures.append((task_id, str(exc)))
@@ -512,4 +487,48 @@ def cmd_move(args):
         sys.exit(1)
 
 
-__all__ = ['cmd_promote', 'cmd_demote', 'cmd_move']
+def cmd_resolve(args):
+    """Resolve bug tasks with special resolution types."""
+    storage = get_storage()
+    require_initialized(storage)
+
+    task, path, _ = load_task_or_exit(storage, args.task_id)
+
+    if not re.match(r'^(BUGS|REG|DEF)', task.epic):
+        print_error("Resolve command only works for BUGS*/REG*/DEF* tasks")
+        print_error(f"Task {args.task_id} has epic: {task.epic}")
+        print_error("Use normal promote workflow for other epics")
+        sys.exit(1)
+
+    resolution = ResolutionType(args.resolution)
+    if resolution == ResolutionType.DUPLICATE and not args.duplicate_of:
+        print_error("--duplicate-of is required when resolution is 'duplicate'")
+        sys.exit(1)
+
+    task.resolution = resolution
+    task.resolution_reason = args.reason
+    if args.duplicate_of:
+        task.duplicate_of = args.duplicate_of
+
+    old_status = task.status
+    task.status = TaskStatus.DONE
+    task.updated = utc_now()
+
+    try:
+        if old_status != TaskStatus.DONE:
+            path.unlink()
+        storage.write_task_file(task)
+
+        print_success(f"Resolved {args.task_id}: {old_status.value} → done")
+        print_info(f"Resolution: {resolution.value}")
+        print_info(f"Reason: {args.reason}")
+        if args.duplicate_of:
+            print_info(f"Duplicate of: {args.duplicate_of}")
+        if resolution != ResolutionType.FIXED:
+            print_warning("⚠️  Bypassed normal QA gates (non-code resolution)")
+    except Exception as exc:
+        print_error(f"Failed to resolve task: {exc}")
+        sys.exit(1)
+
+
+__all__ = ['cmd_promote', 'cmd_demote', 'cmd_move', 'cmd_resolve']

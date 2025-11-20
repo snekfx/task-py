@@ -1,5 +1,6 @@
 """Unit tests for modern admin module commands."""
 
+import json
 import pytest
 import re
 from argparse import Namespace
@@ -113,11 +114,41 @@ def test_cmd_groom_identifies_short_stubs(tmp_path, monkeypatch, capsys):
     assert "STUB-01" in output
 
 
-def test_cmd_session_placeholder(tmp_path, monkeypatch, capsys):
-    """cmd_session currently serves as placeholder messaging."""
-    _init_storage(tmp_path)
+def test_cmd_session_start_status(tmp_path, monkeypatch, capsys):
+    """Session start should create state and status should report it."""
+    storage = _init_storage(tmp_path)
     monkeypatch.chdir(tmp_path)
-    cmd_session(Namespace())
+
+    cmd_session(Namespace(session_command='start', focus="Testing", task="FEAT-01", notes=None))
+    capsys.readouterr()  # clear start output
+    cmd_session(Namespace(session_command='status'))
 
     output = re.sub(r'\x1b\[[0-9;]*m', '', capsys.readouterr().out)
-    assert "Session management" in output
+    assert "session-001" in output
+    assert "Testing" in output
+
+    state_path = storage.kanban / "info" / "session_current.json"
+    assert state_path.exists()
+
+
+def test_cmd_session_commit_and_end(tmp_path, monkeypatch):
+    """Ending a session should flush to log and clear state."""
+    storage = _init_storage(tmp_path)
+    monkeypatch.chdir(tmp_path)
+
+    cmd_session(Namespace(session_command='start', focus=None, task=None, notes=None))
+    cmd_session(Namespace(session_command='commit', commit_hash='abc123', message=['Add', 'feature']))
+    cmd_session(Namespace(session_command='end', notes="All done"))
+
+    state_path = storage.kanban / "info" / "session_current.json"
+    log_path = storage.kanban / "info" / "sessions.jsonl"
+
+    assert not state_path.exists()
+    assert log_path.exists()
+
+    lines = [line for line in log_path.read_text().splitlines() if line.strip()]
+    assert lines
+    record = json.loads(lines[-1])
+    assert record["commits"][0]["hash"] == "abc123"
+    assert record["notes"].endswith("All done")
+    assert record["duration_seconds"] >= 0

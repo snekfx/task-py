@@ -37,6 +37,7 @@ META PROCESS v4 is an evolution of v3 that addresses key inefficiencies through 
 - ✅ **Git-friendly** (plain text, human-readable)
 - ✅ **Fast queries** via TSV manifest
 - ✅ **Extensible** (TOML configuration for epics, NFRs, and milestones)
+- ✅ **Batch commands** (list/link/block/unblock/sprint add/remove support comma/space separated IDs)
 
 ## Installation
 
@@ -57,6 +58,9 @@ pip install git+https://github.com/snekfx/task-py
 
 ## Quick Start
 
+> Modern TaskPy CLI is now the default entry point. If you see legacy instructions using
+> `taskpy modern …`, you can drop the `modern` prefix (the alias still works temporarily).
+
 ```bash
 # Initialize TaskPy in your project
 taskpy init
@@ -66,6 +70,9 @@ taskpy create FEAT "Add user authentication" --sp 5 --priority high
 
 # Create task with milestone assignment
 taskpy create FEAT "OAuth integration" --sp 8 --milestone milestone-1
+
+# Link the same reference to multiple tasks
+taskpy link FEAT-01,FEAT-02 --code src/auth.py
 
 # List tasks
 taskpy list
