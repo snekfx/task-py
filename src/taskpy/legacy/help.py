@@ -29,6 +29,9 @@ COMMAND_HELP = {
     "issues": "Display tracked issues/problems for a task",
     "history": "Display task state change history and audit trail",
     "resolve": "Resolve a bug task (BUGS*, REG*, DEF*) with special resolution workflow",
+    "delete": "Move a task to trash (soft delete, recoverable)",
+    "trash": "View or empty the trash bin",
+    "recover": "Recover a task from trash by auto_id",
     "help": "Display contextual help for workflow stages (dev, stub, active, regression)",
     "tour": "Display comprehensive quick reference guide",
     "overrides": "View gate override history log",
@@ -143,6 +146,13 @@ REFERENCE LINKING & VERIFICATION
   taskpy link TASK-ID --verify "pytest tests/"  Set verification command
   taskpy verify TASK-ID --update                Run and update verification
   taskpy overrides                              View override history
+
+TRASH & RECOVERY
+----------------
+  taskpy delete TASK-ID --reason "why"   Move task to trash (soft delete)
+  taskpy trash                           List trashed tasks
+  taskpy trash empty                     Permanently delete trashed tasks
+  taskpy recover AUTO-ID --reason "why"  Restore task from trash
 
 HISTORY & AUDIT
 ---------------

@@ -1,37 +1,37 @@
-# HANDOFF – TaskPy Session (2025-11-19): Modern Sprint/Views Refresh
+# HANDOFF – TaskPy Session (2025-11-19): Modernization Close-out
 
 ### Highlights
 
+Modern feature modules are now complete end-to-end. All outstanding REF regressions (08, 12, 14, 15, 16, 17) are closed, manual ID creation (FEAT-59) landed, and the last lingering workflow/sprint bugs (BUGS-18/19) are resolved. Only FEAT-41 (delete command) remains in `ready`; the rest of the board is in `done`.
+
 ### Current Module Status
-| Module | Status | Commands | SP Remaining |
-|--------|--------|----------|--------------|
 | Module | Status | Notes |
 |--------|--------|-------|
-| Core (REF-13) | ✅ Complete | Modern shared tasks infrastructure |
-| Views (FEAT-50/51) | ✅ Complete | Agent-friendly output and metadata |
-| Sprint (FEAT-55) | ✅ Complete | Uses modern storage helpers |
-| Epics/NFRs (REF-08/FEAT-56) | ⏳ Regressions | Still import legacy storage |
-| Workflow, Display, Admin, Milestones (REF-14/15/16/17) | ⏳ Regressions | Partially migrated; revisit |
-| Shared utilities (REF-03/04/05/11) | ⏳ Planned | Ready once legacy usage minimized |
+| Core (REF-13, FEAT-59) | ✅ Complete | Shared tasks infrastructure + manual ID creation |
+| Views/Display (FEAT-50/51, REF-15) | ✅ Complete | Agent/data modes across ListView, kanban, history, stats |
+| Sprint (REF-12) | ✅ Complete | All subcommands modernized; clear batching fix (BUGS-19) |
+| Workflow (REF-14) | ✅ Complete | Gate validation + move fixes (BUGS-18) |
+| Epics/NFRs/Milestones (REF-08/17, FEAT-56) | ✅ Complete | Modern commands + ListView/data support |
+| Admin (REF-16) | ✅ Complete | Init/groom/manifest/verify/session in modern module with tests |
+| Shared utilities (REF-03/04/05/11) | ✅ Reviewed | Modern/shared helpers in place; REF-04 documented as complete |
 
 ### Latest Commits
-- `5b37a2f` – FEAT-50: add agent-mode outputs for views
-- `2ac7a46` – FEAT-51: include status metadata in ListView AGENT output
-- `ff07113` – FEAT-55: fully modernize sprint commands
-- `e1e69af` – FEAT-58: modern issues API
-- `2fea450`, `e171a22` – REF-13 & FEAT-54 core modernizations (prior session)
+- `1abcf97` – docs: record feature-module review (REF-04)
+- `bf01a8d` – FEAT-59: manual ID creation support
+- `185b319` – BUGS-18/19: batch workflow move & sprint clear fixes
+- `8a2aded` – tests: cover modern admin commands (REF-16)
+- `db53100` – REF-15: modernize display commands with agent/data output
 
 ### Sprint Summary
 - **Completed This Session**:  
-  - FEAT-50 (2 SP) – Views infrastructure JSON output  
-  - FEAT-51 (3 SP) – ListView agent metadata  
-  - FEAT-55 (3 SP) – Sprint commands off legacy storage  
-  - FEAT-58 (3 SP) – Modern issues API support  
-  - REF-13 tidy-up (5 SP) – Core shared storage/helpers
-- **Remaining High-Priority Regressions**:  
-  - FEAT-56 / REF-08 (epics/NFRs/milestones)  
-  - REF-12 (dashboard pieces), REF-14/15/16/17 (workflow/display/admin/milestones)
-- **Backlog Enhancements**: FEAT-59 (manual IDs), QOL-16 (unify output modes)
+  - REF-12/14/15/16/17 – Modern sprint, workflow, display, admin, milestones + tests  
+  - REF-08 – Small features migration complete (epics/NFRs/milestones)  
+  - FEAT-59 – Manual ID creation (`taskpy modern create FEAT-123 … --auto`)  
+  - BUGS-18/19 – Workflow move batching + sprint clear manifest batching  
+  - REF-04 – Feature-module architecture reviewed & documented
+- **Remaining Work**:  
+  - FEAT-41 (delete command) – only task in `ready`  
+  - Optional cleanups (REF-05/11 aggregations) or new features (FEAT-41/FEAT-41 follow-ups)
 
 ---
 
@@ -89,21 +89,17 @@ Every REF ticket now has:
 - Phase-by-phase implementation guide
 
 ### Backlog Priorities
-**High Priority:**
-- REF-13: Create tests + NFR verification (ready to close)
-- BUGS-09: Fix link --doc flag (1 SP)
+**High Priority:**  
+- FEAT-41: Add delete command for removing tasks (ready, 5 SP)
 
-**Medium Priority:**
-- REF-12: Sprint module (3 SP, 6 commands)
-- REF-14: Workflow module (3 SP)
-- REF-15: Display module (3 SP)
-- REF-16: Admin module (3 SP)
-
-**Low Priority:**
-- REF-17: Milestones module (2 SP)
-- QOL-07: Groom thresholds → gates
-- FEAT-27: Check dashboard
+**Medium Priority:**  
+- QOL-07: Groom thresholds → gates  
+- FEAT-27: `taskpy check` dashboard  
 - FEAT-28: Override log → history API
+
+**Low Priority:**  
+- REF-05/11: Shared aggregation utilities / legacy cleanup once needed  
+- QOL-16, future FEAT/QOL items as they are groomed
 
 ### Documentation Tasks
 - DOCS-03: Session notes migration

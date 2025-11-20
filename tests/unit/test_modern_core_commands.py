@@ -5,16 +5,18 @@ Tests the 5 core CRUD commands: list, show, create, edit, rename.
 """
 
 import pytest
-import tempfile
-import shutil
-from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
 from argparse import Namespace
+from unittest.mock import patch
 
 from taskpy.modern.core.read import cmd_list, cmd_show
 from taskpy.modern.core.create import cmd_create
 from taskpy.modern.core.edit import cmd_edit
 from taskpy.modern.core.rename import cmd_rename
+from taskpy.modern.core.delete import cmd_delete
+from taskpy.modern.core.trash import cmd_trash
+from taskpy.modern.core.recover import cmd_recover
+from taskpy.modern.shared.output import set_output_mode, OutputMode
+from taskpy.modern.shared.tasks import load_manifest, load_task_from_path, get_trash_dir
 from taskpy.legacy.storage import TaskStorage
 from taskpy.legacy.models import Task, TaskStatus, Priority
 
@@ -477,6 +479,174 @@ class TestCoreRenameCommand:
         assert result is not None
 
 
+class TestCoreDeleteCommand:
+    """Tests for delete command."""
+
+    def test_delete_moves_task_to_trash(self, tmp_path, monkeypatch):
+        storage = TaskStorage(tmp_path)
+        storage.initialize()
+
+        auto_id = storage.get_next_auto_id()
+        task = Task(
+            id="TEST-01",
+            epic="TEST",
+            number=1,
+            title="Delete me",
+            status=TaskStatus.BACKLOG,
+            priority=Priority.MEDIUM,
+            story_points=1,
+            auto_id=auto_id,
+        )
+        storage.write_task_file(task)
+
+        args = Namespace(task_id="TEST-01", reason="cleanup")
+
+        monkeypatch.chdir(tmp_path)
+        cmd_delete(args)
+
+        assert storage.find_task_file("TEST-01") is None
+        manifest = load_manifest()
+        assert all(row["id"] != "TEST-01" for row in manifest)
+
+        trash_dir = get_trash_dir()
+        files = list(trash_dir.glob("*.md"))
+        assert len(files) == 1
+        assert files[0].name == f"{auto_id}.TEST-01.md"
+
+        trashed_task = load_task_from_path(files[0])
+        assert trashed_task.history
+        assert trashed_task.history[-1]["action"] == "delete"
+
+
+class TestCoreTrashCommand:
+    """Tests for trash list/empty commands."""
+
+    def _create_trashed_task(self, storage):
+        auto_id = storage.get_next_auto_id()
+        task = Task(
+            id="TEST-01",
+            epic="TEST",
+            number=1,
+            title="Trash candidate",
+            status=TaskStatus.BACKLOG,
+            priority=Priority.MEDIUM,
+            story_points=1,
+            auto_id=auto_id,
+        )
+        storage.write_task_file(task)
+        return auto_id
+
+    def test_trash_lists_entries(self, tmp_path, monkeypatch, capsys):
+        storage = TaskStorage(tmp_path)
+        storage.initialize()
+
+        self._create_trashed_task(storage)
+        monkeypatch.chdir(tmp_path)
+        cmd_delete(Namespace(task_id="TEST-01", reason="cleanup"))
+
+        args = Namespace(action=None)
+        set_output_mode(OutputMode.DATA)
+        cmd_trash(args)
+        set_output_mode(OutputMode.PRETTY)
+
+        captured = capsys.readouterr().out
+        assert "TEST-01" in captured
+        assert "Trash" in captured
+
+    def test_trash_empty_confirms(self, tmp_path, monkeypatch):
+        storage = TaskStorage(tmp_path)
+        storage.initialize()
+
+        self._create_trashed_task(storage)
+        monkeypatch.chdir(tmp_path)
+        cmd_delete(Namespace(task_id="TEST-01", reason="cleanup"))
+
+        monkeypatch.setattr("builtins.input", lambda _: "y")
+        cmd_trash(Namespace(action="empty"))
+
+        trash_dir = get_trash_dir()
+        assert list(trash_dir.glob("*.md")) == []
+
+    def test_trash_empty_cancelled(self, tmp_path, monkeypatch):
+        storage = TaskStorage(tmp_path)
+        storage.initialize()
+
+        self._create_trashed_task(storage)
+        monkeypatch.chdir(tmp_path)
+        cmd_delete(Namespace(task_id="TEST-01", reason="cleanup"))
+
+        monkeypatch.setattr("builtins.input", lambda _: "n")
+        cmd_trash(Namespace(action="empty"))
+
+        trash_dir = get_trash_dir()
+        assert list(trash_dir.glob("*.md"))
+
+
+class TestCoreRecoverCommand:
+    """Tests for recover command."""
+
+    def _setup_deleted_task(self, storage, monkeypatch, task_id="TEST-01", epic="TEST"):
+        auto_id = storage.get_next_auto_id()
+        task = Task(
+            id=task_id,
+            epic=epic,
+            number=1,
+            title="Recover me",
+            status=TaskStatus.BACKLOG,
+            priority=Priority.MEDIUM,
+            story_points=1,
+            auto_id=auto_id,
+        )
+        storage.write_task_file(task)
+        monkeypatch.chdir(storage.root)
+        cmd_delete(Namespace(task_id=task_id, reason="cleanup"))
+        return auto_id
+
+    def test_recover_restores_task(self, tmp_path, monkeypatch):
+        storage = TaskStorage(tmp_path)
+        storage.initialize()
+
+        auto_id = self._setup_deleted_task(storage, monkeypatch)
+
+        args = Namespace(auto_id=auto_id, reason="needed again")
+        cmd_recover(args)
+
+        restored = storage.find_task_file("TEST-01")
+        assert restored is not None
+        manifest = load_manifest()
+        assert any(row["id"] == "TEST-01" for row in manifest)
+        trash_dir = get_trash_dir()
+        assert list(trash_dir.glob("*.md")) == []
+
+    def test_recover_assigns_new_id_on_conflict(self, tmp_path, monkeypatch):
+        storage = TaskStorage(tmp_path)
+        storage.initialize()
+
+        auto_id = self._setup_deleted_task(storage, monkeypatch, task_id="FEAT-01", epic="FEAT")
+
+        conflict_task = Task(
+            id="FEAT-01",
+            epic="FEAT",
+            number=1,
+            title="Conflicting task",
+            status=TaskStatus.BACKLOG,
+            priority=Priority.MEDIUM,
+            story_points=1,
+            auto_id=storage.get_next_auto_id(),
+        )
+        storage.write_task_file(conflict_task)
+
+        args = Namespace(auto_id=auto_id, reason="recover even with conflict")
+        cmd_recover(args)
+
+        conflict = storage.find_task_file("FEAT-01")
+        assert conflict is not None
+
+        recovered = storage.find_task_file("FEAT-02")
+        assert recovered is not None
+        recovered_task = load_task_from_path(recovered[0])
+        assert recovered_task.history[-1]["action"] == "recover"
+        assert recovered_task.history[-1]["metadata"]["from_id"] == "FEAT-01"
 # Fixtures
 @pytest.fixture
 def tmp_path(tmp_path_factory):

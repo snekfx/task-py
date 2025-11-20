@@ -46,6 +46,7 @@ VALID_STATUSES = {
     "blocked",
 }
 VALID_PRIORITIES = {"critical", "high", "medium", "low"}
+TRASH_DIRNAME = "trash"
 
 
 class KanbanNotInitialized(Exception):
@@ -253,6 +254,40 @@ def next_auto_id(root: Optional[Path] = None) -> int:
 def get_task_path(task_id: str, status: str, root: Optional[Path] = None) -> Path:
     kanban, _ = _kanban_paths(root)
     return kanban / "status" / status / f"{task_id}.md"
+
+
+def get_trash_dir(root: Optional[Path] = None) -> Path:
+    """Return the trash directory path, creating it if needed."""
+    kanban, _ = _kanban_paths(root)
+    trash_dir = kanban / TRASH_DIRNAME
+    trash_dir.mkdir(parents=True, exist_ok=True)
+    return trash_dir
+
+
+def find_trash_file(auto_id: int, root: Optional[Path] = None) -> Optional[Path]:
+    """Find a trashed task file by auto_id."""
+    trash_dir = get_trash_dir(root)
+    for candidate in sorted(trash_dir.glob(f"{auto_id}.*.md")):
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def load_task_from_path(path: Path) -> TaskRecord:
+    """Load a task directly from an explicit path."""
+    if not path.exists():
+        raise FileNotFoundError(f"Task file not found: {path}")
+    return _read_task_file(path)
+
+
+def get_manifest_row(task_id: str, root: Optional[Path] = None) -> Optional[Dict[str, str]]:
+    """Return a manifest row for a specific task ID."""
+    rows = load_manifest(root)
+    task_id = task_id.upper()
+    for row in rows:
+        if row.get("id", "").upper() == task_id:
+            return row
+    return None
 
 
 def format_title(title: str, width: int = 70) -> str:

@@ -5,6 +5,9 @@ from .read import cmd_list, cmd_show
 from .create import cmd_create
 from .edit import cmd_edit
 from .rename import cmd_rename
+from .delete import cmd_delete
+from .trash import cmd_trash
+from .recover import cmd_recover
 
 
 def register():
@@ -45,6 +48,21 @@ def register():
             'func': cmd_rename,
             'help': 'Rename a task ID',
             'parser': setup_rename_parser
+        },
+        'delete': {
+            'func': cmd_delete,
+            'help': 'Move a task to the trash (soft delete)',
+            'parser': setup_delete_parser
+        },
+        'trash': {
+            'func': cmd_trash,
+            'help': 'View or empty the trash bin',
+            'parser': setup_trash_parser
+        },
+        'recover': {
+            'func': cmd_recover,
+            'help': 'Recover a task from trash by auto_id',
+            'parser': setup_recover_parser
         }
     }
 
@@ -172,6 +190,39 @@ def setup_rename_parser(subparsers):
     parser.add_argument('--force', action='store_true', help='Overwrite existing task')
     parser.add_argument('--skip-manifest', action='store_true', help='Skip manifest rebuild')
 
+    return parser
+
+
+def setup_delete_parser(subparsers):
+    """Setup parser for delete command."""
+    parser = subparsers.add_parser(
+        'delete',
+        help='Move a task to trash (soft delete)'
+    )
+    parser.add_argument('task_id', help='Task ID to delete')
+    parser.add_argument('--reason', required=True, help='Reason for deletion (logged in history)')
+    return parser
+
+
+def setup_trash_parser(subparsers):
+    """Setup parser for trash command."""
+    parser = subparsers.add_parser(
+        'trash',
+        help='View or empty the trash bin'
+    )
+    parser.add_argument('action', nargs='?', choices=['empty'],
+                        help="Optional: 'empty' to permanently delete trashed tasks")
+    return parser
+
+
+def setup_recover_parser(subparsers):
+    """Setup parser for recover command."""
+    parser = subparsers.add_parser(
+        'recover',
+        help='Recover task from trash by auto_id'
+    )
+    parser.add_argument('auto_id', type=int, help='Auto ID of trashed task')
+    parser.add_argument('--reason', required=True, help='Reason for recovery (logged in history)')
     return parser
 
 
