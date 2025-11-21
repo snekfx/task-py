@@ -2,6 +2,7 @@
 
 import sys
 from pathlib import Path
+from typing import List
 
 from taskpy.modern.shared.messages import print_error, print_info
 from taskpy.modern.shared.output import get_output_mode, OutputMode
@@ -121,7 +122,7 @@ def cmd_list(args):
         ColumnConfig(name="SP", field="story_points"),
         ColumnConfig(name="Priority", field="priority"),
         ColumnConfig(name="Sprint", field=lambda t: '✓' if t.get('in_sprint', 'false') == 'true' else ''),
-        ColumnConfig(name="Tags", field=lambda t: ", ".join(t.get('tags', []))),
+        ColumnConfig(name="Tags", field=lambda t: ", ".join(_normalize_tags(t.get('tags', [])))),
     ]
 
     # Create and render ListView
@@ -223,3 +224,8 @@ def cmd_show(args):
 
 
 __all__ = ['cmd_list', 'cmd_show']
+def _normalize_tags(value) -> List[str]:
+    """Return list of tags from either list or comma-separated string."""
+    if isinstance(value, list):
+        return [t for t in value if t]
+    return [t.strip() for t in str(value).split(",") if t.strip()]

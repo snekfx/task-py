@@ -233,7 +233,7 @@ class TestShowColumn:
 
         captured = capsys.readouterr()
         assert "BACKLOG (2 tasks)" in captured.out
-        assert "tags: ui,ux" in captured.out
+        assert "tags: ui, ux" in captured.out
 
     def test_show_column_agent_mode(self, capsys):
         """Test show_column emits JSON in agent mode."""

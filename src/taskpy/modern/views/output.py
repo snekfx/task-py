@@ -358,6 +358,12 @@ def show_card(task_data: Dict[str, Any], output_mode: OutputMode = OutputMode.PR
         _plain_output(card, style, f"Task: {task_data['id']}")
 
 
+def _normalize_tags(value) -> List[str]:
+    if isinstance(value, list):
+        return [t for t in value if t]
+    return [t.strip() for t in str(value).split(",") if t.strip()]
+
+
 def show_column(
     column_name: str,
     tasks: List[Dict[str, Any]],
@@ -376,8 +382,8 @@ def show_column(
         print(f"{column_name.upper()} ({len(tasks)} tasks)")
         for task in tasks:
             sprint_badge = "[SPRINT] " if task.get('in_sprint', 'false') == 'true' else ""
-            tags = task.get("tags", "")
-            tag_display = f" | tags: {tags}" if tags else ""
+            tags = _normalize_tags(task.get("tags", ""))
+            tag_display = f" | tags: {', '.join(tags)}" if tags else ""
             print(f"{sprint_badge}{task['id']}: {task['title']} [{task.get('story_points', 0)} SP]{tag_display}")
         return
     elif output_mode == OutputMode.AGENT:
@@ -391,7 +397,7 @@ def show_column(
                     "status": task.get("status"),
                     "story_points": task.get("story_points"),
                     "in_sprint": task.get("in_sprint", "false"),
-                    "tags": [t.strip() for t in str(task.get("tags", "")).split(",") if t.strip()],
+                    "tags": _normalize_tags(task.get("tags", "")),
                 }
                 for task in tasks
             ],
@@ -404,7 +410,7 @@ def show_column(
     for task in tasks:
         # Add sprint badge for sprint tasks
         sprint_badge = "🏃 " if task.get('in_sprint', 'false') == 'true' else ""
-        tags = [t.strip() for t in str(task.get("tags", "")).split(",") if t.strip()]
+        tags = _normalize_tags(task.get("tags", ""))
         tag_display = f" | tags: {', '.join(tags)}" if tags else ""
         lines.append(f"• {sprint_badge}{task['id']}: {task['title']} [{task.get('story_points', 0)} SP]{tag_display}")
 
