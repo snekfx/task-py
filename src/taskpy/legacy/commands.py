@@ -1032,52 +1032,6 @@ def cmd_verify(args):
         sys.exit(1)
 
 
-def cmd_epics(args):
-    """List available epics."""
-    storage = get_storage()
-
-    if not storage.is_initialized():
-        print_error("TaskPy not initialized. Run: taskpy init")
-        sys.exit(1)
-
-    epics = storage.load_epics()
-
-    headers = ["Epic", "Description", "Active", "Budget"]
-    rows = [
-        [
-            name,
-            epic.description[:50],
-            "✓" if epic.active else "✗",
-            str(epic.story_point_budget) if epic.story_point_budget else "-"
-        ]
-        for name, epic in sorted(epics.items())
-    ]
-
-    rolo_table(headers, rows, f"Available Epics ({len(epics)})")
-
-
-def cmd_nfrs(args):
-    """List NFRs."""
-    storage = get_storage()
-
-    if not storage.is_initialized():
-        print_error("TaskPy not initialized. Run: taskpy init")
-        sys.exit(1)
-
-    nfrs = storage.load_nfrs()
-
-    if args.defaults:
-        nfrs = {nfr_id: nfr for nfr_id, nfr in nfrs.items() if nfr.default}
-
-    for nfr_id, nfr in sorted(nfrs.items()):
-        default_marker = " [DEFAULT]" if nfr.default else ""
-        print(f"{nfr_id}{default_marker}: {nfr.title}")
-        print(f"  {nfr.description}")
-        if nfr.verification:
-            print(f"  Verification: {nfr.verification}")
-        print()
-
-
 def _append_issue_to_task_file(task_path: Path, issue_description: str):
     """Append an issue to the task file's ISSUES section."""
     timestamp = utc_now().strftime("%Y-%m-%d %H:%M:%S UTC")
@@ -2332,46 +2286,6 @@ def _collect_status_tasks(storage: TaskStorage, statuses: Iterable[TaskStatus]) 
                 continue
             tasks.append((task, length))
     return tasks
-
-
-def cmd_milestones(args):
-    """List all milestones sorted by priority."""
-    storage = get_storage()
-
-    if not storage.is_initialized():
-        print_error("TaskPy not initialized. Run: taskpy init")
-        sys.exit(1)
-
-    milestones = storage.load_milestones()
-
-    if not milestones:
-        print_info("No milestones defined. Add them to: data/kanban/info/milestones.toml")
-        return
-
-    # Sort by priority
-    sorted_milestones = sorted(milestones.items(), key=lambda x: x[1].priority)
-
-    # Display
-    print("==================================================")
-    print("Milestones (sorted by priority)")
-    print("==================================================\n")
-
-    for milestone_id, m in sorted_milestones:
-        status_color = {
-            'active': '🟢',
-            'planned': '⚪',
-            'blocked': '🔴',
-            'completed': '✅'
-        }.get(m.status, '⚪')
-
-        print(f"{status_color} [{milestone_id}] {m.name}")
-        print(f"   Priority: {m.priority} | Status: {m.status}")
-        if m.goal_sp:
-            print(f"   Goal: {m.goal_sp} SP")
-        print(f"   {m.description}")
-        if m.blocked_reason:
-            print(f"   ⚠️  Blocked: {m.blocked_reason}")
-        print()
 
 
 def cmd_milestone(args):
