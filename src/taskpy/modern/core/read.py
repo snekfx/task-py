@@ -122,7 +122,6 @@ def cmd_list(args):
         ColumnConfig(name="SP", field="story_points"),
         ColumnConfig(name="Priority", field="priority"),
         ColumnConfig(name="Sprint", field=lambda t: '✓' if t.get('in_sprint', 'false') == 'true' else ''),
-        ColumnConfig(name="Tags", field=lambda t: ", ".join(_normalize_tags(t.get('tags', [])))),
     ]
 
     # Create and render ListView
