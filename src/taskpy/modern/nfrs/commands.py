@@ -1,28 +1,23 @@
 """Command implementations for NFRs feature."""
 
 import sys
-from pathlib import Path
-from taskpy.legacy.storage import TaskStorage
-from taskpy.legacy.output import print_error
+from taskpy.modern.shared.messages import print_error
+from taskpy.modern.shared.tasks import ensure_initialized, load_nfrs
 
 
 def cmd_nfrs(args):
     """List NFRs."""
-    storage = TaskStorage(Path.cwd())
+    ensure_initialized()
 
-    if not storage.is_initialized():
-        print_error("TaskPy not initialized. Run: taskpy init")
-        sys.exit(1)
-
-    nfrs = storage.load_nfrs()
+    nfrs = load_nfrs()
 
     if args.defaults:
-        nfrs = {nfr_id: nfr for nfr_id, nfr in nfrs.items() if nfr.default}
+        nfrs = {nfr_id: nfr for nfr_id, nfr in nfrs.items() if nfr.get('default', False)}
 
     for nfr_id, nfr in sorted(nfrs.items()):
-        default_marker = " [DEFAULT]" if nfr.default else ""
-        print(f"{nfr_id}{default_marker}: {nfr.title}")
-        print(f"  {nfr.description}")
-        if nfr.verification:
-            print(f"  Verification: {nfr.verification}")
+        default_marker = " [DEFAULT]" if nfr.get('default', False) else ""
+        print(f"{nfr_id}{default_marker}: {nfr.get('title', '')}")
+        print(f"  {nfr.get('description', '')}")
+        if nfr.get('verification'):
+            print(f"  Verification: {nfr.get('verification')}")
         print()

@@ -1,36 +1,26 @@
 """Command implementations for epics management."""
 
 import sys
-from pathlib import Path
 
-from taskpy.legacy.storage import TaskStorage
-from taskpy.legacy.output import print_error
+from taskpy.modern.shared.messages import print_error
 from taskpy.modern.shared.output import get_output_mode
+from taskpy.modern.shared.tasks import ensure_initialized, load_epics
 from taskpy.modern.views import ListView, ColumnConfig
-
-
-def get_storage() -> TaskStorage:
-    """Get TaskStorage for current directory."""
-    return TaskStorage(Path.cwd())
 
 
 def cmd_epics(args):
     """List available epics using modern ListView."""
-    storage = get_storage()
+    ensure_initialized()
 
-    if not storage.is_initialized():
-        print_error("TaskPy not initialized. Run: taskpy init")
-        sys.exit(1)
-
-    epics = storage.load_epics()
+    epics = load_epics()
 
     # Convert epics dict to list of dicts for ListView
     epic_data = [
         {
             'epic': name,
-            'description': epic.description[:50] if epic.description else '',
-            'active': '✓' if epic.active else '✗',
-            'budget': str(epic.story_point_budget) if epic.story_point_budget else '-',
+            'description': epic.get('description', '')[:50],
+            'active': '✓' if epic.get('active', True) else '✗',
+            'budget': str(epic.get('story_point_budget')) if epic.get('story_point_budget') else '-',
         }
         for name, epic in sorted(epics.items())
     ]
