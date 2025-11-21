@@ -697,6 +697,50 @@ def write_task(task: TaskRecord, root: Optional[Path] = None, update_manifest: b
     return path
 
 
+def rebuild_manifest(root: Optional[Path] = None) -> int:
+    """Rebuild manifest.tsv by scanning all status directories.
+
+    Returns:
+        Number of tasks written to the manifest.
+    """
+    kanban, manifest = _kanban_paths(root)
+    status_dir = kanban / "status"
+    tasks: List[TaskRecord] = []
+
+    # Scan all status folders
+    for status in STATUS_FOLDERS:
+        folder = status_dir / status
+        if not folder.exists():
+            continue
+
+        for task_file in sorted(folder.glob("*.md")):
+            try:
+                task = _read_task_file(task_file)
+                tasks.append(task)
+            except Exception as exc:
+                # Skip files that can't be parsed
+                continue
+
+    # Sort deterministically for readable diffs
+    tasks.sort(key=lambda t: (t.epic, t.number))
+
+    # Write manifest
+    with manifest.open("w", newline="") as handle:
+        writer = csv.writer(handle, delimiter="\t")
+        # Write header
+        writer.writerow([
+            "id", "epic", "number", "status", "title", "story_points", "priority",
+            "created", "updated", "tags", "dependencies", "blocks", "verification_status",
+            "assigned", "milestone", "blocked_reason", "in_sprint", "commit_hash",
+            "demotion_reason", "auto_id"
+        ])
+        # Write task rows
+        for task in tasks:
+            writer.writerow(task.to_manifest_row())
+
+    return len(tasks)
+
+
 def open_in_editor(path: Path):
     editor = os.environ.get("VISUAL") or os.environ.get("EDITOR") or "vi"
     try:

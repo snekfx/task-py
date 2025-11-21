@@ -19,10 +19,10 @@ from taskpy.modern.shared.tasks import (
     format_title,
     utc_now,
     KANBAN_RELATIVE_PATH,
+    parse_task_ids,
+    rebuild_manifest,
 )
 from taskpy.modern.views import ListView, ColumnConfig
-from taskpy.modern.shared.tasks import parse_task_ids
-from taskpy.legacy.storage import TaskStorage
 
 
 def _kanban_root(root: Optional[Path] = None) -> Path:
@@ -199,9 +199,8 @@ def _cmd_sprint_clear(args):
             updated += 1
 
     if updated:
-        storage = TaskStorage(Path.cwd())
         try:
-            storage.rebuild_manifest()
+            rebuild_manifest()
         except Exception as exc:
             print_warning(f"Encountered error refreshing manifest: {exc}")
 
