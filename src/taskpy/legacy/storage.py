@@ -25,7 +25,7 @@ else:
         tomllib = None
 
 from taskpy.legacy.models import (
-    Task, Epic, NFR, Milestone, TaskStatus, Priority,
+    Task, TaskStatus, Priority,
     TaskReference, Verification, VerificationStatus, utc_now
 )
 

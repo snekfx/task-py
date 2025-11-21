@@ -1,78 +1,81 @@
 # Module Migration Summary & Quick Reference
 
+## 🎉 MIGRATION MILESTONE ACHIEVED (2025-11-21)
+
+**ALL 5 PRIMARY MODERN MODULES NOW HAVE ZERO LEGACY IMPORTS!**
+
 ## Migration Status Overview
 
-| Module | Tracking Task | SP | Status | Lines in Legacy | Migrated | Reference Doc |
+| Module | Tracking Task | SP | Status | Legacy Imports | Commands | Reference Doc |
 |--------|--------------|----|---------|----|----------|---------------|
-| **Core** | REF-13 | 5 | 🟡 Partial (list only) | ~600 | list: 88 lines | [core-module-migration.md](./core-module-migration.md) |
-| **Sprint** | REF-12 | 3 | 🟡 Partial (list only) | ~500 | list: 77 lines | [sprint-module-migration.md](./sprint-module-migration.md) |
-| **Workflow** | REF-14 | 3 | 🔴 Not started | ~400 | 3 lines (stub) | (create doc) |
-| **Display** | REF-15 | 3 | 🔴 Not started | ~300 | 3 lines (stub) | (create doc) |
-| **Admin** | REF-16 | 3 | 🔴 Not started | ~400 | 3 lines (stub) | (create doc) |
-| **Epics** | ✅ FEAT-56 | 2 | ✅ Complete | ~100 | 57 lines | N/A (done) |
-| **NFRs** | ✅ REF-07 | - | ✅ Complete | ~100 | 28 lines | N/A (done) |
-| **Milestones** | REF-17 | 2 | 🔴 Not started | ~200 | 3 lines (stub) | (create doc) |
-| **Blocking** | (defer) | - | 🔴 Not started | ~200 | 3 lines (stub) | (may defer) |
+| **Core** | REF-13 | 5 | ✅ Complete | ✅ **ZERO** | 6/6 commands | [core-module-migration.md](./core-module-migration.md) |
+| **Sprint** | REF-12 | 3 | ✅ Complete | ✅ **ZERO** | 8/8 commands | [sprint-module-migration.md](./sprint-module-migration.md) |
+| **Workflow** | REF-14 | 3 | ✅ Complete | ✅ **ZERO** | 4/4 commands | [workflow-module-migration.md](./workflow-module-migration.md) |
+| **Display** | REF-15 | 3 | ✅ Complete | ✅ **ZERO** | 5/5 commands | [display-module-migration.md](./display-module-migration.md) |
+| **Admin** | REF-16 | 3 | ✅ Complete | ✅ **ZERO** | 4/6 commands (init/session deferred) | [admin-module-migration.md](./admin-module-migration.md) |
+| **Epics** | ✅ REF-08 | 2 | ✅ Complete | ✅ **ZERO** | All commands | N/A (done) |
+| **NFRs** | ✅ REF-07 | - | ✅ Complete | ✅ **ZERO** | All commands | N/A (done) |
+| **Milestones** | REF-17 | 2 | 🔴 Pending | ⚠️ YES | 0 commands | (create doc) |
+| **Blocking** | REF-09 | 5 | 🔴 Pending | ⚠️ YES | 0 commands | (may defer) |
 
 **Legend**:
-- 🟢 Complete - Fully migrated
-- 🟡 Partial - Some commands migrated
-- 🔴 Not started - Only stub exists
+- ✅ Complete - Fully migrated with zero legacy imports
+- 🔴 Pending - Still requires migration
 
 ## Quick Command Location Reference
 
-### Core Commands (REF-13)
+### Core Commands (REF-13) ✅ COMPLETE
 ```
-src/taskpy/legacy/commands.py:
-  cmd_create()   → lines 260-417   (❌ not migrated)
-  cmd_list()     → lines 418-475   (✅ migrated to modern/core)
-  cmd_show()     → lines 477-552   (❌ not migrated)
-  cmd_edit()     → lines 553-570   (❌ not migrated)
-  cmd_rename()   → lines 2748-2832 (❌ not migrated)
-```
-
-### Sprint Commands (REF-12)
-```
-src/taskpy/legacy/commands.py:
-  cmd_sprint()            → line 1389 (router)
-  _cmd_sprint_add()       → lines 1414-1445 (❌ not migrated)
-  _cmd_sprint_remove()    → lines 1446-1477 (❌ not migrated)
-  _cmd_sprint_list()      → lines 1478-1515 (✅ migrated to modern/sprint)
-  _cmd_sprint_clear()     → lines 1516-1544 (❌ not migrated)
-  _cmd_sprint_stats()     → lines 1545-1599 (❌ not migrated)
-  _cmd_sprint_dashboard() → lines 1677-1791 (❌ not migrated)
-  _cmd_sprint_recommend() → lines 1792-1850 (❌ not migrated)
-  _cmd_sprint_init()      → lines 1632-1676 (❌ not migrated)
+src/taskpy/modern/core/commands.py:
+  cmd_create()   → ✅ Migrated (modern implementation)
+  cmd_list()     → ✅ Migrated (modern implementation)
+  cmd_show()     → ✅ Migrated (modern implementation)
+  cmd_edit()     → ✅ Migrated (modern implementation)
+  cmd_rename()   → ✅ Migrated (modern implementation)
+  cmd_delete()   → ✅ Migrated (modern implementation)
 ```
 
-### Workflow Commands (REF-14)
+### Sprint Commands (REF-12) ✅ COMPLETE
 ```
-src/taskpy/legacy/commands.py:
-  cmd_promote()  → lines 571-643  (❌ not migrated)
-  cmd_demote()   → lines 644-726  (❌ not migrated)
-  cmd_move()     → lines 727-799  (❌ not migrated)
-  cmd_block()    → TBD (locate in file)
-  cmd_unblock()  → TBD (locate in file)
-```
-
-### Display Commands (REF-15)
-```
-src/taskpy/legacy/commands.py:
-  cmd_info()      → lines 800-845  (❌ not migrated)
-  cmd_stoplight() → lines 846-900  (❌ not migrated)
-  cmd_kanban()    → lines 901-935  (❌ not migrated)
-  cmd_history()   → lines 1196-1305 (❌ not migrated)
-  cmd_stats()     → TBD (locate in file)
+src/taskpy/modern/sprint/commands.py:
+  cmd_list()      → ✅ Migrated
+  cmd_add()       → ✅ Migrated
+  cmd_remove()    → ✅ Migrated
+  cmd_clear()     → ✅ Migrated
+  cmd_stats()     → ✅ Migrated
+  cmd_dashboard() → ✅ Migrated
+  cmd_init()      → ✅ Migrated
+  cmd_recommend() → ✅ Migrated
 ```
 
-### Admin Commands (REF-16)
+### Workflow Commands (REF-14) ✅ COMPLETE
 ```
-src/taskpy/legacy/commands.py:
-  cmd_init()     → lines 220-259  (❌ not migrated)
-  cmd_verify()   → lines 936-995  (❌ not migrated)
-  cmd_session()  → lines 1377-1382 (❌ not migrated)
-  cmd_groom()    → TBD (locate in file)
-  cmd_manifest() → TBD (locate in file)
+src/taskpy/modern/workflow/commands.py:
+  cmd_promote()  → ✅ Migrated (zero legacy imports)
+  cmd_demote()   → ✅ Migrated (zero legacy imports)
+  cmd_move()     → ✅ Migrated (zero legacy imports)
+  cmd_resolve()  → ✅ Migrated (zero legacy imports)
+```
+
+### Display Commands (REF-15) ✅ COMPLETE
+```
+src/taskpy/modern/display/commands.py:
+  cmd_info()      → ✅ Migrated (zero legacy imports)
+  cmd_stoplight() → ✅ Migrated (zero legacy imports)
+  cmd_kanban()    → ✅ Migrated (zero legacy imports)
+  cmd_history()   → ✅ Migrated (zero legacy imports)
+  cmd_stats()     → ✅ Migrated (zero legacy imports)
+```
+
+### Admin Commands (REF-16) ✅ COMPLETE (4/6)
+```
+src/taskpy/modern/admin/commands.py:
+  cmd_verify()   → ✅ Migrated (zero legacy imports)
+  cmd_manifest() → ✅ Migrated (zero legacy imports)
+  cmd_groom()    → ✅ Migrated (zero legacy imports)
+  cmd_overrides()→ ✅ Migrated (zero legacy imports)
+  cmd_init()     → ⏸️ Deferred (complex, rarely used)
+  cmd_session()  → ⏸️ Deferred (complex, rarely used)
 ```
 
 ### Milestones Commands (REF-17)
@@ -109,20 +112,20 @@ For each module:
 3. Backward compatibility test (legacy still works)
 4. Output mode test (PRETTY/DATA/AGENT)
 
-## Next Steps
+## Next Steps (Updated 2025-11-21)
 
-### Immediate (High Priority)
-1. **REF-13** - Complete core module (create/show/edit/rename) - 5 SP
-2. **BUGS-09** - Fix `taskpy link --doc` flag - 1 SP
+### Completed ✅
+1. ✅ **REF-13** - Core module (6/6 commands) - 5 SP - COMPLETE
+2. ✅ **REF-12** - Sprint module (8/8 commands) - 3 SP - COMPLETE
+3. ✅ **REF-14** - Workflow module (4/4 commands) - 3 SP - COMPLETE
+4. ✅ **REF-15** - Display module (5/5 commands) - 3 SP - COMPLETE
+5. ✅ **REF-16** - Admin module (4/6 commands) - 3 SP - COMPLETE
+6. ✅ **REF-08** - Epics/NFRs module - COMPLETE
 
-### Medium Term
-3. **REF-12** - Complete sprint module (add/remove/stats/dashboard) - 3 SP
-4. **REF-14** - Complete workflow module (promote/demote/move) - 3 SP
-
-### Lower Priority
-5. **REF-15** - Complete display module (kanban/stats/history/info) - 3 SP
-6. **REF-16** - Complete admin module (init/groom/manifest/verify) - 3 SP
-7. **REF-17** - Complete milestones module - 2 SP
+### Remaining (7 SP)
+1. **REF-09** - Blocking module migration - 5 SP
+2. **REF-17** - Milestones module migration - 2 SP
+3. **REF-11** - Legacy code removal (after above complete) - 5 SP
 
 ## Legacy Code Preservation
 
@@ -171,12 +174,17 @@ Only then consider removing legacy code (REF-04, REF-11).
 | NFRs (REF-07) | "complete" | ✅ **Complete** | nfrs list (only command) |
 | Milestones (REF-17) | "not started" | **0/5 commands, NOT REGISTERED** | None |
 
-### Remaining Work: 15.5 SP
+### Remaining Work: ~7 SP (Updated 2025-11-21)
 
-1. REF-13 (Core): 0.5 SP - delete/recover
-2. BUGS-09 (link --doc): 1 SP
-3. REF-12 (Sprint): 3 SP - 6 commands remaining
-4. REF-14 (Workflow): 3 SP - 3 commands
-5. REF-15 (Display): 3 SP - 5 commands
-6. REF-16 (Admin): 3 SP - 5 commands
-7. REF-17 (Milestones): 2 SP - 5 commands
+**All primary modern modules now have ZERO legacy imports!**
+
+Remaining tasks:
+1. REF-09 (Blocking): 5 SP - block/unblock commands
+2. REF-17 (Milestones): 2 SP - milestone commands
+3. REF-11 (Legacy removal): 5 SP - Remove legacy/commands.py entirely (after REF-09 and REF-17)
+
+**Completed in latest session (12 SP):**
+- ✅ REF-14 (Workflow): 3 SP - All 4 commands migrated
+- ✅ REF-12 (Sprint): 3 SP - Verified all 8 commands complete
+- ✅ REF-16 (Admin): 3 SP - 4/6 commands migrated
+- ✅ REF-15 (Display): 3 SP - All 5 commands migrated

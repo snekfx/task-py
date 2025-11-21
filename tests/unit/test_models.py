@@ -5,9 +5,13 @@ Unit tests for TaskPy models.
 import pytest
 from datetime import datetime
 from taskpy.legacy.models import (
-    Task, Epic, NFR, TaskStatus, Priority,
+    Task, TaskStatus, Priority,
     TaskReference, Verification, VerificationStatus, utc_now
 )
+
+# Epic and NFR models were removed in REF-08 migration
+# These tests are now obsolete and skipped
+SKIP_REASON = "Epic and NFR models removed in REF-08 migration - now handled by modern modules"
 
 
 class TestTask:
@@ -92,6 +96,7 @@ class TestTask:
         assert "security" in row[9]
 
 
+@pytest.mark.skip(reason=SKIP_REASON)
 class TestEpic:
     """Tests for Epic model."""
 
@@ -128,6 +133,7 @@ class TestEpic:
         assert d["story_point_budget"] == 100
 
 
+@pytest.mark.skip(reason=SKIP_REASON)
 class TestNFR:
     """Tests for NFR model."""
 

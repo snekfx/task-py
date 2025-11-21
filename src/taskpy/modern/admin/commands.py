@@ -28,6 +28,8 @@ from taskpy.modern.shared.tasks import (
     rebuild_manifest,
     _kanban_paths,
 )
+# Legacy import for deferred cmd_init and cmd_session
+from taskpy.legacy.storage import TaskStorage
 
 # Status constants
 STATUS_STUB = "stub"

@@ -6,8 +6,12 @@ import pytest
 import tempfile
 import shutil
 from pathlib import Path
-from taskpy.legacy.models import Task, Epic, NFR, TaskStatus, Priority
+from taskpy.legacy.models import Task, TaskStatus, Priority
 from taskpy.legacy.storage import TaskStorage, StorageError, MANIFEST_HEADERS
+
+# Epic and NFR models were removed in REF-08 migration
+# Tests for load_epics/load_nfrs are now obsolete and skipped
+SKIP_REASON = "Epic and NFR models removed in REF-08 migration - now handled by modern modules"
 
 
 class TestTaskStorage:
@@ -64,6 +68,7 @@ class TestTaskStorage:
         with pytest.raises(StorageError):
             storage.initialize(force=False)
 
+    @pytest.mark.skip(reason=SKIP_REASON)
     def test_load_epics(self, storage):
         """Test loading epic definitions."""
         storage.initialize()
@@ -73,6 +78,7 @@ class TestTaskStorage:
         assert "FEAT" in epics
         assert epics["BUGS"].description == "Bug fixes and corrections"
 
+    @pytest.mark.skip(reason=SKIP_REASON)
     def test_load_nfrs(self, storage):
         """Test loading NFR definitions."""
         storage.initialize()
