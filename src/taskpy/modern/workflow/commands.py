@@ -90,7 +90,7 @@ def _archive_from_promote(storage: TaskStorage, task: Task, path: Path, reason: 
     if signoff_mode and task.id not in signoff_list:
         print_error(
             f"{task.id} is not in the signoff list (signoff_mode enabled).\n"
-            "Add it via: taskpy signoff add {task.id}"
+            f"Add it via: taskpy signoff add {task.id}"
         )
         sys.exit(1)
 
