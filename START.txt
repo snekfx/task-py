@@ -56,17 +56,25 @@ Read these files IN ORDER:
   STEP 3: UNDERSTAND CURRENT WORK
 ===============================================================================
 
-Current Sprint Focus: Batch command polish and task list enhancements.
+Current Sprint Focus: **CRITICAL - True migration work to eliminate legacy dependencies**
 
 Migration Status (REF tickets):
-  ✅ COMPLETE:
+  ✅ COMPLETE (No legacy imports):
     - REF-06, REF-07: Foundation & registration
-    - REF-13: Core module (list/show/create/edit/rename)
-    - FEAT-50/51/55: Modern views + sprint operations
+    - REF-13: Core module (list/show/create/edit/rename) - **ONLY truly complete module**
 
-  ⏳ REGRESSIONS REMAINING:
-    - FEAT-56 / REF-08: Epics/NFRs/milestones still reference legacy storage
-    - REF-12 (dashboard portions), REF-14/15/16/17: Workflow, display, admin, milestones modules still carry TODOs to fully shed legacy APIs
+  ❌ REOPENED - Still using legacy imports (34 SP remaining):
+    - REF-08 (3 SP): Epics/NFRs/milestones use taskpy.legacy.storage, legacy.output
+    - REF-09 (5 SP): Sprint/Workflow/Blocking use legacy models, storage, output
+    - REF-10 (5 SP): Admin/Display use legacy models, storage, output (Core is clean)
+    - REF-12 (3 SP): Sprint module needs legacy elimination
+    - REF-14 (3 SP): Workflow module needs legacy elimination
+    - REF-15 (3 SP): Display module needs legacy elimination
+    - REF-16 (3 SP): Admin module needs legacy elimination
+    - REF-17 (2 SP): Milestones module needs legacy elimination
+
+  🚫 BLOCKED:
+    - REF-11 (stub): Legacy removal - Cannot proceed until ALL above complete
 
 Recent Completions:
   - FEAT-58: Modern issues API
@@ -134,22 +142,34 @@ After deployment, taskpy is available system-wide.
 
 Based on current state (see HANDOFF.md for latest):
 
-1. IMMEDIATE:
-   - Verify REF-09 and REF-10 tracking tasks are complete
-   - Close them out if work is done
+1. **CRITICAL PRIORITY** - Eliminate Legacy Dependencies (34 SP):
+   These tickets were falsely marked complete. They need TRUE migration:
 
-2. HIGH PRIORITY:
-   - REF-12: Complete sprint module (3 SP, 6 commands)
-     * READ docs/plans/sprint-module-migration.md FIRST!
-     * Implement: add, remove, clear, stats, dashboard, recommend
+   a. Start with smallest/simplest:
+      - REF-17: Milestones module (2 SP) - migrate legacy.storage → modern/shared/tasks
+      - REF-08: NFRs/Epics (3 SP) - migrate legacy.storage, legacy.output
 
-3. MEDIUM PRIORITY:
-   - REF-14: Workflow module (3 SP)
-   - REF-15: Display module (3 SP)
-   - REF-16: Admin module (3 SP)
+   b. Medium complexity:
+      - REF-12: Sprint module (3 SP) - migrate from legacy.storage
+      - REF-14: Workflow module (3 SP) - migrate models, storage, output
+      - REF-15: Display module (3 SP) - migrate models, storage, output
+      - REF-16: Admin module (3 SP) - migrate models, storage, output
 
-4. CLEANUP:
-   - REF-03, 04, 05, 11: Refactoring and utilities
+   c. Complex (multiple modules):
+      - REF-09: Sprint/Workflow/Blocking (5 SP)
+      - REF-10: Admin/Display (5 SP, Core already done)
+
+   **VERIFICATION FOR EACH**: `grep -r "from taskpy.legacy" src/taskpy/modern/MODULE/` MUST return NOTHING
+
+2. **BLOCKED UNTIL #1 COMPLETE**:
+   - REF-11: Legacy removal (5 SP) - Cannot start until modern is self-sufficient
+
+3. MEDIUM PRIORITY (After migration):
+   - FEAT-41: Delete command (5 SP)
+   - FEAT-27: Board check dashboard (5 SP)
+
+4. LOW PRIORITY:
+   - REF-03, 04, 05: Utilities and refactoring
 
 ===============================================================================
   STEP 8: HELPFUL COMMANDS

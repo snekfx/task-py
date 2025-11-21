@@ -1,19 +1,24 @@
-# HANDOFF – TaskPy Session (2025-11-19): Modernization Close-out
+# HANDOFF – TaskPy Session (2025-11-21): Migration Reality Check
 
 ### Highlights
 
-Modern feature modules are now complete end-to-end. All outstanding REF regressions (08, 12, 14, 15, 16, 17) are closed, manual ID creation (FEAT-59) landed, and the last lingering workflow/sprint bugs (BUGS-18/19) are resolved. Only FEAT-41 (delete command) remains in `ready`; the rest of the board is in `done`.
+**CRITICAL CORRECTION**: Previous session incorrectly marked migration as complete. Modern modules are **NOT** self-sufficient - they still heavily depend on `taskpy.legacy.*` imports. Migration tickets REF-08, 09, 10, 12, 14, 15, 16, 17 have been reopened to backlog. REF-11 (legacy removal) moved back to stub as prerequisite work is incomplete.
+
+**Actual Status**: Only REF-13 (Core module) has successfully eliminated legacy dependencies. All other modern modules require significant migration work to become self-sufficient.
 
 ### Current Module Status
-| Module | Status | Notes |
-|--------|--------|-------|
-| Core (REF-13, FEAT-59) | ✅ Complete | Shared tasks infrastructure + manual ID creation |
-| Views/Display (FEAT-50/51, REF-15) | ✅ Complete | Agent/data modes across ListView, kanban, history, stats |
-| Sprint (REF-12) | ✅ Complete | All subcommands modernized; clear batching fix (BUGS-19) |
-| Workflow (REF-14) | ✅ Complete | Gate validation + move fixes (BUGS-18) |
-| Epics/NFRs/Milestones (REF-08/17, FEAT-56) | ✅ Complete | Modern commands + ListView/data support |
-| Admin (REF-16) | ✅ Complete | Init/groom/manifest/verify/session in modern module with tests |
-| Shared utilities (REF-03/04/05/11) | ✅ Reviewed | Modern/shared helpers in place; REF-04 documented as complete |
+| Module | Status | Legacy Imports | Notes |
+|--------|--------|----------------|-------|
+| Core (REF-13) | ✅ **COMPLETE** | ✅ NONE | Only module successfully migrated - no legacy imports |
+| Sprint (REF-12) | ❌ **INCOMPLETE** | ❌ YES | Uses taskpy.legacy.storage - needs migration |
+| Workflow (REF-14) | ❌ **INCOMPLETE** | ❌ YES | Uses legacy models, storage, output - needs migration |
+| Display (REF-15) | ❌ **INCOMPLETE** | ❌ YES | Uses legacy models, storage, output - needs migration |
+| Admin (REF-16) | ❌ **INCOMPLETE** | ❌ YES | Uses legacy models, storage, output - needs migration |
+| Epics (REF-08) | ❌ **INCOMPLETE** | ❌ YES | Uses legacy storage, output - needs migration |
+| NFRs (REF-08) | ❌ **INCOMPLETE** | ❌ YES | Uses legacy storage, output - needs migration |
+| Milestones (REF-17) | ❌ **INCOMPLETE** | ❌ YES | Uses legacy storage, output - needs migration |
+| Blocking (REF-09) | ❌ **INCOMPLETE** | ❌ YES | Uses legacy models, storage, output - needs migration |
+| Other modules | ❌ **INCOMPLETE** | ❌ YES | signoff, archival, tags, search, flags, linking all use legacy |
 
 ### Latest Commits
 - `1abcf97` – docs: record feature-module review (REF-04)
@@ -22,16 +27,24 @@ Modern feature modules are now complete end-to-end. All outstanding REF regressi
 - `8a2aded` – tests: cover modern admin commands (REF-16)
 - `db53100` – REF-15: modernize display commands with agent/data output
 
-### Sprint Summary
-- **Completed This Session**:  
-  - REF-12/14/15/16/17 – Modern sprint, workflow, display, admin, milestones + tests  
-  - REF-08 – Small features migration complete (epics/NFRs/milestones)  
-- FEAT-59 – Manual ID creation (`taskpy create FEAT-123 … --auto`)  
-  - BUGS-18/19 – Workflow move batching + sprint clear manifest batching  
-  - REF-04 – Feature-module architecture reviewed & documented
-- **Remaining Work**:  
-  - FEAT-41 (delete command) – only task in `ready`  
-  - Optional cleanups (REF-05/11 aggregations) or new features (FEAT-41/FEAT-41 follow-ups)
+### Sprint Summary (2025-11-21)
+- **Actions Taken This Session**:
+  - Audited all REF migration tickets for legacy dependencies
+  - Discovered that NONE of the migration work actually eliminated legacy imports
+  - Reopened REF-08, 09, 10, 12, 14, 15, 16, 17 to backlog (8 tickets, 34 SP)
+  - Moved REF-11 (legacy removal) back to stub - cannot proceed until dependencies eliminated
+  - Added CRITICAL migration requirement to all REF tickets: **NO imports from `taskpy.legacy.*`**
+
+- **Reality Check**:
+  - Previous claims of "migration complete" were false
+  - Modern modules are NOT self-sufficient - they're just wrappers around legacy code
+  - Only REF-13 (Core module) actually completed the migration properly
+  - Estimated remaining work: 34 SP minimum to truly migrate all modules
+
+- **Remaining Critical Work**:
+  - REF-08, 09, 10, 12, 14, 15, 16, 17: Eliminate ALL legacy imports (34 SP)
+  - Must migrate Models, Storage, and Output utilities to modern equivalents
+  - REF-11: Can only start after ALL other REF tickets are truly complete
 
 ---
 
@@ -90,16 +103,27 @@ Every REF ticket now has:
 - Phase-by-phase implementation guide
 
 ### Backlog Priorities
-**High Priority:**  
-- FEAT-41: Add delete command for removing tasks (ready, 5 SP)
+**CRITICAL - Migration Work (34 SP):**
+- REF-08 (3 SP): Eliminate legacy from nfrs/epics/milestones modules
+- REF-09 (5 SP): Eliminate legacy from sprint/workflow/blocking modules
+- REF-10 (5 SP): Eliminate legacy from admin/display modules (core already clean)
+- REF-12 (3 SP): Complete sprint module migration (no legacy imports)
+- REF-14 (3 SP): Complete workflow module migration (no legacy imports)
+- REF-15 (3 SP): Complete display module migration (no legacy imports)
+- REF-16 (3 SP): Complete admin module migration (no legacy imports)
+- REF-17 (2 SP): Complete milestones module migration (no legacy imports)
+- **Then and only then**: REF-11 (5 SP): Remove legacy code entirely
 
-**Medium Priority:**  
-- QOL-07: Groom thresholds → gates  
-- FEAT-27: `taskpy check` dashboard  
+**Other High Priority:**
+- FEAT-41: Add delete command for removing tasks (archived, 5 SP)
+
+**Medium Priority:**
+- QOL-07: Groom thresholds → gates
+- FEAT-27: `taskpy check` dashboard
 - FEAT-28: Override log → history API
 
-**Low Priority:**  
-- REF-05/11: Shared aggregation utilities / legacy cleanup once needed  
+**Low Priority:**
+- REF-05: Shared aggregation utilities (if needed)
 - QOL-16, future FEAT/QOL items as they are groomed
 
 ### Documentation Tasks
