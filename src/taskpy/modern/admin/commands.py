@@ -17,14 +17,35 @@ import statistics
 from datetime import datetime
 from pathlib import Path
 from typing import List, Tuple, Iterable, Dict, Any, Optional
-from taskpy.legacy.models import Task, TaskStatus, VerificationStatus, utc_now
-from taskpy.legacy.storage import TaskStorage, StorageError
-from taskpy.legacy.output import print_success, print_error, print_info, print_warning
+from taskpy.modern.shared.messages import print_success, print_error, print_info, print_warning
+from taskpy.modern.shared.tasks import (
+    TaskRecord,
+    utc_now,
+    ensure_initialized,
+    find_task_file,
+    load_task_from_path,
+    write_task,
+    rebuild_manifest,
+    _kanban_paths,
+)
 
+# Status constants
+STATUS_STUB = "stub"
+STATUS_BACKLOG = "backlog"
+STATUS_READY = "ready"
+STATUS_ACTIVE = "active"
+STATUS_QA = "qa"
+STATUS_REGRESSION = "regression"
+STATUS_DONE = "done"
+STATUS_ARCHIVED = "archived"
+STATUS_BLOCKED = "blocked"
 
-def get_storage() -> TaskStorage:
-    """Get TaskStorage for current directory."""
-    return TaskStorage(Path.cwd())
+# All statuses
+ALL_STATUSES = [STATUS_STUB, STATUS_BACKLOG, STATUS_READY, STATUS_ACTIVE,
+                STATUS_QA, STATUS_REGRESSION, STATUS_DONE, STATUS_ARCHIVED, STATUS_BLOCKED]
+
+class StorageError(Exception):
+    """Storage operation error."""
 
 
 SESSION_STATE_FILENAME = "session_current.json"
@@ -32,9 +53,10 @@ SESSION_LOG_FILENAME = "sessions.jsonl"
 SESSION_SEQUENCE_FILENAME = ".session_seq"
 
 
-def _session_paths(storage: TaskStorage) -> tuple[Path, Path, Path]:
+def _session_paths(root: Optional[Path] = None) -> tuple[Path, Path, Path]:
     """Return (state_path, log_path, sequence_path) under kanban/info."""
-    info_dir = storage.kanban / "info"
+    kanban, _ = _kanban_paths(root)
+    info_dir = kanban / "info"
     info_dir.mkdir(parents=True, exist_ok=True)
     state_path = info_dir / SESSION_STATE_FILENAME
     log_path = info_dir / SESSION_LOG_FILENAME
@@ -91,11 +113,13 @@ def _format_duration(seconds: int) -> str:
 # Helper Functions
 # =============================================================================
 
-def _collect_status_tasks(storage: TaskStorage, statuses: Iterable[TaskStatus]) -> List[Tuple[Task, int]]:
+def _collect_status_tasks(statuses: Iterable[str], root: Optional[Path] = None) -> List[Tuple[TaskRecord, int]]:
     """Collect Task objects and their content lengths for given statuses."""
-    tasks: List[Tuple[Task, int]] = []
+    kanban, _ = _kanban_paths(root)
+    status_dir = kanban / "status"
+    tasks: List[Tuple[TaskRecord, int]] = []
     for status in statuses:
-        dir_path = storage.status_dir / status.value
+        dir_path = status_dir / status
         if not dir_path.exists():
             continue
         for path in sorted(dir_path.glob('*.md')):
@@ -106,7 +130,7 @@ def _collect_status_tasks(storage: TaskStorage, statuses: Iterable[TaskStatus]) 
                 continue
             length = len(content)
             try:
-                task = storage.read_task_file(path)
+                task = load_task_from_path(path)
             except Exception as exc:
                 print_warning(f"Unable to parse {path}: {exc}")
                 continue
@@ -160,14 +184,11 @@ def cmd_init(args):
 
 def cmd_verify(args):
     """Run verification tests for a task."""
-    storage = get_storage()
-
-    if not storage.is_initialized():
-        print_error("TaskPy not initialized. Run: taskpy init")
-        sys.exit(1)
+    root = Path.cwd()
+    ensure_initialized(root)
 
     # Find task
-    result = storage.find_task_file(args.task_id)
+    result = find_task_file(args.task_id, root)
     if not result:
         print_error(f"Task not found: {args.task_id}")
         sys.exit(1)
@@ -175,20 +196,20 @@ def cmd_verify(args):
     path, status = result
 
     try:
-        task = storage.read_task_file(path)
+        task = load_task_from_path(path)
 
-        if not task.verification.command:
+        if not task.verification.get("command"):
             print_warning(
                 f"No verification command set for {args.task_id}\n"
                 f"Use: taskpy link {args.task_id} --verify 'cargo test feature::test'"
             )
             sys.exit(1)
 
-        print_info(f"Running verification: {task.verification.command}")
+        print_info(f"Running verification: {task.verification['command']}")
 
         # Run command
         result = subprocess.run(
-            task.verification.command,
+            task.verification["command"],
             shell=True,
             capture_output=True,
             text=True,
@@ -199,16 +220,16 @@ def cmd_verify(args):
         if result.returncode == 0:
             print_success("Verification passed")
             if update:
-                task.verification.status = VerificationStatus.PASSED
-                task.verification.last_run = utc_now()
-                storage.write_task_file(task)
+                task.verification["status"] = "passed"
+                task.verification["last_run"] = utc_now().isoformat()
+                write_task(task, root)
         else:
             print_error(f"Verification failed\n\nOutput:\n{result.stdout}\n{result.stderr}")
             if update:
-                task.verification.status = VerificationStatus.FAILED
-                task.verification.last_run = utc_now()
-                task.verification.output = result.stderr
-                storage.write_task_file(task)
+                task.verification["status"] = "failed"
+                task.verification["last_run"] = utc_now().isoformat()
+                task.verification["output"] = result.stderr
+                write_task(task, root)
             sys.exit(1)
 
     except subprocess.TimeoutExpired:
@@ -239,13 +260,11 @@ def cmd_manifest(args):
 
 def _cmd_manifest_rebuild(args):
     """Rebuild manifest.tsv from task files."""
-    storage = get_storage()
+    root = Path.cwd()
+    ensure_initialized(root)
 
-    if not storage.is_initialized():
-        print_error("TaskPy not initialized. Run: taskpy init")
-        sys.exit(1)
-
-    count = storage.rebuild_manifest()
+    count = rebuild_manifest(root)
+    kanban, manifest = _kanban_paths(root)
 
     if count == 0:
         print_warning(
@@ -256,24 +275,21 @@ def _cmd_manifest_rebuild(args):
     else:
         print_success(
             f"Indexed {count} tasks into manifest.tsv\n"
-            f"Path: {storage.manifest_file}",
+            f"Path: {manifest}",
             "Manifest Rebuilt"
         )
 
 
 def cmd_groom(args):
     """Audit stub tasks for sufficient detail."""
-    storage = get_storage()
-
-    if not storage.is_initialized():
-        print_error("TaskPy not initialized. Run: taskpy init")
-        sys.exit(1)
+    root = Path.cwd()
+    ensure_initialized(root)
 
     # Get parameters
     ratio = getattr(args, 'ratio', 0.5)
     min_chars = getattr(args, 'min_chars', 200)
 
-    done_tasks = _collect_status_tasks(storage, [TaskStatus.DONE, TaskStatus.ARCHIVED])
+    done_tasks = _collect_status_tasks([STATUS_DONE, STATUS_ARCHIVED], root)
     done_lengths = [length for _, length in done_tasks]
 
     if done_lengths:
@@ -284,7 +300,7 @@ def cmd_groom(args):
         fallback_done = 1000
         threshold = max(int(fallback_done * ratio), min_chars, 500)
 
-    stub_tasks = _collect_status_tasks(storage, [TaskStatus.STUB])
+    stub_tasks = _collect_status_tasks([STATUS_STUB], root)
     stub_lengths = [length for _, length in stub_tasks]
 
     print_info(
@@ -494,35 +510,36 @@ def cmd_session(args):
 
 def cmd_overrides(args):
     """View override usage history aggregated from task histories."""
-    storage = get_storage()
+    root = Path.cwd()
+    ensure_initialized(root)
 
-    if not storage.is_initialized():
-        print_error("TaskPy not initialized. Run: taskpy init")
-        sys.exit(1)
+    kanban, _ = _kanban_paths(root)
+    status_dir = kanban / "status"
 
     # Collect all override entries from all tasks
     override_entries = []
 
     # Scan all status directories for tasks
-    for status_dir in storage.status_dir.iterdir():
-        if not status_dir.is_dir():
+    for status_subdir in status_dir.iterdir():
+        if not status_subdir.is_dir():
             continue
 
-        for task_file in status_dir.glob('*.md'):
+        for task_file in status_subdir.glob('*.md'):
             try:
-                task = storage.read_task_file(task_file)
+                task = load_task_from_path(task_file)
 
                 # Extract override entries from task history
                 # Note: Accept both 'override' and legacy 'override_*' actions for backward compat
                 if task.history:
                     for entry in task.history:
-                        if entry.action == 'override' or entry.action.startswith('override_'):
+                        action = entry.get("action", "")
+                        if action == 'override' or action.startswith('override_'):
                             override_entries.append({
-                                'timestamp': entry.timestamp,
+                                'timestamp': entry.get("timestamp", ""),
                                 'task_id': task.id,
-                                'from_status': entry.from_status or 'unknown',
-                                'to_status': entry.to_status or 'unknown',
-                                'reason': entry.reason or 'No reason provided'
+                                'from_status': entry.get("from_status", "unknown"),
+                                'to_status': entry.get("to_status", "unknown"),
+                                'reason': entry.get("reason", "No reason provided")
                             })
             except Exception as exc:
                 # Skip tasks that can't be read
