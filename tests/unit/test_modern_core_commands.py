@@ -86,11 +86,55 @@ class TestCoreListCommand:
             milestone=None,
             sprint=False,
             all=False,
-            sort='priority'
+            sort='priority',
+            assigned=None,
+            tags=None,
+            columns=None,
+            format='table',
         )
 
         monkeypatch.chdir(tmp_path)
         cmd_list(args)
+
+    def test_list_with_custom_columns(self, tmp_path, monkeypatch, capsys):
+        """List should support --with custom column selection."""
+        storage = TaskStorage(tmp_path)
+        storage.initialize()
+
+        task = Task(
+            id="TEST-01",
+            epic="TEST",
+            number=1,
+            title="Test task",
+            status=TaskStatus.BACKLOG,
+            priority=Priority.MEDIUM,
+            story_points=1,
+            tags=["alpha", "beta"],
+        )
+        storage.write_task_file(task)
+        storage.rebuild_manifest()
+
+        args = Namespace(
+            epic=None,
+            status=None,
+            priority=None,
+            milestone=None,
+            sprint=False,
+            all=False,
+            sort='priority',
+            assigned=None,
+            tags=None,
+            columns="id,title,tags",
+            format='table',
+        )
+
+        monkeypatch.chdir(tmp_path)
+        set_output_mode(OutputMode.DATA)
+        cmd_list(args)
+        output = capsys.readouterr().out
+        set_output_mode(OutputMode.PRETTY)
+        assert "Tags" in output
+        assert "alpha, beta" in output
 
 
 class TestCoreShowCommand:

@@ -98,9 +98,10 @@ def setup_list_parser(subparsers):
                        default='priority',
                        help='Sort order')
     parser.add_argument('--format',
-                        choices=['table', 'cards', 'ids', 'tsv'],
-                        default='table',
-                        help='Output format (table default)')
+                       choices=['table', 'cards', 'ids', 'tsv'],
+                       default='table',
+                       help='Output format (table default)')
+    parser.add_argument('--with', dest='columns', help='Comma-separated columns to display (e.g., id,title,status,sp,tags)')
 
     return parser
 

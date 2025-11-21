@@ -2,7 +2,7 @@
 
 import sys
 from pathlib import Path
-from typing import List
+from typing import List, Dict, Callable
 
 from taskpy.modern.shared.messages import print_error, print_info
 from taskpy.modern.shared.output import get_output_mode, OutputMode
@@ -15,6 +15,48 @@ from taskpy.modern.shared.tasks import (
     format_title,
 )
 from taskpy.modern.views import ListView, ColumnConfig, show_card
+
+
+def _normalize_tags(value) -> List[str]:
+    """Return list of tags from either list or comma-separated string."""
+    if isinstance(value, list):
+        return [t for t in value if t]
+    return [t.strip() for t in str(value).split(",") if t.strip()]
+
+
+def _column_builders() -> Dict[str, Callable[[], ColumnConfig]]:
+    """Return mapping of column keywords to ColumnConfig builders."""
+    return {
+        "id": lambda: ColumnConfig(name="ID", field="id"),
+        "title": lambda: ColumnConfig(name="Title", field=lambda t: format_title(t.get('title', ''))),
+        "status": lambda: ColumnConfig(name="Status", field="status"),
+        "sp": lambda: ColumnConfig(name="SP", field="story_points"),
+        "story_points": lambda: ColumnConfig(name="SP", field="story_points"),
+        "priority": lambda: ColumnConfig(name="Priority", field="priority"),
+        "sprint": lambda: ColumnConfig(name="Sprint", field=lambda t: '✓' if t.get('in_sprint', 'false') == 'true' else ''),
+        "tags": lambda: ColumnConfig(name="Tags", field=lambda t: ", ".join(_normalize_tags(t.get('tags', [])))),
+        "milestone": lambda: ColumnConfig(name="Milestone", field="milestone"),
+        "epic": lambda: ColumnConfig(name="Epic", field="epic"),
+        "assigned": lambda: ColumnConfig(name="Assigned", field="assigned"),
+    }
+
+
+def _build_columns(selected: List[str]) -> List[ColumnConfig]:
+    """Build column configs from a user selection."""
+    default = ["id", "title", "status", "sp", "priority", "sprint"]
+    names = selected or default
+    builders = _column_builders()
+    cols: List[ColumnConfig] = []
+    for name in names:
+        key = name.strip().lower()
+        # alias handling
+        if key == "story_points":
+            key = "sp"
+        if key not in builders:
+            print_error(f"Unknown column: {name}. Valid: {', '.join(sorted(builders.keys()))}")
+            sys.exit(1)
+        cols.append(builders[key]())
+    return cols
 
 
 def _read_manifest_with_filters(args):
@@ -83,6 +125,10 @@ def cmd_list(args):
 
     mode = get_output_mode()
     format_mode = getattr(args, 'format', 'table')
+    selected_columns = []
+    if getattr(args, "columns", None):
+        selected_columns = [c.strip() for c in args.columns.split(",") if c.strip()]
+    columns = _build_columns(selected_columns)
 
     if format_mode == 'ids':
         for task in tasks:
@@ -90,9 +136,11 @@ def cmd_list(args):
         return
 
     if format_mode == 'tsv':
-        print("\t".join(["id", "epic", "status", "title", "sp", "priority"]))
+        headers = [col.name for col in columns]
+        print("\t".join(headers))
         for task in tasks:
-            print(f"{task['id']}\t{task['epic']}\t{task['status']}\t{task['title']}\t{task['story_points']}\t{task['priority']}")
+            row = [col.get_value(task) for col in columns]
+            print("\t".join(row))
         return
 
     if format_mode == 'cards':
@@ -115,15 +163,6 @@ def cmd_list(args):
         return
 
     # Configure columns
-    columns = [
-        ColumnConfig(name="ID", field="id"),
-        ColumnConfig(name="Title", field=lambda t: format_title(t.get('title', ''))),
-        ColumnConfig(name="Status", field="status"),
-        ColumnConfig(name="SP", field="story_points"),
-        ColumnConfig(name="Priority", field="priority"),
-        ColumnConfig(name="Sprint", field=lambda t: '✓' if t.get('in_sprint', 'false') == 'true' else ''),
-    ]
-
     # Create and render ListView
     view = ListView(
         data=tasks,
@@ -223,8 +262,3 @@ def cmd_show(args):
 
 
 __all__ = ['cmd_list', 'cmd_show']
-def _normalize_tags(value) -> List[str]:
-    """Return list of tags from either list or comma-separated string."""
-    if isinstance(value, list):
-        return [t for t in value if t]
-    return [t.strip() for t in str(value).split(",") if t.strip()]
