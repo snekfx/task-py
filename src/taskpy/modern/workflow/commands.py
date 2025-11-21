@@ -121,11 +121,13 @@ def _archive_from_promote(storage: TaskStorage, task: Task, path: Path, reason: 
     )
     task.history.append(history_entry)
 
+    # Write to new location first to prevent data loss
+    storage.write_task_file(task)
+    # Only delete old location after successful write
     try:
         path.unlink()
     except FileNotFoundError:
-        pass
-    storage.write_task_file(task)
+        pass  # Already gone, that's fine
 
     if task.id in signoff_list:
         remove_signoff_tickets([task.id], storage.root)
@@ -190,8 +192,10 @@ def _move_task(storage: TaskStorage, task_id: str, current_path: Path, target_st
         )
         task.history.append(history_entry)
 
-        current_path.unlink()
+        # Write to new location first to prevent data loss
         storage.write_task_file(task)
+        # Only delete old location after successful write
+        current_path.unlink()
 
         print_success(
             f"Moved {task_id}: {old_status.value} → {target_status.value}",
@@ -607,9 +611,11 @@ def cmd_resolve(args):
     task.updated = utc_now()
 
     try:
+        # Write to new location first to prevent data loss
+        storage.write_task_file(task)
+        # Only delete old location after successful write
         if old_status != TaskStatus.DONE:
             path.unlink()
-        storage.write_task_file(task)
 
         print_success(f"Resolved {args.task_id}: {old_status.value} → done")
         print_info(f"Resolution: {resolution.value}")
