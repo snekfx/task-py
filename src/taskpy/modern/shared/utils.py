@@ -35,24 +35,54 @@ def load_task_or_exit(storage: TaskStorage, task_id: str) -> tuple[Task, Path, T
     return task, path, status
 
 
-def format_history_entry(entry: HistoryEntry) -> List[str]:
-    """Return formatted lines for a single history entry."""
-    local_time = entry.timestamp.astimezone()
-    timestamp = local_time.strftime("%Y-%m-%d %H:%M:%S")
+def format_history_entry(entry) -> List[str]:
+    """Return formatted lines for a single history entry.
 
-    if entry.from_status and entry.to_status:
-        transition = f"{entry.from_status} → {entry.to_status}"
-        action_display = f"{entry.action}: {transition}"
+    Handles both dict-based entries (modern) and HistoryEntry objects (legacy).
+    """
+    from datetime import datetime
+
+    # Support both dict and object formats
+    if isinstance(entry, dict):
+        timestamp_str = entry.get("timestamp", "")
+        # Parse ISO format timestamp string to datetime
+        if isinstance(timestamp_str, str):
+            timestamp_dt = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+        else:
+            timestamp_dt = timestamp_str
+        local_time = timestamp_dt.astimezone()
+        timestamp = local_time.strftime("%Y-%m-%d %H:%M:%S")
+
+        from_status = entry.get("from_status")
+        to_status = entry.get("to_status")
+        action = entry.get("action", "")
+        reason = entry.get("reason")
+        actor = entry.get("actor")
+        metadata = entry.get("metadata")
     else:
-        action_display = entry.action
+        # Legacy HistoryEntry object
+        local_time = entry.timestamp.astimezone()
+        timestamp = local_time.strftime("%Y-%m-%d %H:%M:%S")
+        from_status = entry.from_status
+        to_status = entry.to_status
+        action = entry.action
+        reason = entry.reason
+        actor = entry.actor
+        metadata = entry.metadata
+
+    if from_status and to_status:
+        transition = f"{from_status} → {to_status}"
+        action_display = f"{action}: {transition}"
+    else:
+        action_display = action
 
     lines = [f"  [{timestamp}] {action_display}"]
-    if entry.reason:
-        lines.append(f"    Reason: {entry.reason}")
-    if entry.actor:
-        lines.append(f"    Actor: {entry.actor}")
-    if entry.metadata:
-        for key, value in entry.metadata.items():
+    if reason:
+        lines.append(f"    Reason: {reason}")
+    if actor:
+        lines.append(f"    Actor: {actor}")
+    if metadata:
+        for key, value in metadata.items():
             lines.append(f"    {key}: {value}")
     return lines
 

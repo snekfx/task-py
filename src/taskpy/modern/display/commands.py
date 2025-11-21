@@ -83,10 +83,10 @@ def cmd_info(args):
 
     if current_status == STATUS_REGRESSION:
         next_status = STATUS_QA
-        print(f"Next Status: {next_status.value} (re-review after regression)")
+        print(f"Next Status: {next_status} (re-review after regression)")
         print()
     elif current_status in (STATUS_DONE, STATUS_ARCHIVED):
-        print_success(f"Task is at final status ({current_status.value})")
+        print_success(f"Task is at final status ({current_status})")
         if current_status == STATUS_ARCHIVED:
             print("Archived tasks must be reactivated before additional work.")
         return
@@ -96,10 +96,10 @@ def cmd_info(args):
             print_success("Task is at final status (done)")
             return
         next_status = workflow[current_idx + 1]
-        print(f"Next Status: {next_status.value}")
+        print(f"Next Status: {next_status}")
         print()
     else:
-        print_warning(f"Unknown workflow status: {current_status.value}")
+        print_warning(f"Unknown workflow status: {current_status}")
         print("Cannot determine next status automatically.")
         return
 
@@ -123,10 +123,7 @@ def cmd_stoplight(args):
     - 2: Blocked or error
     """
     root = Path.cwd()
-
-    if not ensure_initialized(root):
-        print_error("TaskPy not initialized. Run: taskpy init")
-        sys.exit(2)
+    ensure_initialized(root)
 
     # Find task
     result = find_task_file(args.task_id)
@@ -152,7 +149,7 @@ def cmd_stoplight(args):
     else:
         current_idx = workflow.index(current_status)
         if current_idx >= len(workflow) - 1:
-            print_success(f"Task {task.id} is already at final status ({current_status.value})")
+            print_success(f"Task {task.id} is already at final status ({current_status})")
             sys.exit(0)
         next_status = workflow[current_idx + 1]
 
@@ -161,13 +158,13 @@ def cmd_stoplight(args):
 
     if is_valid:
         print_success(
-            f"Ready: {task.id} can move {current_status.value} → {next_status.value}",
+            f"Ready: {task.id} can move {current_status} → {next_status}",
             "Stoplight"
         )
         sys.exit(0)
     else:
         print_warning(
-            f"Missing requirements for {task.id}: {current_status.value} → {next_status.value}",
+            f"Missing requirements for {task.id}: {current_status} → {next_status}",
             "Stoplight"
         )
         for blocker in blockers:
@@ -178,22 +175,19 @@ def cmd_stoplight(args):
 def cmd_kanban(args):
     """Display kanban board."""
     root = Path.cwd()
-
-    if not ensure_initialized(root):
-        print_error("TaskPy not initialized. Run: taskpy init")
-        sys.exit(1)
+    ensure_initialized(root)
 
     rows = load_manifest(root)
     epic_filter = getattr(args, 'epic', None)
     sort_mode = getattr(args, 'sort', 'priority')
     statuses = [STATUS_STUB, STATUS_BACKLOG, STATUS_READY,
                 STATUS_ACTIVE, STATUS_QA, STATUS_DONE]
-    grouped: Dict[TaskStatus, List[Dict[str, Any]]] = {status: [] for status in statuses}
+    grouped: Dict[str, List[Dict[str, Any]]] = {status: [] for status in statuses}
 
     for row in rows:
         if epic_filter and row['epic'] != epic_filter.upper():
             continue
-        status = TaskStatus(row['status'])
+        status = row['status']
         if status in grouped:
             grouped[status].append(row)
 
@@ -213,7 +207,7 @@ def cmd_kanban(args):
             },
             "columns": [
                 {
-                    "status": status.value,
+                    "status": status,
                     "count": len(tasks),
                     "tasks": tasks,
                 }
@@ -227,7 +221,7 @@ def cmd_kanban(args):
         tasks = grouped.get(status, [])
         if not tasks:
             continue
-        show_column(status.value, tasks, output_mode=mode)
+        show_column(status, tasks, output_mode=mode)
         if mode == OutputMode.PRETTY:
             print()
 
@@ -265,18 +259,7 @@ def cmd_history(args):
                 {
                     "task_id": task.id,
                     "title": task.title,
-                    "history": [
-                        {
-                            "timestamp": entry.timestamp.isoformat(),
-                            "action": entry.action,
-                            "from_status": entry.from_status,
-                            "to_status": entry.to_status,
-                            "reason": entry.reason,
-                            "actor": entry.actor,
-                            "metadata": entry.metadata,
-                        }
-                        for entry in task.history
-                    ],
+                    "history": task.history,  # Already in dict format
                 }
                 for task in tasks_with_history
             ]
@@ -319,18 +302,7 @@ def cmd_history(args):
             payload = {
                 "task_id": task.id,
                 "title": task.title,
-                "history": [
-                    {
-                        "timestamp": entry.timestamp.isoformat(),
-                        "action": entry.action,
-                        "from_status": entry.from_status,
-                        "to_status": entry.to_status,
-                        "reason": entry.reason,
-                        "actor": entry.actor,
-                        "metadata": entry.metadata,
-                    }
-                    for entry in task.history
-                ],
+                "history": task.history,  # Already in dict format
             }
             print(json.dumps(payload, indent=2))
             return
@@ -350,10 +322,7 @@ def cmd_history(args):
 def cmd_stats(args):
     """Show task statistics."""
     root = Path.cwd()
-
-    if not ensure_initialized(root):
-        print_error("TaskPy not initialized. Run: taskpy init")
-        sys.exit(1)
+    ensure_initialized(root)
 
     rows = load_manifest(root)
 
