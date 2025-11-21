@@ -4,26 +4,30 @@ import sys
 import re
 import json
 from pathlib import Path
+from typing import Optional
 
-from taskpy.legacy.storage import TaskStorage
-from taskpy.legacy.output import print_error, print_info, print_success, print_warning
-from taskpy.legacy.commands import _read_manifest
 from taskpy.modern.shared.aggregations import (
     filter_by_milestone,
     get_milestone_stats,
 )
 from taskpy.modern.shared.output import get_output_mode, OutputMode
+from taskpy.modern.shared.messages import print_error, print_info, print_success, print_warning
+from taskpy.modern.shared.tasks import (
+    ensure_initialized,
+    load_manifest,
+    load_milestones as load_milestones_data,
+    find_task_file,
+    load_task_from_path,
+    write_task,
+    _info_dir,
+)
 from taskpy.modern.views import ListView, ColumnConfig
 
 
-def get_storage() -> TaskStorage:
-    """Get TaskStorage for current directory."""
-    return TaskStorage(Path.cwd())
-
-
-def _update_milestone_status(storage: TaskStorage, milestone_id: str, new_status: str):
+def _update_milestone_status(milestone_id: str, new_status: str, root: Optional[Path] = None):
     """Update milestone status in TOML file."""
-    milestones_file = storage.info_dir / "milestones.toml"
+    info_dir = _info_dir(root)
+    milestones_file = info_dir / "milestones.toml"
     content = milestones_file.read_text()
 
     # Find the milestone section and update status
@@ -46,13 +50,9 @@ def _update_milestone_status(storage: TaskStorage, milestone_id: str, new_status
 
 def cmd_milestones(args):
     """List all milestones sorted by priority."""
-    storage = get_storage()
+    ensure_initialized()
 
-    if not storage.is_initialized():
-        print_error("TaskPy not initialized. Run: taskpy init")
-        sys.exit(1)
-
-    milestones = storage.load_milestones()
+    milestones = load_milestones_data()
 
     if not milestones:
         print_info("No milestones defined. Add them to: data/kanban/info/milestones.toml")
@@ -117,14 +117,10 @@ def cmd_milestone(args):
 
 def _cmd_milestone_show(args):
     """Show milestone details and task statistics."""
-    storage = get_storage()
-
-    if not storage.is_initialized():
-        print_error("TaskPy not initialized. Run: taskpy init")
-        sys.exit(1)
+    ensure_initialized()
 
     # Load milestone
-    milestones = storage.load_milestones()
+    milestones = load_milestones_data()
     if args.milestone_id not in milestones:
         print_error(f"Milestone not found: {args.milestone_id}")
         sys.exit(1)
@@ -132,7 +128,7 @@ def _cmd_milestone_show(args):
     milestone = milestones[args.milestone_id]
 
     # Get tasks for this milestone
-    rows = _read_manifest(storage)
+    rows = load_manifest()
     milestone_tasks = filter_by_milestone(rows, args.milestone_id)
     stats = get_milestone_stats(milestone_tasks)
 
@@ -220,14 +216,10 @@ def _cmd_milestone_show(args):
 
 def _cmd_milestone_start(args):
     """Mark milestone as active."""
-    storage = get_storage()
-
-    if not storage.is_initialized():
-        print_error("TaskPy not initialized. Run: taskpy init")
-        sys.exit(1)
+    ensure_initialized()
 
     # Load milestones
-    milestones = storage.load_milestones()
+    milestones = load_milestones_data()
     if args.milestone_id not in milestones:
         print_error(f"Milestone not found: {args.milestone_id}")
         sys.exit(1)
@@ -239,7 +231,7 @@ def _cmd_milestone_start(args):
         return
 
     # Update status in TOML file
-    _update_milestone_status(storage, args.milestone_id, 'active')
+    _update_milestone_status(args.milestone_id, 'active')
 
     print_success(
         f"Milestone {args.milestone_id} marked as active\n"
@@ -250,14 +242,10 @@ def _cmd_milestone_start(args):
 
 def _cmd_milestone_complete(args):
     """Mark milestone as completed."""
-    storage = get_storage()
-
-    if not storage.is_initialized():
-        print_error("TaskPy not initialized. Run: taskpy init")
-        sys.exit(1)
+    ensure_initialized()
 
     # Load milestones
-    milestones = storage.load_milestones()
+    milestones = load_milestones_data()
     if args.milestone_id not in milestones:
         print_error(f"Milestone not found: {args.milestone_id}")
         sys.exit(1)
@@ -269,7 +257,7 @@ def _cmd_milestone_complete(args):
         return
 
     # Check if all tasks are done
-    rows = _read_manifest(storage)
+    rows = load_manifest()
     milestone_tasks = [r for r in rows if r.get('milestone') == args.milestone_id]
     incomplete = [r for r in milestone_tasks if r['status'] not in ['done', 'archived']]
 
@@ -283,7 +271,7 @@ def _cmd_milestone_complete(args):
         print_warning("\nMarking as completed anyway.")
 
     # Update status in TOML file
-    _update_milestone_status(storage, args.milestone_id, 'completed')
+    _update_milestone_status(args.milestone_id, 'completed')
 
     print_success(
         f"Milestone {args.milestone_id} marked as completed\n"
@@ -294,20 +282,16 @@ def _cmd_milestone_complete(args):
 
 def _cmd_milestone_assign(args):
     """Assign task to milestone."""
-    storage = get_storage()
-
-    if not storage.is_initialized():
-        print_error("TaskPy not initialized. Run: taskpy init")
-        sys.exit(1)
+    ensure_initialized()
 
     # Validate milestone exists
-    milestones = storage.load_milestones()
+    milestones = load_milestones_data()
     if args.milestone_id not in milestones:
         print_error(f"Milestone not found: {args.milestone_id}")
         sys.exit(1)
 
     # Find task
-    result = storage.find_task_file(args.task_id)
+    result = find_task_file(args.task_id)
     if not result:
         print_error(f"Task not found: {args.task_id}")
         sys.exit(1)
@@ -316,14 +300,14 @@ def _cmd_milestone_assign(args):
 
     try:
         # Read task
-        task = storage.read_task_file(path)
+        task = load_task_from_path(path)
         old_milestone = task.milestone
 
         # Update milestone
         task.milestone = args.milestone_id
 
         # Save task
-        storage.write_task_file(task)
+        write_task(task)
 
         if old_milestone:
             print_success(
