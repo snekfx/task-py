@@ -1,6 +1,6 @@
 [project]
 name = "taskpy"
-version = "0.3.2"
+version = "0.3.3"
 description = "File-based agile task management tool for META PROCESS v3 workflows"
 authors = [
     {name = "snekfx", email = "noreply@snekfx.dev"}
