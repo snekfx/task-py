@@ -14,15 +14,15 @@ import sys
 import json
 from pathlib import Path
 from typing import List, Dict, Any, Optional
-from taskpy.legacy.models import Task, TaskStatus
-from taskpy.legacy.storage import TaskStorage
-from taskpy.legacy.output import (
-    print_success,
-    print_error,
-    print_info,
-    print_warning,
+from taskpy.modern.shared.messages import print_success, print_error, print_info, print_warning
+from taskpy.modern.shared.tasks import (
+    TaskRecord,
+    ensure_initialized,
+    find_task_file,
+    load_task_from_path,
+    load_manifest,
+    sort_manifest_rows,
 )
-from taskpy.legacy.commands import _read_manifest, _sort_tasks
 from taskpy.modern.shared.aggregations import (
     filter_by_epic,
     filter_by_milestone,
@@ -32,10 +32,16 @@ from taskpy.modern.shared.output import get_output_mode, OutputMode
 from taskpy.modern.shared.utils import format_history_entry
 from taskpy.modern.views import show_column, rolo_table
 
-
-def get_storage() -> TaskStorage:
-    """Get TaskStorage for current directory."""
-    return TaskStorage(Path.cwd())
+# Status constants
+STATUS_STUB = "stub"
+STATUS_BACKLOG = "backlog"
+STATUS_READY = "ready"
+STATUS_ACTIVE = "active"
+STATUS_QA = "qa"
+STATUS_REGRESSION = "regression"
+STATUS_DONE = "done"
+STATUS_ARCHIVED = "archived"
+STATUS_BLOCKED = "blocked"
 
 
 # Import validation function from workflow module
@@ -48,44 +54,40 @@ from taskpy.modern.workflow.commands import validate_promotion
 
 def cmd_info(args):
     """Show task status and gate requirements for next promotion."""
-    storage = get_storage()
+    root = Path.cwd()
+    ensure_initialized(root)
     mode = get_output_mode()
 
-    if not storage.is_initialized():
-        print_error("TaskPy not initialized. Run: taskpy init")
-        sys.exit(1)
-
     # Find task
-    result = storage.find_task_file(args.task_id)
+    result = find_task_file(args.task_id, root)
     if not result:
         print_error(f"Task not found: {args.task_id}")
         sys.exit(1)
 
     path, current_status = result
-    task = storage.read_task_file(path)
+    task = load_task_from_path(path)
 
-    # Determine next status in workflow
-    workflow = [TaskStatus.STUB, TaskStatus.BACKLOG, TaskStatus.READY, TaskStatus.ACTIVE,
-                TaskStatus.QA, TaskStatus.DONE]
+    # Workflow order
+    workflow = [STATUS_STUB, STATUS_BACKLOG, STATUS_READY, STATUS_ACTIVE, STATUS_QA, STATUS_DONE]
 
     print_info(f"Task: {args.task_id}")
-    print(f"Current Status: {current_status.value}")
+    print(f"Current Status: {current_status}")
     print(f"Title: {task.title}")
     print()
 
-    if current_status == TaskStatus.BLOCKED:
+    if current_status == STATUS_BLOCKED:
         reason = task.blocked_reason or "No reason provided."
         print_warning(f"Task is blocked: {reason}")
         print("Resolve the blocker and run 'taskpy unblock' before promoting.")
         return
 
-    if current_status == TaskStatus.REGRESSION:
-        next_status = TaskStatus.QA
+    if current_status == STATUS_REGRESSION:
+        next_status = STATUS_QA
         print(f"Next Status: {next_status.value} (re-review after regression)")
         print()
-    elif current_status in (TaskStatus.DONE, TaskStatus.ARCHIVED):
+    elif current_status in (STATUS_DONE, STATUS_ARCHIVED):
         print_success(f"Task is at final status ({current_status.value})")
-        if current_status == TaskStatus.ARCHIVED:
+        if current_status == STATUS_ARCHIVED:
             print("Archived tasks must be reactivated before additional work.")
         return
     elif current_status in workflow:
@@ -120,33 +122,33 @@ def cmd_stoplight(args):
     - 1: Missing requirements (gate failure)
     - 2: Blocked or error
     """
-    storage = get_storage()
+    root = Path.cwd()
 
-    if not storage.is_initialized():
+    if not ensure_initialized(root):
         print_error("TaskPy not initialized. Run: taskpy init")
         sys.exit(2)
 
     # Find task
-    result = storage.find_task_file(args.task_id)
+    result = find_task_file(args.task_id)
     if not result:
         print_error(f"Task not found: {args.task_id}")
         sys.exit(2)
 
     path, current_status = result
-    task = storage.read_task_file(path)
+    task = load_task_from_path(path)
 
     # Check if task is blocked
-    if task.status == TaskStatus.BLOCKED:
+    if task.status == STATUS_BLOCKED:
         reason = task.blocked_reason or "No reason provided"
         print_warning(f"Task {task.id} is blocked: {reason}")
         sys.exit(2)  # Blocked
 
     # Determine next status in workflow
-    workflow = [TaskStatus.STUB, TaskStatus.BACKLOG, TaskStatus.READY,
-                TaskStatus.ACTIVE, TaskStatus.QA, TaskStatus.DONE]
+    workflow = [STATUS_STUB, STATUS_BACKLOG, STATUS_READY,
+                STATUS_ACTIVE, STATUS_QA, STATUS_DONE]
 
-    if current_status == TaskStatus.REGRESSION:
-        next_status = TaskStatus.QA
+    if current_status == STATUS_REGRESSION:
+        next_status = STATUS_QA
     else:
         current_idx = workflow.index(current_status)
         if current_idx >= len(workflow) - 1:
@@ -175,17 +177,17 @@ def cmd_stoplight(args):
 
 def cmd_kanban(args):
     """Display kanban board."""
-    storage = get_storage()
+    root = Path.cwd()
 
-    if not storage.is_initialized():
+    if not ensure_initialized(root):
         print_error("TaskPy not initialized. Run: taskpy init")
         sys.exit(1)
 
-    rows = _read_manifest(storage)
+    rows = load_manifest(root)
     epic_filter = getattr(args, 'epic', None)
     sort_mode = getattr(args, 'sort', 'priority')
-    statuses = [TaskStatus.STUB, TaskStatus.BACKLOG, TaskStatus.READY,
-                TaskStatus.ACTIVE, TaskStatus.QA, TaskStatus.DONE]
+    statuses = [STATUS_STUB, STATUS_BACKLOG, STATUS_READY,
+                STATUS_ACTIVE, STATUS_QA, STATUS_DONE]
     grouped: Dict[TaskStatus, List[Dict[str, Any]]] = {status: [] for status in statuses}
 
     for row in rows:
@@ -196,7 +198,7 @@ def cmd_kanban(args):
             grouped[status].append(row)
 
     for status in grouped:
-        grouped[status] = _sort_tasks(grouped[status], sort_mode)
+        grouped[status] = sort_manifest_rows(grouped[status], sort_mode)
 
     if all(len(tasks) == 0 for tasks in grouped.values()):
         print_info("No tasks match the provided filters.")
@@ -232,23 +234,23 @@ def cmd_kanban(args):
 
 def cmd_history(args):
     """Display task history and audit trail."""
-    storage = get_storage()
+    root = Path.cwd()
     mode = get_output_mode()
 
     # Check if showing all tasks or single task
     if getattr(args, 'all', False):
         # Read all tasks from manifest
-        rows = _read_manifest(storage)
+        rows = load_manifest(root)
 
         # Collect all tasks with history
         tasks_with_history = []
         for row in rows:
             task_id = row['id']
-            result = storage.find_task_file(task_id)
+            result = find_task_file(task_id)
             if result:
                 path, _ = result
                 try:
-                    task = storage.read_task_file(path)
+                    task = load_task_from_path(path)
                     if task.history:
                         tasks_with_history.append(task)
                 except Exception:
@@ -299,7 +301,7 @@ def cmd_history(args):
         sys.exit(1)
 
     # Find task file
-    result = storage.find_task_file(args.task_id)
+    result = find_task_file(args.task_id)
     if not result:
         print_error(f"Task not found: {args.task_id}")
         sys.exit(1)
@@ -307,7 +309,7 @@ def cmd_history(args):
     path, current_status = result
 
     try:
-        task = storage.read_task_file(path)
+        task = load_task_from_path(path)
 
         if not task.history:
             print_info(f"No history entries for {args.task_id}")
@@ -347,13 +349,13 @@ def cmd_history(args):
 
 def cmd_stats(args):
     """Show task statistics."""
-    storage = get_storage()
+    root = Path.cwd()
 
-    if not storage.is_initialized():
+    if not ensure_initialized(root):
         print_error("TaskPy not initialized. Run: taskpy init")
         sys.exit(1)
 
-    rows = _read_manifest(storage)
+    rows = load_manifest(root)
 
     epic_filter = getattr(args, 'epic', None)
     if epic_filter:
