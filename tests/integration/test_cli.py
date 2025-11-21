@@ -562,10 +562,10 @@ class TestCLI:
         self.run_taskpy(["promote", "FEAT-01"], cwd=temp_dir)
         self.run_taskpy(["promote", "FEAT-01", "--commit", "abc123"], cwd=temp_dir)
 
-        # Should pass with reason
+        # Should pass with reason and move to regression
         result = self.run_taskpy(["demote", "FEAT-01", "--reason", "Found regression"], cwd=temp_dir)
         assert result.returncode == 0
-        assert "qa" in result.stdout
+        assert "regression" in result.stdout.lower()
 
     def test_info_command(self, temp_dir):
         """Test info command shows gate requirements."""

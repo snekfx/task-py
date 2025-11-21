@@ -448,6 +448,11 @@ show_story_points = true
 
 # Show tags in task lists
 show_tags = true
+
+[features]
+# Toggle optional/experimental behaviors
+strict_mode = false
+signoff_mode = false
 """
         (self.info_dir / "config.toml").write_text(content)
 

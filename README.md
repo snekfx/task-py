@@ -428,6 +428,15 @@ taskpy list --milestone milestone-1
 # By tags
 taskpy list --tags security,auth
 
+# Manage tags on tasks
+taskpy tags FEAT-01,BUGS-02 --add backend,api
+taskpy tags FEAT-01 --remove api
+taskpy tags FEAT-01 --clear
+
+# Search by keyword/tag (use --filter=title,body,tags and allow archived)
+taskpy search "api" --filter title,tags
+taskpy search "api" "backend" --archived
+
 # Combined filters
 taskpy list --epic FEAT --status in_progress --priority high --milestone milestone-1
 ```
@@ -516,7 +525,15 @@ require_tests = false  # Require tests to pass before moving to done
 default_view = "pretty"
 show_story_points = true
 show_tags = true
+
+[features]
+strict_mode = false  # Block overrides/forced QA→done moves
+signoff_mode = false  # Require signoff list for done→archived
+
+# manage via: taskpy flag enable|disable strict_mode|signoff_mode
 ```
+
+Feature flags live in `data/kanban/info/config.toml`. Use `taskpy flag list` to view them, and `taskpy flag enable strict_mode` to enforce gated promotions (overrides + direct QA/done moves are blocked until you disable the flag).
 
 ## AI Agent Usage
 

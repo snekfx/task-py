@@ -225,20 +225,21 @@ class TestShowColumn:
     def test_show_column_data_mode(self, mock_boxy, capsys):
         """Test show_column in DATA mode."""
         tasks = [
-            {'id': 'TASK-1', 'title': 'First', 'story_points': 3, 'in_sprint': 'true'},
-            {'id': 'TASK-2', 'title': 'Second', 'story_points': 5, 'in_sprint': 'false'},
+            {'id': 'TASK-1', 'title': 'First', 'story_points': 3, 'in_sprint': 'true', 'tags': 'ui,ux'},
+            {'id': 'TASK-2', 'title': 'Second', 'story_points': 5, 'in_sprint': 'false', 'tags': ''},
         ]
 
         show_column("backlog", tasks, output_mode=OutputMode.DATA)
 
         captured = capsys.readouterr()
         assert "BACKLOG (2 tasks)" in captured.out
+        assert "tags: ui,ux" in captured.out
 
     def test_show_column_agent_mode(self, capsys):
         """Test show_column emits JSON in agent mode."""
         tasks = [
-            {'id': 'TASK-1', 'title': 'First', 'story_points': 3, 'status': 'active'},
-            {'id': 'TASK-2', 'title': 'Second', 'story_points': 5, 'status': 'qa'},
+            {'id': 'TASK-1', 'title': 'First', 'story_points': 3, 'status': 'active', 'tags': 'ui'},
+            {'id': 'TASK-2', 'title': 'Second', 'story_points': 5, 'status': 'qa', 'tags': ''},
         ]
 
         show_column("active", tasks, output_mode=OutputMode.AGENT)
@@ -246,6 +247,7 @@ class TestShowColumn:
         assert payload["column"] == "active"
         assert payload["count"] == 2
         assert payload["tasks"][0]["id"] == "TASK-1"
+        assert payload["tasks"][0]["tags"] == ["ui"]
 
     @patch('taskpy.modern.views.output._plain_output')
     @patch('taskpy.modern.views.output.has_boxy')

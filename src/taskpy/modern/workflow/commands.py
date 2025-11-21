@@ -16,7 +16,15 @@ from typing import List, Optional, Dict, Any
 from taskpy.legacy.models import Task, TaskStatus, HistoryEntry, utc_now, VerificationStatus, ResolutionType
 from taskpy.legacy.storage import TaskStorage
 from taskpy.legacy.output import print_success, print_error, print_info, print_warning
+from taskpy.modern.shared.config import (
+    is_feature_enabled,
+    load_signoff_list,
+    remove_signoff_tickets,
+)
 from taskpy.modern.shared.utils import load_task_or_exit, require_initialized
+
+STRICT_FLAG_NAME = "strict_mode"
+SIGNOFF_FLAG_NAME = "signoff_mode"
 
 
 class TaskMoveError(Exception):
@@ -58,6 +66,70 @@ def parse_task_ids(raw_ids: List[str]) -> List[str]:
     # Remove duplicates while preserving order
     seen = set()
     return [tid for tid in task_ids if tid not in seen and not seen.add(tid)]
+
+
+def _assert_not_strict_override():
+    """Exit if strict mode blocks override/forced workflow changes."""
+    if is_feature_enabled(STRICT_FLAG_NAME):
+        print_error(
+            "Strict mode is enabled: workflow overrides are blocked.\n"
+            "Disable strict_mode via `taskpy flag disable strict_mode` to proceed."
+        )
+        sys.exit(1)
+
+
+def _archive_from_promote(storage: TaskStorage, task: Task, path: Path, reason: Optional[str], signoff: bool):
+    """Archive a done task with signoff gating."""
+    if not signoff:
+        print_error("Archiving done tasks requires --signoff. Add to signoff list with `taskpy signoff add TASK-ID`.")
+        sys.exit(1)
+
+    signoff_mode = is_feature_enabled(SIGNOFF_FLAG_NAME, storage.root)
+    signoff_list = set(load_signoff_list(storage.root))
+
+    if signoff_mode and task.id not in signoff_list:
+        print_error(
+            f"{task.id} is not in the signoff list (signoff_mode enabled).\n"
+            "Add it via: taskpy signoff add {task.id}"
+        )
+        sys.exit(1)
+
+    if not signoff_mode and task.id not in signoff_list and not (reason and reason.strip()):
+        print_error(
+            f"{task.id} not signed off. Provide --reason to document the archive, or add to signoff list.\n"
+            "Examples:\n"
+            f"  taskpy signoff add {task.id}\n"
+            f"  taskpy promote {task.id} --signoff --reason \"manager approval\""
+        )
+        sys.exit(1)
+
+    task.status = TaskStatus.ARCHIVED
+    metadata = {
+        "signoff_mode": signoff_mode,
+        "signoff_listed": task.id in signoff_list,
+    }
+    if reason:
+        metadata["reason"] = reason
+
+    history_entry = HistoryEntry(
+        timestamp=utc_now(),
+        action="archive",
+        from_status=TaskStatus.DONE.value,
+        to_status=TaskStatus.ARCHIVED.value,
+        reason=reason or None,
+        metadata=metadata,
+    )
+    task.history.append(history_entry)
+
+    try:
+        path.unlink()
+    except FileNotFoundError:
+        pass
+    storage.write_task_file(task)
+
+    if task.id in signoff_list:
+        remove_signoff_tickets([task.id], storage.root)
+    print_success(f"Archived {task.id}", "Task Archived")
 
 
 def log_override(storage: TaskStorage, task_id: str, from_status: str, to_status: str, reason: Optional[str] = None) -> Optional[Task]:
@@ -284,6 +356,12 @@ def cmd_promote(args):
     require_initialized(storage)
     task, path, current_status = load_task_or_exit(storage, args.task_id)
 
+    # Archival path: promoting done -> archived
+    if current_status == TaskStatus.DONE:
+        reason = getattr(args, "reason", None)
+        _archive_from_promote(storage, task, path, reason, getattr(args, "signoff", False))
+        return
+
     # Determine target status
     workflow = [TaskStatus.STUB, TaskStatus.BACKLOG, TaskStatus.READY, TaskStatus.ACTIVE,
                 TaskStatus.QA, TaskStatus.DONE]
@@ -307,6 +385,7 @@ def cmd_promote(args):
     override = getattr(args, 'override', False)
 
     if override:
+        _assert_not_strict_override()
         # Display warning and log override
         print_warning(
             "⚠️  Using --override to bypass gate validation\n"
@@ -353,6 +432,7 @@ def cmd_demote(args):
     override = getattr(args, 'override', False)
 
     if override:
+        _assert_not_strict_override()
         # Display warning and log override
         print_warning(
             "⚠️  Using --override to bypass gate validation\n"
@@ -395,10 +475,15 @@ def cmd_demote(args):
         if hasattr(args, 'to') and args.to:
             target_status = TaskStatus(args.to)
         else:
-            # Special case: QA demotions go to REGRESSION (not back to ACTIVE)
+            # Special cases
             if current_status == TaskStatus.QA:
+                # QA demotions go to REGRESSION (not back to ACTIVE)
                 target_status = TaskStatus.REGRESSION
                 print_info(f"QA failure: moving {args.task_id} to regression status")
+            elif current_status == TaskStatus.DONE:
+                # Done demotions go to regression for rework
+                target_status = TaskStatus.REGRESSION
+                print_info(f"Demoting {args.task_id} from done to regression status")
             # REGRESSION can go back to ACTIVE or promote to QA
             elif current_status == TaskStatus.REGRESSION:
                 target_status = TaskStatus.ACTIVE
@@ -435,6 +520,13 @@ def cmd_move(args):
         sys.exit(1)
 
     target_status = TaskStatus(args.status)
+
+    if is_feature_enabled(STRICT_FLAG_NAME) and target_status in {TaskStatus.QA, TaskStatus.DONE}:
+        print_error(
+            "Strict mode blocks moving tasks directly to QA or done.\n"
+            "Use workflow promotions or disable strict_mode via `taskpy flag disable strict_mode`."
+        )
+        sys.exit(1)
 
     # Workflow order for detecting promotions/demotions
     workflow = [TaskStatus.STUB, TaskStatus.BACKLOG, TaskStatus.READY, TaskStatus.ACTIVE,

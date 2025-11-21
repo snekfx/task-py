@@ -24,6 +24,7 @@ from taskpy.modern.workflow.commands import (
 )
 from taskpy.legacy.storage import TaskStorage
 from taskpy.legacy.models import Task, TaskStatus, Priority, VerificationStatus
+from taskpy.modern.shared.config import set_feature_flag, add_signoff_tickets
 
 
 class TestHelperFunctions:
@@ -425,6 +426,174 @@ class TestPromoteCommand:
         assert override_entries[0].from_status == "stub"
         assert override_entries[0].to_status == "backlog"
 
+    def test_promote_done_requires_signoff_flag(self, tmp_path, monkeypatch):
+        """Promoting from done should require --signoff."""
+        storage = TaskStorage(tmp_path)
+        storage.initialize()
+
+        task = Task(
+            id="TEST-01",
+            epic="TEST",
+            number=1,
+            title="Done task",
+            status=TaskStatus.DONE,
+            priority=Priority.MEDIUM,
+            story_points=1,
+        )
+        storage.write_task_file(task)
+
+        args = Namespace(
+            task_id="TEST-01",
+            target_status=None,
+            commit=None,
+            override=False,
+            signoff=False,
+            reason=None,
+        )
+
+        monkeypatch.chdir(tmp_path)
+        with pytest.raises(SystemExit):
+            cmd_promote(args)
+
+        _, status = storage.find_task_file("TEST-01")
+        assert status == TaskStatus.DONE
+
+    def test_promote_done_non_strict_with_reason(self, tmp_path, monkeypatch):
+        """Promoting done -> archived in non-strict mode requires reason when not signed off."""
+        storage = TaskStorage(tmp_path)
+        storage.initialize()
+        set_feature_flag("signoff_mode", False, tmp_path)
+
+        task = Task(
+            id="TEST-01",
+            epic="TEST",
+            number=1,
+            title="Done task",
+            status=TaskStatus.DONE,
+            priority=Priority.MEDIUM,
+            story_points=1,
+        )
+        storage.write_task_file(task)
+
+        args = Namespace(
+            task_id="TEST-01",
+            target_status=None,
+            commit=None,
+            override=False,
+            signoff=True,
+            reason="cleanup",
+        )
+
+        monkeypatch.chdir(tmp_path)
+        cmd_promote(args)
+
+        path, status = storage.find_task_file("TEST-01")
+        assert status == TaskStatus.ARCHIVED
+        assert path.exists()
+
+    def test_promote_done_strict_requires_signoff_list(self, tmp_path, monkeypatch):
+        """Strict signoff mode requires ticket to be in signoff list."""
+        storage = TaskStorage(tmp_path)
+        storage.initialize()
+        set_feature_flag("signoff_mode", True, tmp_path)
+
+        task = Task(
+            id="TEST-01",
+            epic="TEST",
+            number=1,
+            title="Done task",
+            status=TaskStatus.DONE,
+            priority=Priority.MEDIUM,
+            story_points=1,
+        )
+        storage.write_task_file(task)
+
+        args = Namespace(
+            task_id="TEST-01",
+            target_status=None,
+            commit=None,
+            override=False,
+            signoff=True,
+            reason=None,
+        )
+
+        monkeypatch.chdir(tmp_path)
+        with pytest.raises(SystemExit):
+            cmd_promote(args)
+
+        _, status = storage.find_task_file("TEST-01")
+        assert status == TaskStatus.DONE
+
+    def test_promote_done_strict_with_signoff_list(self, tmp_path, monkeypatch):
+        """Strict mode allows archive when task is signed off."""
+        storage = TaskStorage(tmp_path)
+        storage.initialize()
+        set_feature_flag("signoff_mode", True, tmp_path)
+        add_signoff_tickets(["TEST-01"], tmp_path)
+
+        task = Task(
+            id="TEST-01",
+            epic="TEST",
+            number=1,
+            title="Done task",
+            status=TaskStatus.DONE,
+            priority=Priority.MEDIUM,
+            story_points=1,
+        )
+        storage.write_task_file(task)
+
+        args = Namespace(
+            task_id="TEST-01",
+            target_status=None,
+            commit=None,
+            override=False,
+            signoff=True,
+            reason=None,
+        )
+
+        monkeypatch.chdir(tmp_path)
+        cmd_promote(args)
+
+        path, status = storage.find_task_file("TEST-01")
+        assert status == TaskStatus.ARCHIVED
+        assert path.exists()
+
+    def test_promote_override_blocked_in_strict_mode(self, tmp_path, monkeypatch):
+        """Strict mode should prevent overrides on promote."""
+        storage = TaskStorage(tmp_path)
+        storage.initialize()
+        set_feature_flag("strict_mode", True, tmp_path)
+
+        task = Task(
+            id="TEST-01",
+            epic="TEST",
+            number=1,
+            title="Test task",
+            status=TaskStatus.STUB,
+            priority=Priority.MEDIUM,
+            story_points=0,
+            content="short",
+        )
+        storage.write_task_file(task)
+
+        args = Namespace(
+            task_id="TEST-01",
+            target_status=None,
+            commit=None,
+            override=True,
+            reason="Emergency hotfix",
+        )
+
+        monkeypatch.chdir(tmp_path)
+        with pytest.raises(SystemExit):
+            cmd_promote(args)
+
+        # Task should remain in original status
+        result = storage.find_task_file("TEST-01")
+        assert result is not None
+        _, status = result
+        assert status == TaskStatus.STUB
+
 
 class TestDemoteCommand:
     """Test cmd_demote functionality."""
@@ -513,8 +682,8 @@ class TestDemoteCommand:
         result = storage.find_task_file("TEST-01")
         assert result is not None
         path, status = result
-        # Should go back one step in workflow
-        assert status == TaskStatus.QA
+        # Should go to regression for rework
+        assert status == TaskStatus.REGRESSION
 
         updated_task = storage.read_task_file(path)
         assert updated_task.demotion_reason == "Found critical bug"
@@ -658,3 +827,35 @@ class TestMoveCommand:
 
         output = re.sub(r'\x1b\[[0-9;]*m', '', capsys.readouterr().out)
         assert "Failed to move 1 tasks" in output
+
+    def test_move_to_done_blocked_in_strict_mode(self, tmp_path, monkeypatch):
+        """Strict mode should prevent forcing QA/DONE moves."""
+        storage = TaskStorage(tmp_path)
+        storage.initialize()
+        set_feature_flag("strict_mode", True, tmp_path)
+
+        task = Task(
+            id="TEST-01",
+            epic="TEST",
+            number=1,
+            title="Test task",
+            status=TaskStatus.QA,
+            priority=Priority.MEDIUM,
+            story_points=3,
+        )
+        storage.write_task_file(task)
+
+        args = Namespace(
+            task_ids=["TEST-01"],
+            status="done",
+            reason="Force close",
+        )
+
+        monkeypatch.chdir(tmp_path)
+        with pytest.raises(SystemExit):
+            cmd_move(args)
+
+        result = storage.find_task_file("TEST-01")
+        assert result is not None
+        _, status = result
+        assert status == TaskStatus.QA

@@ -376,7 +376,9 @@ def show_column(
         print(f"{column_name.upper()} ({len(tasks)} tasks)")
         for task in tasks:
             sprint_badge = "[SPRINT] " if task.get('in_sprint', 'false') == 'true' else ""
-            print(f"{sprint_badge}{task['id']}: {task['title']} [{task.get('story_points', 0)} SP]")
+            tags = task.get("tags", "")
+            tag_display = f" | tags: {tags}" if tags else ""
+            print(f"{sprint_badge}{task['id']}: {task['title']} [{task.get('story_points', 0)} SP]{tag_display}")
         return
     elif output_mode == OutputMode.AGENT:
         payload = {
@@ -389,6 +391,7 @@ def show_column(
                     "status": task.get("status"),
                     "story_points": task.get("story_points"),
                     "in_sprint": task.get("in_sprint", "false"),
+                    "tags": [t.strip() for t in str(task.get("tags", "")).split(",") if t.strip()],
                 }
                 for task in tasks
             ],
@@ -401,7 +404,9 @@ def show_column(
     for task in tasks:
         # Add sprint badge for sprint tasks
         sprint_badge = "🏃 " if task.get('in_sprint', 'false') == 'true' else ""
-        lines.append(f"• {sprint_badge}{task['id']}: {task['title']} [{task.get('story_points', 0)} SP]")
+        tags = [t.strip() for t in str(task.get("tags", "")).split(",") if t.strip()]
+        tag_display = f" | tags: {', '.join(tags)}" if tags else ""
+        lines.append(f"• {sprint_badge}{task['id']}: {task['title']} [{task.get('story_points', 0)} SP]{tag_display}")
 
     content = "\n".join(lines)
     title = f"{column_name.replace('_', ' ').title()} ({len(tasks)} tasks)"

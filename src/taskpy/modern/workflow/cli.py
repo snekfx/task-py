@@ -58,11 +58,12 @@ def setup_promote_parser(subparsers):
     parser.add_argument('task_id', help='Task ID to promote')
     parser.add_argument('--target-status', help='Target status (optional, defaults to next in workflow)')
     parser.add_argument('--commit', help='Commit hash (for qa→done promotion)')
+    parser.add_argument('--signoff', action='store_true', help='Confirm signoff when archiving done tasks')
     parser.add_argument('--override', action='store_true', help='Override gate validation (logged)')
     add_reason_argument(
         parser,
         required=False,
-        help_text='Reason for override (recommended with --override)',
+        help_text='Reason for override (recommended with --override); required when archiving without signoff list',
     )
 
     return parser
