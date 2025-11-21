@@ -13,32 +13,63 @@ import re
 import sys
 from pathlib import Path
 from typing import List, Optional, Dict, Any
-from taskpy.legacy.models import Task, TaskStatus, HistoryEntry, utc_now, VerificationStatus, ResolutionType
-from taskpy.legacy.storage import TaskStorage
-from taskpy.legacy.output import print_success, print_error, print_info, print_warning
+from taskpy.modern.shared.messages import print_success, print_error, print_info, print_warning
+from taskpy.modern.shared.tasks import (
+    TaskRecord,
+    utc_now,
+    find_task_file,
+    load_task_from_path,
+    write_task,
+    ensure_initialized,
+)
 from taskpy.modern.shared.config import (
     is_feature_enabled,
     load_signoff_list,
     remove_signoff_tickets,
 )
-from taskpy.modern.shared.utils import load_task_or_exit, require_initialized
 
 STRICT_FLAG_NAME = "strict_mode"
 SIGNOFF_FLAG_NAME = "signoff_mode"
+
+# Status constants (workflow order)
+STATUS_STUB = "stub"
+STATUS_BACKLOG = "backlog"
+STATUS_READY = "ready"
+STATUS_ACTIVE = "active"
+STATUS_QA = "qa"
+STATUS_REGRESSION = "regression"
+STATUS_DONE = "done"
+STATUS_ARCHIVED = "archived"
+STATUS_BLOCKED = "blocked"
+
+# Standard workflow progression
+WORKFLOW_ORDER = [STATUS_STUB, STATUS_BACKLOG, STATUS_READY, STATUS_ACTIVE, STATUS_QA, STATUS_DONE]
 
 
 class TaskMoveError(Exception):
     """Raised when a workflow move operation fails."""
 
 
-def get_storage() -> TaskStorage:
-    """Get TaskStorage for current directory."""
-    return TaskStorage(Path.cwd())
-
-
 # =============================================================================
 # Helper Functions
 # =============================================================================
+
+def load_task_or_exit_modern(task_id: str, root: Optional[Path] = None) -> tuple[TaskRecord, Path, str]:
+    """Return (task, path, status) or exit with error if not found/readable."""
+    result = find_task_file(task_id, root)
+    if not result:
+        print_error(f"Task not found: {task_id}")
+        sys.exit(1)
+
+    path, status = result
+    try:
+        task = load_task_from_path(path)
+    except Exception as exc:
+        print_error(f"Failed to read task {task_id}: {exc}")
+        sys.exit(1)
+
+    return task, path, status
+
 
 def parse_task_ids(raw_ids: List[str]) -> List[str]:
     """
@@ -78,14 +109,14 @@ def _assert_not_strict_override():
         sys.exit(1)
 
 
-def _archive_from_promote(storage: TaskStorage, task: Task, path: Path, reason: Optional[str], signoff: bool):
+def _archive_from_promote(task: TaskRecord, path: Path, reason: Optional[str], signoff: bool, root: Optional[Path] = None):
     """Archive a done task with signoff gating."""
     if not signoff:
         print_error("Archiving done tasks requires --signoff. Add to signoff list with `taskpy signoff add TASK-ID`.")
         sys.exit(1)
 
-    signoff_mode = is_feature_enabled(SIGNOFF_FLAG_NAME, storage.root)
-    signoff_list = set(load_signoff_list(storage.root))
+    signoff_mode = is_feature_enabled(SIGNOFF_FLAG_NAME, root)
+    signoff_list = set(load_signoff_list(root))
 
     if signoff_mode and task.id not in signoff_list:
         print_error(
@@ -103,7 +134,7 @@ def _archive_from_promote(storage: TaskStorage, task: Task, path: Path, reason: 
         )
         sys.exit(1)
 
-    task.status = TaskStatus.ARCHIVED
+    task.status = STATUS_ARCHIVED
     metadata = {
         "signoff_mode": signoff_mode,
         "signoff_listed": task.id in signoff_list,
@@ -111,18 +142,18 @@ def _archive_from_promote(storage: TaskStorage, task: Task, path: Path, reason: 
     if reason:
         metadata["reason"] = reason
 
-    history_entry = HistoryEntry(
-        timestamp=utc_now(),
-        action="archive",
-        from_status=TaskStatus.DONE.value,
-        to_status=TaskStatus.ARCHIVED.value,
-        reason=reason or None,
-        metadata=metadata,
-    )
+    history_entry = {
+        "timestamp": utc_now().isoformat(),
+        "action": "archive",
+        "from_status": STATUS_DONE,
+        "to_status": STATUS_ARCHIVED,
+        "reason": reason or None,
+        "metadata": metadata,
+    }
     task.history.append(history_entry)
 
     # Write to new location first to prevent data loss
-    storage.write_task_file(task)
+    write_task(task, root)
     # Only delete old location after successful write
     try:
         path.unlink()
@@ -130,75 +161,76 @@ def _archive_from_promote(storage: TaskStorage, task: Task, path: Path, reason: 
         pass  # Already gone, that's fine
 
     if task.id in signoff_list:
-        remove_signoff_tickets([task.id], storage.root)
+        remove_signoff_tickets([task.id], root)
     print_success(f"Archived {task.id}", "Task Archived")
 
 
-def log_override(storage: TaskStorage, task_id: str, from_status: str, to_status: str, reason: Optional[str] = None) -> Optional[Task]:
+def log_override(task_id: str, from_status: str, to_status: str, reason: Optional[str] = None, root: Optional[Path] = None) -> Optional[TaskRecord]:
     """
     Log override event to task history.
 
-    Creates a HistoryEntry with action='override' and appends it to the task's history.
+    Creates a history entry with action='override' and appends it to the task's history.
     NOTE: This does NOT save the task - the caller should save it after making other changes.
 
     Args:
-        storage: TaskStorage instance
         task_id: Task ID being overridden
         from_status: Status being transitioned from
         to_status: Status being transitioned to
         reason: Optional reason for the override
+        root: Optional root path
 
     Returns:
-        Updated Task object with override history entry, or None if task not found
+        Updated TaskRecord object with override history entry, or None if task not found
     """
     # Find and load the task
-    result = storage.find_task_file(task_id)
+    result = find_task_file(task_id, root)
     if not result:
         print_warning(f"Could not log override for {task_id}: task not found")
         return None
 
     task_path, _ = result
-    task = storage.read_task_file(task_path)
+    task = load_task_from_path(task_path)
 
     # Add override entry to task history
-    history_entry = HistoryEntry(
-        timestamp=utc_now(),
-        action='override',
-        from_status=from_status,
-        to_status=to_status,
-        reason=reason
-    )
+    history_entry = {
+        "timestamp": utc_now().isoformat(),
+        "action": "override",
+        "from_status": from_status,
+        "to_status": to_status,
+        "reason": reason,
+    }
     task.history.append(history_entry)
 
     return task
 
 
-def _move_task(storage: TaskStorage, task_id: str, current_path: Path, target_status: TaskStatus,
-               task: Optional[Task] = None, reason: Optional[str] = None, action: str = "move"):
+def _move_task(task_id: str, current_path: Path, target_status: str,
+               task: Optional[TaskRecord] = None, reason: Optional[str] = None, action: str = "move",
+               root: Optional[Path] = None):
     """Move a task to a new status and log to history."""
     try:
         if task is None:
-            task = storage.read_task_file(current_path)
+            task = load_task_from_path(current_path)
 
         old_status = task.status
         task.status = target_status
 
-        history_entry = HistoryEntry(
-            timestamp=utc_now(),
-            action=action,
-            from_status=old_status.value,
-            to_status=target_status.value,
-            reason=reason
-        )
+        history_entry = {
+            "timestamp": utc_now().isoformat(),
+            "action": action,
+            "from_status": old_status,
+            "to_status": target_status,
+            "reason": reason,
+        }
         task.history.append(history_entry)
 
         # Write to new location first to prevent data loss
-        storage.write_task_file(task)
+        write_task(task, root)
         # Only delete old location after successful write
         current_path.unlink()
 
         print_success(
-            f"Moved {task_id}: {old_status.value} → {target_status.value}",
+            f"Moved {task_id}: {old_status} → {target_status}",
             "Task Moved"
         )
 
@@ -210,7 +242,7 @@ def _move_task(storage: TaskStorage, task_id: str, current_path: Path, target_st
 # Gate Validation Functions
 # =============================================================================
 
-def validate_stub_to_backlog(task: Task) -> tuple[bool, list[str]]:
+def validate_stub_to_backlog(task: TaskRecord) -> tuple[bool, list[str]]:
     """
     Validate stub → backlog promotion.
 
@@ -232,7 +264,7 @@ def validate_stub_to_backlog(task: Task) -> tuple[bool, list[str]]:
     return (len(blockers) == 0, blockers)
 
 
-def validate_active_to_qa(task: Task) -> tuple[bool, list[str]]:
+def validate_active_to_qa(task: TaskRecord) -> tuple[bool, list[str]]:
     """
     Validate active → qa promotion.
 
@@ -248,31 +280,31 @@ def validate_active_to_qa(task: Task) -> tuple[bool, list[str]]:
     blockers = []
 
     # Check if this is a DOCS task
-    is_docs_task = task.epic_prefix.startswith('DOCS')
+    is_docs_task = task.epic.startswith('DOCS')
 
-    if not task.references.code and not task.references.docs:
+    if not task.references.get("code") and not task.references.get("docs"):
         blockers.append("Task needs code or doc references (use: taskpy link TASK-ID --code path/to/file.py or --docs path/to/doc.md)")
 
     # DOCS tasks don't need test references or verification
     if not is_docs_task:
-        if not task.references.tests:
+        if not task.references.get("tests"):
             blockers.append("Task needs test references (use: taskpy link TASK-ID --test path/to/test.py)")
 
         # Check verification command is set and has passed
-        if not task.verification.command:
+        if not task.verification.get("command"):
             blockers.append("Task needs verification command (use: taskpy link TASK-ID --verify \"test command\")")
         else:
-            if task.verification.status != VerificationStatus.PASSED:
-                blockers.append(f"Verification must pass (status: {task.verification.status.value}). Run: taskpy verify {task.id} --update")
+            if task.verification.get("status") != "passed":
+                blockers.append(f"Verification must pass (status: {task.verification.get('status', 'pending')}). Run: taskpy verify {task.id} --update")
     else:
         # DOCS tasks should have doc references
-        if not task.references.docs:
+        if not task.references.get("docs"):
             blockers.append("DOCS task needs doc references (use: taskpy link TASK-ID --docs path/to/doc.md)")
 
     return (len(blockers) == 0, blockers)
 
 
-def validate_qa_to_done(task: Task) -> tuple[bool, list[str]]:
+def validate_qa_to_done(task: TaskRecord) -> tuple[bool, list[str]]:
     """
     Validate qa → done promotion.
 
@@ -290,7 +322,7 @@ def validate_qa_to_done(task: Task) -> tuple[bool, list[str]]:
     return (len(blockers) == 0, blockers)
 
 
-def validate_done_demotion(task: Task, reason: Optional[str]) -> tuple[bool, list[str]]:
+def validate_done_demotion(task: TaskRecord, reason: Optional[str]) -> tuple[bool, list[str]]:
     """
     Validate demotion from done status.
 
@@ -308,7 +340,7 @@ def validate_done_demotion(task: Task, reason: Optional[str]) -> tuple[bool, lis
     return (len(blockers) == 0, blockers)
 
 
-def validate_promotion(task: Task, target_status: TaskStatus, commit_hash: Optional[str] = None) -> tuple[bool, list[str]]:
+def validate_promotion(task: TaskRecord, target_status: str, commit_hash: Optional[str] = None) -> tuple[bool, list[str]]:
     """
     Validate task promotion based on current and target status.
 
@@ -323,24 +355,24 @@ def validate_promotion(task: Task, target_status: TaskStatus, commit_hash: Optio
     current = task.status
 
     # Check if task is blocked
-    if current == TaskStatus.BLOCKED:
+    if current == STATUS_BLOCKED:
         reason = task.blocked_reason or "No reason provided"
         return (False, [f"Task is blocked: {reason}. Use 'taskpy unblock {task.id}' to unblock."])
 
     # stub → backlog
-    if current == TaskStatus.STUB and target_status == TaskStatus.BACKLOG:
+    if current == STATUS_STUB and target_status == STATUS_BACKLOG:
         return validate_stub_to_backlog(task)
 
     # active → qa
-    elif current == TaskStatus.ACTIVE and target_status == TaskStatus.QA:
+    elif current == STATUS_ACTIVE and target_status == STATUS_QA:
         return validate_active_to_qa(task)
 
     # regression → qa (re-review after fixes)
-    elif current == TaskStatus.REGRESSION and target_status == TaskStatus.QA:
+    elif current == STATUS_REGRESSION and target_status == STATUS_QA:
         return validate_active_to_qa(task)  # Same requirements as active→qa
 
     # qa → done
-    elif current == TaskStatus.QA and target_status == TaskStatus.DONE:
+    elif current == STATUS_QA and target_status == STATUS_DONE:
         # Allow commit_hash to be provided as argument
         if commit_hash:
             task.commit_hash = commit_hash
@@ -356,34 +388,35 @@ def validate_promotion(task: Task, target_status: TaskStatus, commit_hash: Optio
 
 def cmd_promote(args):
     """Move task forward in workflow."""
-    storage = get_storage()
-    require_initialized(storage)
-    task, path, current_status = load_task_or_exit(storage, args.task_id)
+    root = Path.cwd()
+    ensure_initialized(root)
+    task, path, current_status = load_task_or_exit_modern(args.task_id, root)
 
     # Archival path: promoting done -> archived
-    if current_status == TaskStatus.DONE:
+    if current_status == STATUS_DONE:
         reason = getattr(args, "reason", None)
-        _archive_from_promote(storage, task, path, reason, getattr(args, "signoff", False))
+        _archive_from_promote(task, path, reason, getattr(args, "signoff", False), root)
         return
 
     # Determine target status
-    workflow = [TaskStatus.STUB, TaskStatus.BACKLOG, TaskStatus.READY, TaskStatus.ACTIVE,
-                TaskStatus.QA, TaskStatus.DONE]
-
     if hasattr(args, 'target_status') and args.target_status:
-        target_status = TaskStatus(args.target_status)
+        target_status = args.target_status
     else:
         # Special case: REGRESSION promotes back to QA for re-review
-        if current_status == TaskStatus.REGRESSION:
-            target_status = TaskStatus.QA
+        if current_status == STATUS_REGRESSION:
+            target_status = STATUS_QA
             print_info(f"Re-submitting {args.task_id} from regression to QA for review")
         else:
             # Normal workflow: next in workflow
-            current_idx = workflow.index(current_status)
-            if current_idx >= len(workflow) - 1:
-                print_info(f"Task {args.task_id} is already at final status: {current_status.value}")
-                return
-            target_status = workflow[current_idx + 1]
+            try:
+                current_idx = WORKFLOW_ORDER.index(current_status)
+                if current_idx >= len(WORKFLOW_ORDER) - 1:
+                    print_info(f"Task {args.task_id} is already at final status: {current_status}")
+                    return
+                target_status = WORKFLOW_ORDER[current_idx + 1]
+            except ValueError:
+                print_error(f"Invalid current status: {current_status}")
+                sys.exit(1)
 
     # Check for override flag
     override = getattr(args, 'override', False)
@@ -399,19 +432,19 @@ def cmd_promote(args):
         reason = getattr(args, 'reason', None) or "No reason provided"
 
         # Log override to history and get updated task
-        task = log_override(storage, args.task_id, current_status.value, target_status.value, reason)
+        task = log_override(args.task_id, current_status, target_status, reason, root)
         if not task:
             return
 
         # Now move the task (this will add a separate promote entry to history)
-        _move_task(storage, args.task_id, path, target_status, task, reason=reason, action="promote")
+        _move_task(args.task_id, path, target_status, task, reason=reason, action="promote", root=root)
     else:
         # Validate promotion gates
         commit_hash = getattr(args, 'commit', None)
         is_valid, blockers = validate_promotion(task, target_status, commit_hash)
 
         if not is_valid:
-            print_error(f"Cannot promote {args.task_id}: {current_status.value} → {target_status.value}")
+            print_error(f"Cannot promote {args.task_id}: {current_status} → {target_status}")
             print()
             print("❌ Blockers:")
             for blocker in blockers:
@@ -423,14 +456,14 @@ def cmd_promote(args):
             task.commit_hash = commit_hash
 
         # Move task normally
-        _move_task(storage, args.task_id, path, target_status, task, action="promote")
+        _move_task(args.task_id, path, target_status, task, action="promote", root=root)
 
 
 def cmd_demote(args):
     """Move task backwards in workflow with required reason."""
-    storage = get_storage()
-    require_initialized(storage)
-    task, path, current_status = load_task_or_exit(storage, args.task_id)
+    root = Path.cwd()
+    ensure_initialized(root)
+    task, path, current_status = load_task_or_exit_modern(args.task_id, root)
 
     # Check for override flag
     override = getattr(args, 'override', False)
@@ -444,24 +477,26 @@ def cmd_demote(args):
             "Override will be logged to task history"
         )
         # Determine target first for logging
-        workflow = [TaskStatus.STUB, TaskStatus.BACKLOG, TaskStatus.READY, TaskStatus.ACTIVE,
-                    TaskStatus.QA, TaskStatus.DONE]
         if hasattr(args, 'to') and args.to:
-            target_status = TaskStatus(args.to)
+            target_status = args.to
         else:
-            current_idx = workflow.index(current_status)
-            if current_idx <= 0:
-                print_info(f"Task {args.task_id} is already at initial status: {current_status.value}")
-                return
-            target_status = workflow[current_idx - 1]
+            try:
+                current_idx = WORKFLOW_ORDER.index(current_status)
+                if current_idx <= 0:
+                    print_info(f"Task {args.task_id} is already at initial status: {current_status}")
+                    return
+                target_status = WORKFLOW_ORDER[current_idx - 1]
+            except ValueError:
+                print_error(f"Invalid current status: {current_status}")
+                sys.exit(1)
 
         reason = getattr(args, 'reason', None) or "No reason provided"
-        task = log_override(storage, args.task_id, current_status.value, target_status.value, reason)
+        task = log_override(args.task_id, current_status, target_status, reason, root)
         if not task:
             return
     else:
         # Validate demotion from done requires reason
-        if current_status == TaskStatus.DONE:
+        if current_status == STATUS_DONE:
             is_valid, blockers = validate_done_demotion(task, args.reason)
             if not is_valid:
                 print_error(f"Cannot demote {args.task_id} from done")
@@ -473,42 +508,43 @@ def cmd_demote(args):
             task.demotion_reason = args.reason
 
         # Determine target status (previous in workflow)
-        workflow = [TaskStatus.STUB, TaskStatus.BACKLOG, TaskStatus.READY, TaskStatus.ACTIVE,
-                    TaskStatus.QA, TaskStatus.DONE]
-
         if hasattr(args, 'to') and args.to:
-            target_status = TaskStatus(args.to)
+            target_status = args.to
         else:
             # Special cases
-            if current_status == TaskStatus.QA:
+            if current_status == STATUS_QA:
                 # QA demotions go to REGRESSION (not back to ACTIVE)
-                target_status = TaskStatus.REGRESSION
+                target_status = STATUS_REGRESSION
                 print_info(f"QA failure: moving {args.task_id} to regression status")
-            elif current_status == TaskStatus.DONE:
+            elif current_status == STATUS_DONE:
                 # Done demotions go to regression for rework
-                target_status = TaskStatus.REGRESSION
+                target_status = STATUS_REGRESSION
                 print_info(f"Demoting {args.task_id} from done to regression status")
             # REGRESSION can go back to ACTIVE or promote to QA
-            elif current_status == TaskStatus.REGRESSION:
-                target_status = TaskStatus.ACTIVE
+            elif current_status == STATUS_REGRESSION:
+                target_status = STATUS_ACTIVE
                 print_info(f"Regression needs rework: moving {args.task_id} to active")
             else:
                 # Normal workflow: previous in workflow
-                current_idx = workflow.index(current_status)
-                if current_idx <= 0:
-                    print_info(f"Task {args.task_id} is already at initial status: {current_status.value}")
-                    return
-                target_status = workflow[current_idx - 1]
+                try:
+                    current_idx = WORKFLOW_ORDER.index(current_status)
+                    if current_idx <= 0:
+                        print_info(f"Task {args.task_id} is already at initial status: {current_status}")
+                        return
+                    target_status = WORKFLOW_ORDER[current_idx - 1]
+                except ValueError:
+                    print_error(f"Invalid current status: {current_status}")
+                    sys.exit(1)
 
     # Move task with reason (action is always "demote" since override is logged separately)
     reason = getattr(args, 'reason', None)
-    _move_task(storage, args.task_id, path, target_status, task, reason=reason, action="demote")
+    _move_task(args.task_id, path, target_status, task, reason=reason, action="demote", root=root)
 
 
 def cmd_move(args):
     """Move task(s) to specific status."""
-    storage = get_storage()
-    require_initialized(storage)
+    root = Path.cwd()
+    ensure_initialized(root)
 
     # Require reason for move command
     if not hasattr(args, 'reason') or not args.reason:
@@ -523,18 +559,14 @@ def cmd_move(args):
         print_error("No valid task IDs provided")
         sys.exit(1)
 
-    target_status = TaskStatus(args.status)
+    target_status = args.status
 
-    if is_feature_enabled(STRICT_FLAG_NAME) and target_status in {TaskStatus.QA, TaskStatus.DONE}:
+    if is_feature_enabled(STRICT_FLAG_NAME) and target_status in {STATUS_QA, STATUS_DONE}:
         print_error(
             "Strict mode blocks moving tasks directly to QA or done.\n"
             "Use workflow promotions or disable strict_mode via `taskpy flag disable strict_mode`."
         )
         sys.exit(1)
-
-    # Workflow order for detecting promotions/demotions
-    workflow = [TaskStatus.STUB, TaskStatus.BACKLOG, TaskStatus.READY, TaskStatus.ACTIVE,
-                TaskStatus.QA, TaskStatus.DONE]
 
     # Track results
     successes = []
@@ -543,22 +575,22 @@ def cmd_move(args):
     # Process each task
     for task_id in task_ids:
         try:
-            task, path, current_status = load_task_or_exit(storage, task_id)
+            task, path, current_status = load_task_or_exit_modern(task_id, root)
         except SystemExit:
             failures.append((task_id, f"Task not found: {task_id}"))
             continue
 
         # Warn if this looks like a workflow transition
-        if current_status in workflow and target_status in workflow:
-            current_idx = workflow.index(current_status)
-            target_idx = workflow.index(target_status)
+        if current_status in WORKFLOW_ORDER and target_status in WORKFLOW_ORDER:
+            current_idx = WORKFLOW_ORDER.index(current_status)
+            target_idx = WORKFLOW_ORDER.index(target_status)
             if target_idx == current_idx + 1:
                 print_warning(f"⚠️  {task_id}: Use 'taskpy promote' instead of 'move' for forward workflow transitions")
             elif target_idx == current_idx - 1:
                 print_warning(f"⚠️  {task_id}: Use 'taskpy demote' instead of 'move' for backward workflow transitions")
 
         try:
-            _move_task(storage, task_id, path, target_status, task, reason=args.reason, action="move")
+            _move_task(task_id, path, target_status, task, reason=args.reason, action="move", root=root)
             successes.append(task_id)
         except TaskMoveError as exc:
             failures.append((task_id, str(exc)))
@@ -585,10 +617,10 @@ def cmd_move(args):
 
 def cmd_resolve(args):
     """Resolve bug tasks with special resolution types."""
-    storage = get_storage()
-    require_initialized(storage)
+    root = Path.cwd()
+    ensure_initialized(root)
 
-    task, path, _ = load_task_or_exit(storage, args.task_id)
+    task, path, _ = load_task_or_exit_modern(args.task_id, root)
 
     if not re.match(r'^(BUGS|REG|DEF)', task.epic):
         print_error("Resolve command only works for BUGS*/REG*/DEF* tasks")
@@ -596,8 +628,8 @@ def cmd_resolve(args):
         print_error("Use normal promote workflow for other epics")
         sys.exit(1)
 
-    resolution = ResolutionType(args.resolution)
-    if resolution == ResolutionType.DUPLICATE and not args.duplicate_of:
+    resolution = args.resolution
+    if resolution == "duplicate" and not args.duplicate_of:
         print_error("--duplicate-of is required when resolution is 'duplicate'")
         sys.exit(1)
 
@@ -607,22 +639,22 @@ def cmd_resolve(args):
         task.duplicate_of = args.duplicate_of
 
     old_status = task.status
-    task.status = TaskStatus.DONE
+    task.status = STATUS_DONE
     task.updated = utc_now()
 
     try:
         # Write to new location first to prevent data loss
-        storage.write_task_file(task)
+        write_task(task, root)
         # Only delete old location after successful write
-        if old_status != TaskStatus.DONE:
+        if old_status != STATUS_DONE:
             path.unlink()
 
-        print_success(f"Resolved {args.task_id}: {old_status.value} → done")
-        print_info(f"Resolution: {resolution.value}")
+        print_success(f"Resolved {args.task_id}: {old_status} → done")
+        print_info(f"Resolution: {resolution}")
         print_info(f"Reason: {args.reason}")
         if args.duplicate_of:
             print_info(f"Duplicate of: {args.duplicate_of}")
-        if resolution != ResolutionType.FIXED:
+        if resolution != "fixed":
             print_warning("⚠️  Bypassed normal QA gates (non-code resolution)")
     except Exception as exc:
         print_error(f"Failed to resolve task: {exc}")
