@@ -24,6 +24,7 @@ from taskpy.modern.workflow.commands import (
 )
 from taskpy.legacy.storage import TaskStorage
 from taskpy.legacy.models import Task, TaskStatus, Priority, VerificationStatus
+from taskpy.modern.shared.tasks import TaskRecord
 from taskpy.modern.shared.config import set_feature_flag, add_signoff_tickets
 
 
@@ -60,7 +61,7 @@ class TestHelperFunctions:
         result = parse_task_ids(["FEAT-01", "FEAT-01", "BUGS-02"])
         assert result == ["FEAT-01", "BUGS-02"]
 
-    def test_log_override(self, tmp_path):
+    def test_log_override(self, tmp_path, monkeypatch):
         """Test logging override to task history (REF-03)."""
         storage = TaskStorage(tmp_path)
         storage.initialize()
@@ -77,16 +78,17 @@ class TestHelperFunctions:
         )
         storage.write_task_file(task)
 
-        # Log override
-        updated_task = log_override(storage, "TEST-01", "active", "qa", "Testing override")
+        # Log override (modern signature: task_id, from_status, to_status, reason, root)
+        monkeypatch.chdir(tmp_path)
+        updated_task = log_override("TEST-01", "active", "qa", "Testing override", root=tmp_path)
 
-        # Verify override was added to task history
+        # Verify override was added to task history (dict-based in modern)
         assert updated_task is not None
         assert len(updated_task.history) == 1
-        assert updated_task.history[0].action == "override"
-        assert updated_task.history[0].from_status == "active"
-        assert updated_task.history[0].to_status == "qa"
-        assert updated_task.history[0].reason == "Testing override"
+        assert updated_task.history[0]["action"] == "override"
+        assert updated_task.history[0]["from_status"] == "active"
+        assert updated_task.history[0]["to_status"] == "qa"
+        assert updated_task.history[0]["reason"] == "Testing override"
 
 
 class TestValidationFunctions:
@@ -145,19 +147,17 @@ class TestValidationFunctions:
 
     def test_validate_active_to_qa_success(self):
         """Test successful active→qa validation."""
-        task = Task(
+        task = TaskRecord(
             id="TEST-01",
             epic="TEST",
             number=1,
             title="Test task",
-            status=TaskStatus.ACTIVE,
-            priority=Priority.MEDIUM,
-            story_points=3
+            status="active",
+            priority="medium",
+            story_points=3,
+            references={"code": ["src/test.py"], "tests": ["tests/test_test.py"], "docs": []},
+            verification={"command": "pytest tests/test_test.py", "status": "passed"}
         )
-        task.references.code.append("src/test.py")
-        task.references.tests.append("tests/test_test.py")
-        task.verification.command = "pytest tests/test_test.py"
-        task.verification.status = VerificationStatus.PASSED
 
         is_valid, blockers = validate_active_to_qa(task)
         assert is_valid is True
@@ -165,14 +165,16 @@ class TestValidationFunctions:
 
     def test_validate_active_to_qa_missing_code_refs(self):
         """Test active→qa validation with missing code references."""
-        task = Task(
+        task = TaskRecord(
             id="TEST-01",
             epic="TEST",
             number=1,
             title="Test task",
-            status=TaskStatus.ACTIVE,
-            priority=Priority.MEDIUM,
-            story_points=3
+            status="active",
+            priority="medium",
+            story_points=3,
+            references={"code": [], "tests": [], "docs": []},
+            verification={"command": "", "status": "pending"}
         )
 
         is_valid, blockers = validate_active_to_qa(task)
@@ -181,16 +183,17 @@ class TestValidationFunctions:
 
     def test_validate_active_to_qa_docs_task(self):
         """Test active→qa validation for DOCS task."""
-        task = Task(
+        task = TaskRecord(
             id="DOCS-01",
             epic="DOCS",
             number=1,
             title="Documentation task",
-            status=TaskStatus.ACTIVE,
-            priority=Priority.MEDIUM,
-            story_points=2
+            status="active",
+            priority="medium",
+            story_points=2,
+            references={"code": [], "tests": [], "docs": ["README.md"]},
+            verification={"command": "", "status": "pending"}
         )
-        task.references.docs.append("README.md")
 
         is_valid, blockers = validate_active_to_qa(task)
         assert is_valid is True
@@ -263,18 +266,18 @@ class TestValidationFunctions:
 
     def test_validate_promotion_blocked_task(self):
         """Test that blocked tasks cannot be promoted."""
-        task = Task(
+        task = TaskRecord(
             id="TEST-01",
             epic="TEST",
             number=1,
             title="Test task",
-            status=TaskStatus.BLOCKED,
-            priority=Priority.MEDIUM,
+            status="blocked",
+            priority="medium",
             story_points=3,
             blocked_reason="Waiting on API"
         )
 
-        is_valid, blockers = validate_promotion(task, TaskStatus.ACTIVE)
+        is_valid, blockers = validate_promotion(task, "active", None)
         assert is_valid is False
         assert any("blocked" in b.lower() for b in blockers)
 
