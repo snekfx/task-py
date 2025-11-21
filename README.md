@@ -438,7 +438,7 @@ taskpy search "api" --filter title,tags
 taskpy search "api" "backend" --archived
 
 # Choose list columns (defaults: id,title,status,sp,priority,sprint)
-taskpy list --with id,title,status,sp,tags
+taskpy list --with id,title,status,sp,tags  # no spaces in the list
 
 # Combined filters
 taskpy list --epic FEAT --status in_progress --priority high --milestone milestone-1

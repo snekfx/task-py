@@ -101,7 +101,7 @@ def setup_list_parser(subparsers):
                        choices=['table', 'cards', 'ids', 'tsv'],
                        default='table',
                        help='Output format (table default)')
-    parser.add_argument('--with', dest='columns', help='Comma-separated columns to display (e.g., id,title,status,sp,tags)')
+    parser.add_argument('--with', dest='columns', help='Comma-separated columns to display (no spaces, e.g., id,title,status,sp,tags)')
 
     return parser
 
