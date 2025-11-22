@@ -575,7 +575,15 @@ def cmd_overrides(args):
 
     # Display entries in same format as before
     for entry in override_entries:
-        timestamp_str = entry['timestamp'].strftime("%Y-%m-%dT%H:%M:%S")
+        # Handle both string timestamps (modern) and datetime objects (legacy)
+        timestamp = entry['timestamp']
+        if isinstance(timestamp, str):
+            # Modern format: already ISO string, just use it
+            timestamp_str = timestamp
+        else:
+            # Legacy format: datetime object
+            timestamp_str = timestamp.strftime("%Y-%m-%dT%H:%M:%S")
+
         transition = f"{entry['from_status']}→{entry['to_status']}"
         print(f"{timestamp_str} | {entry['task_id']} | {transition} | Reason: {entry['reason']}")
 
