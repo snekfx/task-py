@@ -1,10 +1,18 @@
 """Command implementations for milestones management."""
 
 import sys
-import re
 import json
 from pathlib import Path
 from typing import Optional
+
+# TOML parsing - use built-in tomllib on Python 3.11+, fallback to tomli
+try:
+    import tomllib
+except ImportError:
+    import tomli as tomllib  # type: ignore
+
+# TOML writing - no built-in writer, always use tomli_w
+import tomli_w
 
 from taskpy.modern.shared.aggregations import (
     filter_by_milestone,
@@ -25,27 +33,35 @@ from taskpy.modern.views import ListView, ColumnConfig
 
 
 def _update_milestone_status(milestone_id: str, new_status: str, root: Optional[Path] = None):
-    """Update milestone status in TOML file."""
+    """Update milestone status in TOML file using proper TOML parsing.
+
+    Args:
+        milestone_id: ID of the milestone to update
+        new_status: New status value (e.g., 'active', 'completed', 'planned')
+        root: Optional root directory (defaults to current directory)
+
+    Raises:
+        ValueError: If milestone_id not found in TOML file
+    """
     info_dir = _info_dir(root)
     milestones_file = info_dir / "milestones.toml"
-    content = milestones_file.read_text()
 
-    # Find the milestone section and update status
-    # Pattern: [milestone-id]\n... status = "old_status" ... next [section or EOF
-    pattern = rf'(\[{re.escape(milestone_id)}\][^\[]*status\s*=\s*")[^"]*(")'
-    replacement = rf'\g<1>{new_status}\g<2>'
+    # Read TOML file using proper parser
+    with open(milestones_file, 'rb') as f:
+        data = tomllib.load(f)
 
-    updated_content = re.sub(pattern, replacement, content)
+    # Check if milestone exists
+    if milestone_id not in data:
+        raise ValueError(f"Milestone '{milestone_id}' not found in milestones.toml")
 
-    if updated_content == content:
-        # If pattern didn't match, milestone might not have a status field
-        # Try to add it after the milestone header
-        pattern = rf'(\[{re.escape(milestone_id)}\]\n)'
-        if re.search(pattern, content):
-            replacement = rf'\g<1>status = "{new_status}"\n'
-            updated_content = re.sub(pattern, replacement, content, count=1)
+    # Update the status
+    if not isinstance(data[milestone_id], dict):
+        data[milestone_id] = {}
+    data[milestone_id]['status'] = new_status
 
-    milestones_file.write_text(updated_content)
+    # Write back using proper TOML writer
+    with open(milestones_file, 'wb') as f:
+        tomli_w.dump(data, f)
 
 
 def cmd_milestones(args):
@@ -232,7 +248,11 @@ def _cmd_milestone_start(args):
         return
 
     # Update status in TOML file
-    _update_milestone_status(args.milestone_id, 'active')
+    try:
+        _update_milestone_status(args.milestone_id, 'active')
+    except (ValueError, OSError) as e:
+        print_error(f"Failed to update milestone status: {e}")
+        sys.exit(1)
 
     print_success(
         f"Milestone {args.milestone_id} marked as active\n"
@@ -272,7 +292,11 @@ def _cmd_milestone_complete(args):
         print_warning("\nMarking as completed anyway.")
 
     # Update status in TOML file
-    _update_milestone_status(args.milestone_id, 'completed')
+    try:
+        _update_milestone_status(args.milestone_id, 'completed')
+    except (ValueError, OSError) as e:
+        print_error(f"Failed to update milestone status: {e}")
+        sys.exit(1)
 
     print_success(
         f"Milestone {args.milestone_id} marked as completed\n"

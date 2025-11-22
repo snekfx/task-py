@@ -3,9 +3,15 @@
 import json
 from argparse import Namespace
 
+# TOML parsing - use built-in tomllib on Python 3.11+, fallback to tomli
+try:
+    import tomllib
+except ImportError:
+    import tomli as tomllib  # type: ignore
+
 from taskpy.legacy.storage import TaskStorage
 from taskpy.legacy.models import Task, TaskStatus, Priority
-from taskpy.modern.milestones.commands import cmd_milestones, cmd_milestone
+from taskpy.modern.milestones.commands import cmd_milestones, cmd_milestone, _update_milestone_status
 from taskpy.modern.shared.output import set_output_mode, OutputMode
 
 
@@ -54,3 +60,49 @@ def test_cmd_milestone_show_agent_mode(tmp_path, monkeypatch, capsys):
     assert payload["status"] == "active"
     assert payload["stats"]["total_tasks"] == 1
     assert payload["tasks"][0]["id"] == "FEAT-001"
+
+
+def test_update_milestone_status_toml_parsing(tmp_path, monkeypatch):
+    """_update_milestone_status should use proper TOML parsing, not regex."""
+    storage = _init_storage(tmp_path)
+    monkeypatch.chdir(tmp_path)
+
+    milestones_file = storage.kanban / "info" / "milestones.toml"
+
+    # Read original TOML to verify it exists
+    with open(milestones_file, 'rb') as f:
+        original_data = tomllib.load(f)
+    
+    # Verify milestone-1 exists and has original status
+    assert "milestone-1" in original_data
+    assert original_data["milestone-1"]["status"] == "active"
+    
+    # Update status using the function
+    _update_milestone_status("milestone-1", "completed", root=tmp_path)
+    
+    # Read back and verify update worked
+    with open(milestones_file, 'rb') as f:
+        updated_data = tomllib.load(f)
+    
+    # Status should be updated
+    assert updated_data["milestone-1"]["status"] == "completed"
+    
+    # Other fields should be preserved
+    assert updated_data["milestone-1"]["name"] == original_data["milestone-1"]["name"]
+    assert updated_data["milestone-1"]["priority"] == original_data["milestone-1"]["priority"]
+    assert updated_data["milestone-1"]["goal_sp"] == original_data["milestone-1"]["goal_sp"]
+    
+    # Other milestones should be unchanged
+    assert "milestone-2" in updated_data
+    assert updated_data["milestone-2"] == original_data["milestone-2"]
+
+
+def test_update_milestone_status_nonexistent(tmp_path, monkeypatch):
+    """_update_milestone_status should raise ValueError for nonexistent milestone."""
+    import pytest
+    storage = _init_storage(tmp_path)
+    monkeypatch.chdir(tmp_path)
+    
+    # Try to update nonexistent milestone
+    with pytest.raises(ValueError, match="not found"):
+        _update_milestone_status("milestone-999", "active", root=tmp_path)
