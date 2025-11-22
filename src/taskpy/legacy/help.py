@@ -151,12 +151,24 @@ REFERENCE LINKING & VERIFICATION
   taskpy verify TASK-ID --update                Run and update verification
   taskpy overrides                              View override history
 
-TRASH & RECOVERY
-----------------
-  taskpy delete TASK-ID --reason "why"   Move task to trash (soft delete)
-  taskpy trash                           List trashed tasks
-  taskpy trash empty                     Permanently delete trashed tasks
-  taskpy recover AUTO-ID --reason "why"  Restore task from trash
+ARCHIVAL & CLEANUP
+------------------
+  taskpy archive TASK-ID[,TASK-ID] --signoff  Archive done task(s)
+  taskpy archive --all-done --signoff         Archive all done tasks
+  taskpy delete TASK-ID --reason "why"        Move task to trash (soft delete)
+  taskpy trash                                List trashed tasks
+  taskpy trash empty                          Permanently delete trashed tasks
+  taskpy recover AUTO-ID --reason "why"       Restore task from trash
+
+TASK MANAGEMENT
+---------------
+  taskpy tags TASK-ID[,TASK-ID] --add tag1,tag2    Add tags to tasks
+  taskpy tags TASK-ID[,TASK-ID] --remove tag       Remove tags from tasks
+  taskpy tags TASK-ID[,TASK-ID] --set tag1,tag2    Replace all tags
+  taskpy tags TASK-ID[,TASK-ID] --clear            Clear all tags
+  taskpy search "keyword"                          Search task content
+  taskpy rename OLD-ID NEW-ID                      Rename a task ID
+  taskpy resolve BUGS-ID --reason "fix details"    Mark bug as resolved
 
 HISTORY & AUDIT
 ---------------
