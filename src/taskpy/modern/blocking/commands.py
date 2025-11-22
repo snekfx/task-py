@@ -3,24 +3,20 @@
 import sys
 from pathlib import Path
 
-from taskpy.legacy.models import TaskStatus
-from taskpy.legacy.output import print_error, print_info, print_success
-from taskpy.legacy.storage import TaskStorage
+from taskpy.modern.shared.messages import print_error, print_info, print_success
 from taskpy.modern.workflow.commands import _move_task
-from taskpy.modern.shared.utils import require_initialized, load_task_or_exit
-from taskpy.modern.shared.tasks import parse_task_ids
-
-
-def get_storage() -> TaskStorage:
-    """Get TaskStorage for current directory."""
-    return TaskStorage(Path.cwd())
+from taskpy.modern.shared.tasks import (
+    parse_task_ids,
+    find_task_file,
+    load_task_from_path,
+    ensure_initialized,
+)
 
 
 def cmd_block(args):
     """Block task(s) with a required reason."""
-    storage = get_storage()
-
-    require_initialized(storage)
+    root = Path.cwd()
+    ensure_initialized(root)
 
     task_ids = parse_task_ids(args.task_ids)
     if not task_ids:
@@ -30,13 +26,16 @@ def cmd_block(args):
     failures = []
 
     for task_id in task_ids:
-        try:
-            task, path, _ = load_task_or_exit(storage, task_id)
-        except SystemExit:
+        result = find_task_file(task_id, root)
+        if not result:
+            print_error(f"Task not found: {task_id}")
             failures.append(task_id)
             continue
 
-        if task.status == TaskStatus.BLOCKED:
+        path, _ = result
+        task = load_task_from_path(path)
+
+        if task.status == "blocked":
             print_info(f"Task {task_id} is already blocked")
             if task.blocked_reason:
                 print_info(f"Reason: {task.blocked_reason}")
@@ -45,13 +44,13 @@ def cmd_block(args):
         task.blocked_reason = args.reason
 
         _move_task(
-            storage,
             task_id,
             path,
-            TaskStatus.BLOCKED,
-            task,
+            "blocked",
+            task=task,
             reason=args.reason,
             action="block",
+            root=root,
         )
         print_success(f"{task_id} blocked")
         print_info(f"Reason: {args.reason}")
@@ -62,9 +61,8 @@ def cmd_block(args):
 
 def cmd_unblock(args):
     """Unblock task(s) and send them back to backlog."""
-    storage = get_storage()
-
-    require_initialized(storage)
+    root = Path.cwd()
+    ensure_initialized(root)
 
     task_ids = parse_task_ids(args.task_ids)
     if not task_ids:
@@ -74,26 +72,28 @@ def cmd_unblock(args):
     failures = []
 
     for task_id in task_ids:
-        try:
-            task, path, _ = load_task_or_exit(storage, task_id)
-        except SystemExit:
+        result = find_task_file(task_id, root)
+        if not result:
+            print_error(f"Task not found: {task_id}")
             failures.append(task_id)
             continue
 
-        if task.status != TaskStatus.BLOCKED:
-            print_info(f"Task {task_id} is not blocked (status: {task.status.value})")
+        path, _ = result
+        task = load_task_from_path(path)
+
+        if task.status != "blocked":
+            print_info(f"Task {task_id} is not blocked (status: {task.status})")
             continue
 
-        target_status = TaskStatus.BACKLOG
         task.blocked_reason = None
 
         _move_task(
-            storage,
             task_id,
             path,
-            target_status,
-            task,
+            "backlog",
+            task=task,
             action="unblock",
+            root=root,
         )
         print_success(f"{task_id} unblocked")
 
