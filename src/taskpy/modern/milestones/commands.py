@@ -59,16 +59,16 @@ def cmd_milestones(args):
         return
 
     # Sort by priority and prepare rows for ListView rendering
-    sorted_milestones = sorted(milestones.items(), key=lambda x: x[1].priority)
+    sorted_milestones = sorted(milestones.items(), key=lambda x: x[1].get("priority", 999))
     rows = [
         {
             "id": milestone_id,
-            "name": milestone.name,
-            "status": milestone.status,
-            "priority": str(milestone.priority),
-            "goal": str(milestone.goal_sp) if milestone.goal_sp else "-",
-            "blocked": milestone.blocked_reason or "",
-            "description": (milestone.description or "")[:80],
+            "name": milestone.get("name", ""),
+            "status": milestone.get("status", "planned"),
+            "priority": str(milestone.get("priority", "")),
+            "goal": str(milestone.get("goal_sp", "")) if milestone.get("goal_sp") else "-",
+            "blocked": milestone.get("blocked_reason", "") or "",
+            "description": (milestone.get("description", "") or "")[:80],
         }
         for milestone_id, milestone in sorted_milestones
     ]
@@ -135,14 +135,14 @@ def _cmd_milestone_show(args):
     mode = get_output_mode()
     if mode == OutputMode.DATA:
         print(f"ID: {args.milestone_id}")
-        print(f"Name: {milestone.name}")
-        print(f"Priority: {milestone.priority}")
-        print(f"Status: {milestone.status}")
-        if milestone.goal_sp:
-            print(f"Goal: {milestone.goal_sp} SP")
-        if milestone.blocked_reason:
-            print(f"Blocked: {milestone.blocked_reason}")
-        print(f"Description: {milestone.description}")
+        print(f"Name: {milestone.get('name', '')}")
+        print(f"Priority: {milestone.get('priority', '')}")
+        print(f"Status: {milestone.get('status', 'planned')}")
+        if milestone.get('goal_sp'):
+            print(f"Goal: {milestone['goal_sp']} SP")
+        if milestone.get('blocked_reason'):
+            print(f"Blocked: {milestone['blocked_reason']}")
+        print(f"Description: {milestone.get('description', '')}")
         print(f"Tasks: {stats['total_tasks']} ({stats['completed_tasks']} completed)")
         for task in milestone_tasks:
             print(f"  - {task['id']} [{task['status']}] {task['title']}")
@@ -150,12 +150,12 @@ def _cmd_milestone_show(args):
     if mode == OutputMode.AGENT:
         payload = {
             "id": args.milestone_id,
-            "name": milestone.name,
-            "priority": milestone.priority,
-            "status": milestone.status,
-            "goal_sp": milestone.goal_sp,
-            "blocked_reason": milestone.blocked_reason,
-            "description": milestone.description,
+            "name": milestone.get("name", ""),
+            "priority": milestone.get("priority", ""),
+            "status": milestone.get("status", "planned"),
+            "goal_sp": milestone.get("goal_sp"),
+            "blocked_reason": milestone.get("blocked_reason"),
+            "description": milestone.get("description", ""),
             "stats": {
                 "total_tasks": stats["total_tasks"],
                 "completed_tasks": stats["completed_tasks"],
@@ -174,19 +174,19 @@ def _cmd_milestone_show(args):
         'planned': '⚪',
         'blocked': '🔴',
         'completed': '✅'
-    }.get(milestone.status, '⚪')
+    }.get(milestone.get('status', 'planned'), '⚪')
 
-    print(f"\n{status_emoji} {milestone.name}")
+    print(f"\n{status_emoji} {milestone.get('name', '')}")
     print(f"{'='*60}")
     print(f"ID: {args.milestone_id}")
-    print(f"Priority: {milestone.priority}")
-    print(f"Status: {milestone.status}")
-    if milestone.goal_sp:
-        print(f"Goal: {milestone.goal_sp} SP")
-    print(f"\n{milestone.description}\n")
+    print(f"Priority: {milestone.get('priority', '')}")
+    print(f"Status: {milestone.get('status', 'planned')}")
+    if milestone.get('goal_sp'):
+        print(f"Goal: {milestone['goal_sp']} SP")
+    print(f"\n{milestone.get('description', '')}\n")
 
-    if milestone.blocked_reason:
-        print(f"⚠️  Blocked: {milestone.blocked_reason}\n")
+    if milestone.get('blocked_reason'):
+        print(f"⚠️  Blocked: {milestone['blocked_reason']}\n")
 
     print(f"Task Progress:")
     print(f"  Total Tasks: {stats['total_tasks']}")
@@ -198,10 +198,11 @@ def _cmd_milestone_show(args):
         )
     else:
         print("  Story Points: 0")
-    if milestone.goal_sp:
+    goal_sp = milestone.get('goal_sp')
+    if goal_sp:
         progress_pct = (
-            stats["story_points_completed"] / milestone.goal_sp * 100
-            if milestone.goal_sp > 0
+            stats["story_points_completed"] / goal_sp * 100
+            if goal_sp > 0
             else 0
         )
         print(f"  Goal Progress: {progress_pct:.1f}%")
@@ -226,7 +227,7 @@ def _cmd_milestone_start(args):
 
     milestone = milestones[args.milestone_id]
 
-    if milestone.status == 'active':
+    if milestone.get('status') == 'active':
         print_info(f"Milestone {args.milestone_id} is already active")
         return
 
@@ -235,7 +236,7 @@ def _cmd_milestone_start(args):
 
     print_success(
         f"Milestone {args.milestone_id} marked as active\n"
-        f"Name: {milestone.name}",
+        f"Name: {milestone.get('name', '')}",
         "Milestone Started"
     )
 
@@ -252,7 +253,7 @@ def _cmd_milestone_complete(args):
 
     milestone = milestones[args.milestone_id]
 
-    if milestone.status == 'completed':
+    if milestone.get('status') == 'completed':
         print_info(f"Milestone {args.milestone_id} is already completed")
         return
 
@@ -275,7 +276,7 @@ def _cmd_milestone_complete(args):
 
     print_success(
         f"Milestone {args.milestone_id} marked as completed\n"
-        f"Name: {milestone.name}",
+        f"Name: {milestone.get('name', '')}",
         "Milestone Completed"
     )
 

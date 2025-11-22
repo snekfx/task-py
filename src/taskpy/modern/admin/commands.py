@@ -28,8 +28,9 @@ from taskpy.modern.shared.tasks import (
     rebuild_manifest,
     _kanban_paths,
 )
-# Legacy import for deferred cmd_init and cmd_session
+# Legacy imports for deferred cmd_init and cmd_session
 from taskpy.legacy.storage import TaskStorage
+from taskpy.legacy.commands import get_storage
 
 # Status constants
 STATUS_STUB = "stub"
@@ -55,9 +56,20 @@ SESSION_LOG_FILENAME = "sessions.jsonl"
 SESSION_SEQUENCE_FILENAME = ".session_seq"
 
 
-def _session_paths(root: Optional[Path] = None) -> tuple[Path, Path, Path]:
-    """Return (state_path, log_path, sequence_path) under kanban/info."""
-    kanban, _ = _kanban_paths(root)
+def _session_paths(storage_or_root = None) -> tuple[Path, Path, Path]:
+    """Return (state_path, log_path, sequence_path) under kanban/info.
+
+    Args:
+        storage_or_root: Either a TaskStorage object or a Path, or None for current directory.
+    """
+    # Handle both TaskStorage objects (legacy) and Path objects (modern)
+    if hasattr(storage_or_root, 'kanban'):
+        # Legacy TaskStorage object
+        kanban = storage_or_root.kanban
+    else:
+        # Modern Path-based approach
+        kanban, _ = _kanban_paths(storage_or_root)
+
     info_dir = kanban / "info"
     info_dir.mkdir(parents=True, exist_ok=True)
     state_path = info_dir / SESSION_STATE_FILENAME

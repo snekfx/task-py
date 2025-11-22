@@ -361,14 +361,13 @@ class TestSprintClearCommand:
 
         monkeypatch.chdir(tmp_path)
         with patch('taskpy.modern.sprint.commands.write_task') as mock_write, \
-             patch('taskpy.modern.sprint.commands.TaskStorage') as mock_storage:
-            mock_instance = mock_storage.return_value
+             patch('taskpy.modern.sprint.commands.rebuild_manifest') as mock_rebuild:
             _cmd_sprint_clear(Namespace())
 
         assert mock_write.call_count == 2
         for _, kwargs in mock_write.call_args_list:
             assert kwargs.get('update_manifest') is False
-        mock_instance.rebuild_manifest.assert_called_once_with()
+        mock_rebuild.assert_called_once_with()
 
 
 class TestSprintStatsCommand:
