@@ -102,7 +102,7 @@ DAILY WORKFLOW
   taskpy list --assigned session-01     Filter by assignee/session
   taskpy list --format cards            Render cards instead of table
 
-  taskpy show TASK-ID                   View task details
+  taskpy show TASK-ID[,TASK-ID]         View task details (multiple supported)
   taskpy edit TASK-ID                   Edit task in $EDITOR
   taskpy history TASK-ID                View task audit trail
   taskpy history --all                  View all task history
