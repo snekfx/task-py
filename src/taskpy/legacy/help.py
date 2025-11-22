@@ -107,9 +107,9 @@ DAILY WORKFLOW
   taskpy history TASK-ID                View task audit trail
   taskpy history --all                  View all task history
 
-  taskpy promote TASK-ID[,TASK-ID]      Move task(s) forward in workflow
-  taskpy demote TASK-ID[,TASK-ID] --reason "why"  Move backward (requires reason)
-  taskpy move TASK-ID[,TASK-ID] status --reason "why"  Jump to specific status
+  taskpy promote TASK-ID                Move task forward in workflow
+  taskpy demote TASK-ID --reason "why"  Move task backward (requires reason)
+  taskpy move TASK-ID[,TASK-ID] status --reason "why"  Jump task(s) to specific status
   taskpy block TASK-ID[,TASK-ID] --reason REASON  Block task(s) with reason
   taskpy unblock TASK-ID[,TASK-ID]      Return blocked task(s) to backlog
   taskpy groom                          Audit stub/backlog detail depth
