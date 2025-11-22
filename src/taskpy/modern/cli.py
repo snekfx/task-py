@@ -33,6 +33,7 @@ from taskpy.modern import (
     archival,
     tags,
     search,
+    tour,
 )
 
 GLOBAL_FLAG_MAP = {
@@ -65,7 +66,7 @@ def build_cli():
     )
 
     # Register all feature modules
-    features = [nfrs, epics, core, sprint, workflow, display, admin, milestones, linking, blocking, flags, signoff, archival, tags, search]
+    features = [nfrs, epics, core, sprint, workflow, display, admin, milestones, linking, blocking, flags, signoff, archival, tags, search, tour]
 
     for feature in features:
         # Get command registrations from feature
